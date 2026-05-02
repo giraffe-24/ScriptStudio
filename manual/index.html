@@ -220,6 +220,7 @@
       <h2 id="toc-title">目次</h2>
       <ol>
         <li><a href="#start">最短で始める</a></li>
+        <li><a href="#survey">テーマが未定のとき（/テーマ調査）</a></li>
         <li><a href="#terms">よく出る言葉</a></li>
         <li><a href="#commands">コマンド一覧</a></li>
         <li><a href="#flow">作業の流れ</a></li>
@@ -240,7 +241,9 @@
       </ol>
 
       <h3>やりたいこと：自分のペースで進めたい</h3>
-      <pre><code>/企画 テーマ
+      <pre><code>/テーマ調査 （任意／テーマ未定なら）
+
+/企画 テーマ
 （案を選んだあと）
 
 /構成
@@ -248,6 +251,18 @@
 /タイトル
 /チェック</code></pre>
       <p>各ステップのあと、「この案で」「ここだけ直したい」のように短文で伝えれば大丈夫です。</p>
+    </section>
+
+    <section id="survey" aria-labelledby="survey-title">
+      <h2 id="survey-title">テーマが未定のとき（/テーマ調査）</h2>
+      <p>ネタだけ先に集めてから企画するときです。詳細仕様は <code>agents/scout.md</code> にあります。</p>
+      <ol>
+        <li><code>/テーマ調査</code>（任意で <code>/テーマ調査 Gmail</code> のように焦点を一言）</li>
+        <li><strong>A / B / C</strong> のメニューが先だけ出るので、選んで返信（返信があるまで一覧はださない）</li>
+        <li>調査結果はチャットと、<code>outputs/…/00-discovery.md</code> に残る</li>
+        <li>採用テーマが決まったら <code>/企画 そのテーマ</code></li>
+      </ol>
+      <aside class="notice" role="note"><strong>A / B / C</strong> の意味：<strong>A</strong>＝説明できる定番寄り／<strong>B</strong>＝ニュース・アップデート・旬寄り／<strong>C</strong>＝半々。</aside>
     </section>
 
     <section id="terms" aria-labelledby="terms-title">
@@ -258,8 +273,10 @@
       <div class="step-card"><strong>台本タイプ A / B / C</strong>
         … 「一つのツールを手順で」「機能の紹介」「まとめて〇〇選」の三種類。細かく知らなくても構成の段でAIが決めます。</div>
       <div class="step-card"><strong>SSOT（単一の正）</strong><code>config/</code> にあるブランド・文体などのルール。普段は触らなくて構いません。</div>
+      <div class="step-card"><strong>テーマ調査</strong><code>/テーマ調査</code>
+        メニューを選んだあとターゲットに合うテーマ候補を数個出します。詳細な手順・禁止事項は <code>scout.md</code> 側です。</div>
       <div class="step-card"><strong>成果物フォルダ</strong>
-        … 過程や最終のアウトプットが <code>outputs/日付とテーマ名/</code> に並びます（企画〜レビューの番号付きファイル）。</div>
+        … 過程や最終のアウトプットが <code>outputs/日付とテーマ名/</code> に並びます。調査をした回は先頭に <code>00-discovery.md</code> が付くことがあります。</div>
     </section>
 
     <section id="commands" aria-labelledby="commands-title">
@@ -275,6 +292,10 @@
           </tr>
         </thead>
         <tbody>
+          <tr>
+            <td><code>/テーマ調査 Gmail</code> など</td>
+            <td>まず調査モード（A/B/C）のメニュー → 選択後に候補を整理して <code>00-discovery.md</code> に保存</td>
+          </tr>
           <tr>
             <td><code>/全工程 Gmail整理術</code></td>
             <td>企画からチェックまで一気通貫</td>
@@ -336,6 +357,11 @@
         </thead>
         <tbody>
           <tr>
+            <td>0（任意）</td>
+            <td><code>/テーマ調査</code> で A/B/C を選ぶ／焦点を伝える</td>
+            <td>テーマ候補と調査ノート（ファイル保存）</td>
+          </tr>
+          <tr>
             <td>1</td>
             <td>テーマまたは切り口の選択</td>
             <td>企画書を出す（競合視点など含む）</td>
@@ -369,6 +395,7 @@
       <h2 id="output-title">ファイルはどこにできる？</h2>
       <pre><code>outputs/
 └── YYYYMMDD-テーマ名/
+    ├── 00-discovery.md … /テーマ調査をやったとき（任意）
     ├── 01-plan.md      … 企画
     ├── 02-structure.md … 構成
     ├── 03-script.md    … 台本
@@ -390,7 +417,11 @@
       </details>
       <details>
         <summary>詳しい仕様を知りたい</summary>
-        <p><code>MANUAL.md</code> が長めのテキストガイド、<code>CLAUDE.md</code> がシステム仕様です。ここは読みやすさ優先の要約です。</p>
+        <p><code>MANUAL.md</code> が長めのテキストガイド、<code>CLAUDE.md</code> がシステム仕様です。調査だけは <code>agents/scout.md</code> も参照できます。ここは読みやすさ優先の要約です。</p>
+      </details>
+      <details>
+        <summary><code>/テーマ調査</code> がすぐリストを出してこない</summary>
+        <p>仕様です。最初は A/B/C のメニューだけが出ます。選択を返したあとに調査結果が進みます。</p>
       </details>
     </section>
 
