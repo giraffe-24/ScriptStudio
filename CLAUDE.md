@@ -193,6 +193,18 @@ CLAUDE.md（このファイル）
 
 ---
 
+## タイトル案（Anthropic API・ローカル）
+
+台本を貼り、APIでタイトル・サムネ案を JSON 取得する場合:
+
+1. ルートで `cp .env.example .env` にし `ANTHROPIC_API_KEY` を設定
+2. `npm install` のあと `npm run title-studio`
+3. ブラウザで http://127.0.0.1:3847/（詳細: [tools/title-studio/README.md](tools/title-studio/README.md)）
+
+チャットの `/タイトル` と併用可。
+
+---
+
 ## SSOT参照ガイド
 
 ### いつ何を参照するか
@@ -310,9 +322,13 @@ outputs/
 ```
 YT_TalkScript/
 ├── CLAUDE.md              ← このファイル（エントリーポイント）
+├── package.json           ← Node（タイトルスタジオ用）
+├── .env.example           ← ANTHROPIC_API_KEY テンプレ（要コピーで .env）
 ├── MANUAL.md              ← 使い方（Markdown／更新は明示指示時のみ）
 ├── manual/
 │   └── index.html         ← 使い方（ブラウザ向け／同じく明示指示時のみ更新）
+├── tools/
+│   └── title-studio/      ← ローカルでタイトル案API（npm run title-studio）
 ├── config/
 │   ├── brand.md           ← ブランド定義
 │   ├── audience.md        ← 視聴者ペルソナ
@@ -343,3 +359,5 @@ YT_TalkScript/
 | 2025-05-02 | SSOT・サブエージェント設計に再構築 |
 | 2026-05-02 | マニュアル（MANUAL・manual/index）の保全ポリシーを運用ルールに追記 |
 | 2026-05-02 | `/テーマ調査`・agents/scout.md（市場調査スカウト）を追加 |
+| 2026-05-03 | 台本の文字数基準（3001字以上・目安〜4200字）を brand/quality/agents/templates に反映 |
+| 2026-05-03 | `tools/title-studio`（Anthropic API・ローカル）、`package.json`・`.env.example` 追加 |

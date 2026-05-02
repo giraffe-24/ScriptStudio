@@ -1,0 +1,12 @@
+{
+  "name": "yt-talk-script",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "title-studio": "node tools/title-studio/server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.7"
+  }
+}

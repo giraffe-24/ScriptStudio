@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>タイトルスタジオ（ローカル）</title>
+  <style>
+    :root {
+      --bg: #f6f6f4;
+      --fg: #1a1a1a;
+      --muted: #555;
+      --accent: #2563eb;
+      --border: #ddd;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", sans-serif;
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 1.25rem;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.55;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin-top: 1rem;
+    }
+
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 10rem;
+      margin-top: 0.35rem;
+      padding: 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+    }
+
+    textarea#extra {
+      min-height: 4rem;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.55rem 1.1rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 0.75rem;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    #out-wrap {
+      margin-top: 1.25rem;
+    }
+
+    pre#json-out {
+      background: #eee;
+      padding: 0.85rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 0.82rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      border-radius: 8px;
+    }
+
+    input#model {
+      width: 100%;
+      margin-top: 0.35rem;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>タイトルスタジオ（ローカル）</h1>
+  <p style="font-size:0.9rem;color:#555;margin:0.25rem 0 1rem;">
+    APIキーは <code>.env</code> の <code>ANTHROPIC_API_KEY</code> のみ。ここに貼らない。
+  </p>
+
+  <label for="script">台本・構成メモ（必須）</label>
+  <textarea id="script" placeholder="完成台本または企画メモを貼ってください"></textarea>
+
+  <label for="extra">追加指示（任意）</label>
+  <textarea id="extra" placeholder="例: Windowsをタイトルに入れたい／Androidのみ、など"></textarea>
+
+  <label for="model">モデル ID（任意・空ならサーバー既定）</label>
+  <input id="model" type="text" placeholder="claude-3-5-haiku-latest など（未入力で既定値）"
+    autocomplete="off" />
+
+  <button type="button" id="go">Anthropic でタイトル案を生成</button>
+  <div id="status"></div>
+
+  <div id="out-wrap" hidden>
+    <h2>結果（JSON）</h2>
+    <pre id="json-out"></pre>
+    <h2>一覧</h2>
+    <div id="titles-list"></div>
+    <div id="thumbs-list"></div>
+  </div>
+
+  <script>
+    const btn = document.getElementById("go");
+    const scriptEl = document.getElementById("script");
+    const extraEl = document.getElementById("extra");
+    const modelEl = document.getElementById("model");
+    const statusEl = document.getElementById("status");
+    const outWrap = document.getElementById("out-wrap");
+    const jsonOut = document.getElementById("json-out");
+    const titlesList = document.getElementById("titles-list");
+    const thumbsList = document.getElementById("thumbs-list");
+
+    btn.addEventListener("click", async () => {
+      const script = scriptEl.value.trim();
+      if (!script) {
+        statusEl.textContent = "台本を入力してください。";
+        return;
+      }
+      btn.disabled = true;
+      statusEl.textContent = "送信中…";
+      outWrap.hidden = true;
+      try {
+        const body = {
+          script,
+          extraInstructions: extraEl.value.trim() || undefined,
+          model: modelEl.value.trim() || undefined,
+        };
+        const r = await fetch("/api/titles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          statusEl.textContent = data.error || "エラー (" + r.status + ")";
+          if (data.partial) jsonOut.textContent = JSON.stringify(data.partial, null, 2);
+          if (data.raw) jsonOut.textContent = data.raw;
+          outWrap.hidden = false;
+          return;
+        }
+        statusEl.textContent = "完了";
+        jsonOut.textContent = JSON.stringify(data, null, 2);
+        titlesList.innerHTML = "";
+        data.titles.forEach((t, i) => {
+          const div = document.createElement("div");
+          div.className = "card";
+          const rec = data.recommendedTitleIndex === i ? "（推奨）" : "";
+          div.innerHTML = "<strong>[" + (i + 1) + "]</strong> " + rec + escapeHtml(t);
+          titlesList.appendChild(div);
+        });
+        thumbsList.innerHTML = "";
+        data.thumbnails.forEach((th, i) => {
+          const div = document.createElement("div");
+          div.className = "card";
+          const rec = data.recommendedThumbIndex === i ? "（推奨）" : "";
+          div.innerHTML =
+            "<strong>サムネ " +
+            (i + 1) +
+            "</strong> " +
+            rec +
+            "<br>メイン: " +
+            escapeHtml(th.main) +
+            "<br>サブ: " +
+            escapeHtml(th.sub);
+          thumbsList.appendChild(div);
+        });
+        if (data.notes) {
+          const n = document.createElement("p");
+          n.textContent = "メモ: " + data.notes;
+          thumbsList.appendChild(n);
+        }
+        outWrap.hidden = false;
+      } catch (e) {
+        statusEl.textContent = String(e);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    }
+  </script>
+</body>
+
+</html>
