@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>YouTubeトークスクリプト作成システム｜マニュアル</title>
+  <style>
+    :root {
+      --bg: #fafaf8;
+      --panel: #fff;
+      --text: #1a1a1a;
+      --muted: #5c5c5c;
+      --accent: #2563eb;
+      --border: #e5e5e0;
+      --code-bg: #f0f0ec;
+      --notice-bg: #fef3c7;
+      --notice-border: #fcd34d;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141414;
+        --panel: #1c1c1c;
+        --text: #f0f0ec;
+        --muted: #a3a39a;
+        --accent: #60a5fa;
+        --border: #333;
+        --code-bg: #262626;
+        --notice-bg: #422006;
+        --notice-border: #b45309;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", YuGothic, Meiryo, sans-serif;
+      font-size: 1rem;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    main {
+      max-width: 44rem;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+      line-height: 1.35;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    nav.toc {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin: 2rem 0;
+    }
+
+    nav.toc h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 0.65rem;
+    }
+
+    nav.toc ol {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+
+    nav.toc a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    nav.toc a:hover {
+      text-decoration: underline;
+    }
+
+    section {
+      margin: 2.5rem 0;
+    }
+
+    section h2 {
+      font-size: 1.2rem;
+      margin: 0 0 0.75rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 2px solid var(--accent);
+      display: inline-block;
+    }
+
+    section h3 {
+      font-size: 1.05rem;
+      margin: 1.5rem 0 0.5rem;
+    }
+
+    .notice {
+      background: var(--notice-bg);
+      border-left: 4px solid var(--notice-border);
+      padding: 0.85rem 1rem;
+      margin: 1.25rem 0;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.95rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+      margin: 0.75rem 0;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.65rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--panel);
+      font-weight: 600;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 0.12em 0.35em;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      margin: 0.65rem 0;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    details {
+      margin: 0.5rem 0;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    details summary {
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .step-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.15rem;
+      margin: 0.85rem 0;
+    }
+
+    .step-card strong {
+      color: var(--accent);
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>YouTubeトークスクリプト作成システム<br />使い方マニュアル</h1>
+      <p class="lead">効率化オタクのあらきりチャンネル向け。このページだけで、「何を入力すれば何ができるか」が分かるように書いています。</p>
+      <aside class="notice" role="note">
+        <strong>マニュアルの更新について</strong>（利用者へのお願い）<br />
+        このページとリポジトリ内の <code>MANUAL.md</code> は、<strong>明示的な更新の指示があるまで変更しません</strong>。<code>CLAUDE.md</code>・<code>config/</code>
+        など他のファイルが変わっても、このマニュアルは自動では追いつきません。内容を直したいときは、その旨だけ別途指示してください。
+      </aside>
+    </header>
+
+    <nav class="toc" aria-labelledby="toc-title">
+      <h2 id="toc-title">目次</h2>
+      <ol>
+        <li><a href="#start">最短で始める</a></li>
+        <li><a href="#terms">よく出る言葉</a></li>
+        <li><a href="#commands">コマンド一覧</a></li>
+        <li><a href="#flow">作業の流れ</a></li>
+        <li><a href="#output">ファイルはどこにできる？</a></li>
+        <li><a href="#tips">困ったとき</a></li>
+      </ol>
+    </nav>
+
+    <section id="start" aria-labelledby="start-title">
+      <h2 id="start-title">最短で始める</h2>
+      <p>パソコンにこのフォルダ（YT_TalkScript）を用意し、その中でAIアシスタント（例：Cursorのチャットなど）と会話する想定です。特別なインストール作業は不要です。</p>
+
+      <h3>やりたいこと：決まっている</h3>
+      <pre><code>/全工程 あなたのテーマをここに書く</code></pre>
+      <ol>
+        <li>テーマについて案が返ってくるので、進めてよさそうな案を<strong>ひとことで選ぶ</strong>。</li>
+        <li>同様に構成から台本、タイトル案が順に進み、最後に<strong>チェック</strong>が走ります。</li>
+      </ol>
+
+      <h3>やりたいこと：自分のペースで進めたい</h3>
+      <pre><code>/企画 テーマ
+（案を選んだあと）
+
+/構成
+/執筆
+/タイトル
+/チェック</code></pre>
+      <p>各ステップのあと、「この案で」「ここだけ直したい」のように短文で伝えれば大丈夫です。</p>
+    </section>
+
+    <section id="terms" aria-labelledby="terms-title">
+      <h2 id="terms-title">よく出る言葉（用語）</h2>
+
+      <div class="step-card"><strong>切り口</strong>
+        … 動画全体の売り込み方向（例:「ズボラ向け」「時短」「よくある失敗から説明」など）。最初に三つほど提案され、どれかを選ぶ流れになります。</div>
+      <div class="step-card"><strong>台本タイプ A / B / C</strong>
+        … 「一つのツールを手順で」「機能の紹介」「まとめて〇〇選」の三種類。細かく知らなくても構成の段でAIが決めます。</div>
+      <div class="step-card"><strong>SSOT（単一の正）</strong><code>config/</code> にあるブランド・文体などのルール。普段は触らなくて構いません。</div>
+      <div class="step-card"><strong>成果物フォルダ</strong>
+        … 過程や最終のアウトプットが <code>outputs/日付とテーマ名/</code> に並びます（企画〜レビューの番号付きファイル）。</div>
+    </section>
+
+    <section id="commands" aria-labelledby="commands-title">
+      <h2 id="commands-title">コマンド一覧</h2>
+      <p>チャット入力欄にそのまま打ち込みます。角かっこ <code>[]</code> は書かず、説明どおり自分の文言に差し替えてください。</p>
+
+      <table>
+        <caption class="lead" style="caption-side: top; margin-bottom: 0.5rem;">メインコマンド</caption>
+        <thead>
+          <tr>
+            <th>入力例</th>
+            <th>何がおこるか</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/全工程 Gmail整理術</code></td>
+            <td>企画からチェックまで一気通貫</td>
+          </tr>
+          <tr>
+            <td><code>/企画 Googleカレンダー活用</code></td>
+            <td>切り口などの案が三つ並ぶ</td>
+          </tr>
+          <tr>
+            <td><code>/構成</code></td>
+            <td>承認済みの切り口から、見出しと流れが設計される</td>
+          </tr>
+          <tr>
+            <td><code>/執筆</code></td>
+            <td>台本本編が書き上がる</td>
+          </tr>
+          <tr>
+            <td><code>/タイトル</code></td>
+            <td>タイトル案・サムネ文言案など</td>
+          </tr>
+          <tr>
+            <td><code>/チェック</code></td>
+            <td>お約束どおり話せているか、スコア付きレビュー</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>補助の言い回し（一般文でも可）</h3>
+      <p>表だけに縛られる必要はありません。話すような日本語で依頼すれば大丈夫です。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>伝えたいこと</th>
+            <th>入力の例</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>一部だけ直したい</td>
+            <td><code>導入の最初の段落をもっと短くして</code></td>
+          </tr>
+          <tr>
+            <td>今のステップをやり直したい</td>
+            <td><code>/構成 を最初からやり直して</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="flow" aria-labelledby="flow-title">
+      <h2 id="flow-title">作業の流れ（ざっくり）</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>順序</th>
+            <th>あなた</th>
+            <th>AI側</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>テーマまたは切り口の選択</td>
+            <td>企画書を出す（競合視点など含む）</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>OKまたは修正希望</td>
+            <td>構成案・時間の目安</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>問題なければ次へ</td>
+            <td>台本</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>好みのタイトル・文言を選択</td>
+            <td>タイトルとサムネ案</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>—</td>
+            <td>品質チェック（スコアと改善案）</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>合格ラインなど細かな基準は <code>CLAUDE.md</code> と <code>config/quality.md</code> にあります。このHTMLページでは省略しています。</p>
+    </section>
+
+    <section id="output" aria-labelledby="output-title">
+      <h2 id="output-title">ファイルはどこにできる？</h2>
+      <pre><code>outputs/
+└── YYYYMMDD-テーマ名/
+    ├── 01-plan.md      … 企画
+    ├── 02-structure.md … 構成
+    ├── 03-script.md    … 台本
+    ├── 04-title.md     … タイトル・サムネ案
+    └── 05-review.md    … レビュー</code></pre>
+      <p><code>examples/</code> にうまくいった過去稿を置くと参照されやすくなります（任意）。</p>
+    </section>
+
+    <section id="tips" aria-labelledby="tips-title">
+      <h2 id="tips-title">困ったとき</h2>
+
+      <details>
+        <summary>うまく言えなくて伝わらない</summary>
+        <p>「抽象的に良くして」より、場所・用途・時間が分かると改善しやすいです。例：STEP2だけ画面タップ順を増やしたい／8分収録向けにもう少し短く、など。</p>
+      </details>
+      <details>
+        <summary>途中で話の方向を変えたい</summary>
+        <p>「実は〇〇側に軸を移したい」と伝え、そのあとそのステップをもう一回実行して構いません。</p>
+      </details>
+      <details>
+        <summary>詳しい仕様を知りたい</summary>
+        <p><code>MANUAL.md</code> が長めのテキストガイド、<code>CLAUDE.md</code> がシステム仕様です。ここは読みやすさ優先の要約です。</p>
+      </details>
+    </section>
+
+    <footer>
+      <p>詳細ガイド: 同フォルダ内の <code>MANUAL.md</code>（Markdown）。</p>
+      <p>マニュアル版の明示的な指示がない限り、開発のたびに内容は自動では更新されません。</p>
+    </footer>
+  </main>
+</body>
+
+</html>

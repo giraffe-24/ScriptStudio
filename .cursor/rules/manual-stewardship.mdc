@@ -1,0 +1,10 @@
+---
+description: マニュアル（MANUAL.md・manual/index.html）は利用者が明示するときだけ編集する
+alwaysApply: true
+---
+
+# マニュアル保全
+
+- **`MANUAL.md`** と **`manual/index.html`**（およびそれに準ずるユーザー向け手順書）を、`CLAUDE.md`・`config/`・`agents/`・テンプレの変更だけを理由に**自動では更新しない**。
+- ユーザーが「マニュアルを更新」「手順ページを修正」など**明示的に依頼したときのみ**、`MANUAL.md` とブラウザ用マニュアルを編集してよい。
+- 詳細仕様の参照先として案内すべき既定は **`CLAUDE.md`** と **`config/`** である。
