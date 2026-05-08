@@ -67,9 +67,8 @@
     }
 
     #status {
-      margin-top: 0.75rem;
-      font-size: 0.92rem;
-      color: var(--muted);
+      margin-top: 0.5rem;
+      margin-bottom: 0.25rem;
     }
 
     #out-wrap {
@@ -100,6 +99,29 @@
       border-radius: 6px;
       font: inherit;
     }
+
+    select#scoutMode {
+      width: 100%;
+      margin-top: 0.35rem;
+      padding: 0.5rem;
+      border-radius: 6px;
+      font: inherit;
+      border: 1px solid var(--border);
+    }
+
+    textarea#pipelineTheme {
+      min-height: 5rem;
+    }
+
+    textarea#planExtra {
+      min-height: 3rem;
+    }
+
+    hr.sep {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.75rem 0;
+    }
   </style>
 </head>
 
@@ -109,6 +131,38 @@
     APIキーは <code>.env</code> の <code>ANTHROPIC_API_KEY</code> のみ。ここに貼らない。
   </p>
 
+  <div id="status" aria-live="polite" style="padding:0.5rem 0.65rem;background:#eef4ff;border:1px solid #c7d7f7;border-radius:6px;min-height:1.5em;font-size:0.92rem;color:#333;">
+    準備OK。下のボタンを押すとここに進捗が出ます（<strong>http://127.0.0.1:3847 </strong>で開いてください。HTMLを直開きしていると通信できません）。
+  </div>
+
+  <h2 style="font-size:1.05rem;margin:0;">一気通貫（企画JSON → タイトル）</h2>
+  <p style="font-size:0.88rem;color:#555;margin:0.35rem 0 0;">
+    テーマだけ入力すると、まず切り口3案の企画ドラフトをAPIで生成し、続けてタイトル5案・サムネ3案まで出します（2段API）。
+  </p>
+
+  <label for="pipelineTheme">テーマ（必須・一気通貫）</label>
+  <textarea id="pipelineTheme" placeholder="例: Windows付箋とAndroidの同期"></textarea>
+
+  <label for="scoutMode">調査モード（/テーマ調査のA/B/C相当）</label>
+  <select id="scoutMode">
+    <option value="">自動</option>
+    <option value="A">A 定番・エバーグリーン寄り</option>
+    <option value="B">B ニュース・最新アップデート寄り</option>
+    <option value="C">C 半々ミックス</option>
+  </select>
+
+  <label for="planExtra">企画段階の追加指示（任意）</label>
+  <textarea id="planExtra" placeholder="例: Windowsをタイトルに入れたい、Macは触れない、など"></textarea>
+
+  <button type="button" id="go-pipeline">企画を自動生成 → タイトルまで実行</button>
+
+  <hr class="sep" />
+
+  <h2 style="font-size:1.05rem;margin:0;">台本ベースのみ</h2>
+  <p style="font-size:0.88rem;color:#555;margin:0.35rem 0 0;">
+    すでに台本・構成メモがあるときはこちら（1段API）。
+  </p>
+
   <label for="script">台本・構成メモ（必須）</label>
   <textarea id="script" placeholder="完成台本または企画メモを貼ってください"></textarea>
 
@@ -116,13 +170,14 @@
   <textarea id="extra" placeholder="例: Windowsをタイトルに入れたい／Androidのみ、など"></textarea>
 
   <label for="model">モデル ID（任意・空ならサーバー既定）</label>
-  <input id="model" type="text" placeholder="claude-3-5-haiku-latest など（未入力で既定値）"
+  <input id="model" type="text" placeholder="空なら claude-sonnet-4-6（環境変数 ANTHROPIC_MODEL で変更可）"
     autocomplete="off" />
 
   <button type="button" id="go">Anthropic でタイトル案を生成</button>
-  <div id="status"></div>
 
   <div id="out-wrap" hidden>
+    <h2 id="plan-heading" hidden>企画ドラフト</h2>
+    <div id="planning-wrap"></div>
     <h2>結果（JSON）</h2>
     <pre id="json-out"></pre>
     <h2>一覧</h2>
@@ -132,23 +187,113 @@
 
   <script>
     const btn = document.getElementById("go");
+    const btnPipe = document.getElementById("go-pipeline");
+    const pipelineThemeEl = document.getElementById("pipelineTheme");
+    const scoutModeEl = document.getElementById("scoutMode");
+    const planExtraEl = document.getElementById("planExtra");
     const scriptEl = document.getElementById("script");
     const extraEl = document.getElementById("extra");
     const modelEl = document.getElementById("model");
     const statusEl = document.getElementById("status");
     const outWrap = document.getElementById("out-wrap");
+    const planHeading = document.getElementById("plan-heading");
+    const planningWrap = document.getElementById("planning-wrap");
     const jsonOut = document.getElementById("json-out");
     const titlesList = document.getElementById("titles-list");
     const thumbsList = document.getElementById("thumbs-list");
 
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    }
+
+    function showStatus(message) {
+      statusEl.textContent = message;
+      statusEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function readJsonSafely(response) {
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return {
+          error:
+            response.status +
+            ": サーバーがJSON以外を返しました（サーバーが起動して http://127.0.0.1:3847 で開いてください）→ " +
+            text.slice(0, 200),
+        };
+      }
+    }
+
+    btnPipe.addEventListener("click", async () => {
+      const theme = pipelineThemeEl.value.trim();
+      if (!theme) {
+        showStatus("一気通貫のテーマを入力してください。");
+        return;
+      }
+      btnPipe.disabled = true;
+      btn.disabled = true;
+      showStatus(
+        "実行中…（企画ドラフト作成 → タイトル生成）APIに送信中。1〜3分かかることがあります。"
+      );
+      outWrap.hidden = true;
+      try {
+        const body = {
+          theme,
+          scoutMode: scoutModeEl.value || undefined,
+          planningExtraInstructions:
+            planExtraEl.value.trim() || undefined,
+          extraInstructions: extraEl.value.trim() || undefined,
+          model: modelEl.value.trim() || undefined,
+        };
+        const r = await fetch("/api/pipeline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await readJsonSafely(r);
+          planHeading.hidden = true;
+          if (data.planning) renderPlanningCards(data.planning);
+          else if (data.partialPlanning) {
+            planHeading.hidden = false;
+            planningWrap.innerHTML =
+              '<pre style="overflow:auto;background:#ffecec;padding:0.75rem;border-radius:6px;font-size:0.82rem;">' +
+              escapeHtml(JSON.stringify(data.partialPlanning, null, 2)) +
+              "</pre>";
+          }
+          jsonOut.textContent =
+            data.partialTitles != null
+              ? JSON.stringify(data.partialTitles, null, 2)
+              : JSON.stringify(data, null, 2);
+          if (data.raw) jsonOut.textContent = data.raw;
+          tryRenderPartialTitles(data.partialTitles);
+          outWrap.hidden = false;
+          outWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+        showStatus("完了（企画→タイトル）。下の「一覧」を確認してください。");
+        renderPlanningCards(data.planning);
+        jsonOut.textContent = JSON.stringify(data, null, 2);
+        renderTitleBlocks(data);
+        outWrap.hidden = false;
+        outWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {
+        showStatus(String(e));
+      } finally {
+        btnPipe.disabled = false;
+        btn.disabled = false;
+      }
+    });
+
     btn.addEventListener("click", async () => {
       const script = scriptEl.value.trim();
       if (!script) {
-        statusEl.textContent = "台本を入力してください。";
+        showStatus("台本を入力してください。");
         return;
       }
       btn.disabled = true;
-      statusEl.textContent = "送信中…";
+      btnPipe.disabled = true;
+      showStatus("送信中…");
       outWrap.hidden = true;
       try {
         const body = {
@@ -161,55 +306,155 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const data = await r.json();
-        if (!r.ok) {
-          statusEl.textContent = data.error || "エラー (" + r.status + ")";
-          if (data.partial) jsonOut.textContent = JSON.stringify(data.partial, null, 2);
+        const data = await readJsonSafely(r);
+          planningWrap.innerHTML = "";
+          if (data.partial)
+            jsonOut.textContent = JSON.stringify(data.partial, null, 2);
           if (data.raw) jsonOut.textContent = data.raw;
           outWrap.hidden = false;
+          outWrap.scrollIntoView({ behavior: "smooth", block: "start" });
           return;
         }
-        statusEl.textContent = "完了";
+        showStatus("完了。下の「一覧」を確認してください。");
+        planHeading.hidden = true;
+        planningWrap.innerHTML = "";
         jsonOut.textContent = JSON.stringify(data, null, 2);
-        titlesList.innerHTML = "";
-        data.titles.forEach((t, i) => {
-          const div = document.createElement("div");
-          div.className = "card";
-          const rec = data.recommendedTitleIndex === i ? "（推奨）" : "";
-          div.innerHTML = "<strong>[" + (i + 1) + "]</strong> " + rec + escapeHtml(t);
-          titlesList.appendChild(div);
-        });
-        thumbsList.innerHTML = "";
-        data.thumbnails.forEach((th, i) => {
-          const div = document.createElement("div");
-          div.className = "card";
-          const rec = data.recommendedThumbIndex === i ? "（推奨）" : "";
-          div.innerHTML =
-            "<strong>サムネ " +
-            (i + 1) +
-            "</strong> " +
-            rec +
-            "<br>メイン: " +
-            escapeHtml(th.main) +
-            "<br>サブ: " +
-            escapeHtml(th.sub);
-          thumbsList.appendChild(div);
-        });
-        if (data.notes) {
-          const n = document.createElement("p");
-          n.textContent = "メモ: " + data.notes;
-          thumbsList.appendChild(n);
-        }
+        renderTitleBlocks(data);
         outWrap.hidden = false;
+        outWrap.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (e) {
-        statusEl.textContent = String(e);
+        showStatus(String(e));
       } finally {
         btn.disabled = false;
+        btnPipe.disabled = false;
       }
     });
 
-    function escapeHtml(s) {
-      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    function renderPlanningCards(p) {
+      if (!p) {
+        planHeading.hidden = true;
+        planningWrap.innerHTML = "";
+        return;
+      }
+      planHeading.hidden = false;
+      planningWrap.innerHTML =
+        '<p style="margin:0.25rem 0 0;font-size:0.9rem;color:#555;"><strong>' +
+        escapeHtml(p.themeEssence || "") +
+        "</strong> · 適用モード <code>" +
+        escapeHtml(String(p.scoutModeApplied || "")) +
+        "</code></p><p style=" +
+        "\"font-size:0.88rem;margin:0.5rem 0;\">" +
+        escapeHtml(p.scoutNotes || "") +
+        "</p>";
+      (p.angles || []).forEach((a, i) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        const rec = p.recommendationIndex === i ? "（推奨）" : "";
+        div.innerHTML =
+          "<strong>切り口 " +
+          (i + 1) +
+          "</strong> " +
+          rec +
+          " <span style=\"opacity:0.7\">構成タイプ " +
+          escapeHtml(a.scriptType) +
+          "</span><br><em>" +
+          escapeHtml(a.titleIdea || "") +
+          "</em><br>課題: " +
+          escapeHtml(a.viewerPain || "") +
+          "<br>差別化: " +
+          escapeHtml(a.differentiation || "");
+        planningWrap.appendChild(div);
+      });
+    }
+
+    function renderTitleBlocks(data) {
+      titlesList.innerHTML = "";
+      const titles = Array.isArray(data.titles) ? data.titles : [];
+      titles.forEach((t, i) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        const rec = data.recommendedTitleIndex === i ? "（推奨）" : "";
+        div.innerHTML =
+          "<strong>[" +
+          (i + 1) +
+          "]</strong> " +
+          rec +
+          escapeHtml(String(t || ""));
+        titlesList.appendChild(div);
+      });
+      thumbsList.innerHTML = "";
+      const thumbs = Array.isArray(data.thumbnails)
+        ? data.thumbnails.filter(
+            (th) =>
+              th &&
+              typeof th === "object" &&
+              typeof th.main === "string" &&
+              typeof th.sub === "string"
+          )
+        : [];
+      thumbs.forEach((th, i) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        const rec = data.recommendedThumbIndex === i ? "（推奨）" : "";
+        div.innerHTML =
+          "<strong>サムネ " +
+          (i + 1) +
+          "</strong> " +
+          rec +
+          "<br>メイン: " +
+          escapeHtml(String(th.main)) +
+          "<br>サブ: " +
+          escapeHtml(String(th.sub));
+        thumbsList.appendChild(div);
+      });
+      if (data.notes) {
+        const n = document.createElement("p");
+        n.textContent = "メモ: " + data.notes;
+        thumbsList.appendChild(n);
+      }
+    }
+
+    function tryRenderPartialTitles(obj) {
+      titlesList.innerHTML = "";
+      thumbsList.innerHTML = "";
+      if (!obj || typeof obj !== "object") return;
+      renderTitleBlocks(obj);
+    }
+
+    /** file:// で開いた場合 fetch は同源にならず失敗しがち → ひとこと案内 */
+    if (typeof location !== "undefined" && location.protocol === "file:") {
+      showStatus(
+        "⚠️ このページはブラウザの「ファイルとして開いた」状態です。.env のサーバーが動いていません。ターミナルで npm run title-studio を実行し、http://127.0.0.1:3847/ を開き直してください。"
+      );
+      btn.disabled = true;
+      btnPipe.disabled = true;
+    } else {
+      void (async () => {
+        try {
+          const r = await fetch("/api/health");
+          const d = await readJsonSafely(r);
+          const hasPipeline =
+            r.ok &&
+            Array.isArray(d.post) &&
+            d.post.includes("/api/pipeline");
+          if (!hasPipeline) {
+            statusEl.style.background = "#ffecec";
+            statusEl.style.borderColor = "#e8a8a8";
+            showStatus(
+              "⚠️ サーバーが「一気通貫」の古い実行のままです。タイトルスタジオを動かしているターミナルで Ctrl+C で停止し、もう一度 npm run title-studio を実行してからこのページを再読込（⌘⇧R）してください。現在のサーバーには POST /api/pipeline がありません。"
+            );
+          }
+        } catch (e) {
+          statusEl.style.background = "#ffecec";
+          statusEl.style.borderColor = "#e8a8a8";
+          showStatus(
+            "サーバーに繋がりませんでした。YT_TalkScript のルートで npm run title-studio を起動し、このURLだけで開いているか確認してください（ポート " +
+              location.port +
+              "）。詳細: " +
+              String(e)
+          );
+        }
+      })();
     }
   </script>
 </body>

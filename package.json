@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "title-studio": "node tools/title-studio/server.mjs"
+    "title-studio": "node tools/title-studio/server.mjs",
+    "script-doc": "node tools/script-to-doc/export-doc.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

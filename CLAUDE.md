@@ -2,7 +2,7 @@
 
 ## 概要
 
-このシステムは「効率化オタクのあらきり」チャンネルのYouTube台本を、**企画からサムネイルまで一気通貫**で作成します。
+このシステムは「効率化オタクのあらきり」チャンネルのYouTube台本を、企画からサムネイルまで一気通貫で作成します。
 
 ---
 
@@ -15,7 +15,8 @@ CLAUDE.md（このファイル）
     │   ├── brand.md      ← ブランド定義
     │   ├── audience.md   ← 視聴者ペルソナ
     │   ├── voice.md      ← 文体・トーン
-    │   └── quality.md    ← 品質基準・NG
+    │   ├── quality.md    ← 品質基準・NG
+    │   └── calibration.md ← 推敲比較マーカー（A/B境界のSSOT）
     │
     ├── templates/（台本の型）
     │   ├── structure-A.md ← ツール活用型
@@ -28,7 +29,8 @@ CLAUDE.md（このファイル）
     │   ├── architect.md  ← 構成
     │   ├── writer.md     ← 執筆
     │   ├── titler.md     ← タイトル・サムネ
-    │   └── reviewer.md   ← レビュー
+    │   ├── reviewer.md   ← レビュー
+    │   └── calibrator.md ← 推敲比較（A/B読み比べ・SSOT提案）
     │
     └── outputs/（成果物）
         └── [YYYYMMDD]-[テーマ]/
@@ -46,6 +48,7 @@ CLAUDE.md（このファイル）
 | `/執筆` | 台本を執筆 | agents/writer.md |
 | `/タイトル` | タイトル・サムネ案作成 | agents/titler.md |
 | `/チェック` | 品質レビュー | agents/reviewer.md |
+| `/推敲比較` | 同一ファイル内の AI原稿と確定稿の比較・再現性のための SSOT 提案（詳細は [agents/calibrator.md](agents/calibrator.md)） | agents/calibrator.md |
 | `/全工程 [テーマ]` | 企画から完成まで一気通貫 | 全エージェント |
 
 ---
@@ -112,9 +115,9 @@ CLAUDE.md（このファイル）
 
 ### /テーマ調査
 
-**入力**: コマンドと任意の焦点ヒント（例：`/テーマ調査 Gmail`）。**最初の返答は常に「モード選択メニュー」のみ**（詳細は [agents/scout.md](agents/scout.md)）。
+入力: コマンドと任意の焦点ヒント（例：`/テーマ調査 Gmail`）。最初の返答は常に「モード選択メニュー」のみ（詳細は [agents/scout.md](agents/scout.md)）。
 
-**出力**: テーマ候補3〜6件（質優先）、および `outputs/YYYYMMDD-[ラベル]/00-discovery.md` への保存。
+出力: テーマ候補3〜6件（質優先）、および `outputs/YYYYMMDD-[ラベル]/00-discovery.md` への保存。
 
 ```
 実行内容：
@@ -127,8 +130,8 @@ CLAUDE.md（このファイル）
 
 ### /企画
 
-**入力**: テーマ（自然言語）
-**出力**: 企画書（切り口3案、競合分析、差別化ポイント）
+入力: テーマ（自然言語）
+出力: 企画書（切り口3案、競合分析、差別化ポイント）
 
 ```
 実行内容：
@@ -140,8 +143,8 @@ CLAUDE.md（このファイル）
 
 ### /構成
 
-**入力**: 承認された切り口
-**出力**: 構成案（台本タイプ、セクション設計、要点整理）
+入力: 承認された切り口
+出力: 構成案（台本タイプ、セクション設計、要点整理）
 
 ```
 実行内容：
@@ -154,8 +157,8 @@ CLAUDE.md（このファイル）
 
 ### /執筆
 
-**入力**: 承認された構成案
-**出力**: 台本（導入・本題・まとめ）
+入力: 承認された構成案
+出力: 台本（導入・本題・まとめ）
 
 ```
 実行内容：
@@ -167,8 +170,8 @@ CLAUDE.md（このファイル）
 
 ### /タイトル
 
-**入力**: 完成した台本
-**出力**: タイトル5案、サムネテキスト3案
+入力: 完成した台本
+出力: タイトル5案、サムネテキスト3案
 
 ```
 実行内容：
@@ -180,8 +183,8 @@ CLAUDE.md（このファイル）
 
 ### /チェック
 
-**入力**: 台本全体
-**出力**: レビュー結果（スコア、合格/要修正、改善提案）
+入力: 台本全体
+出力: レビュー結果（スコア、合格/要修正、改善提案）
 
 ```
 実行内容：
@@ -189,6 +192,20 @@ CLAUDE.md（このファイル）
 2. チェックリストの確認
 3. スコアリング
 4. 改善提案
+```
+
+### /推敲比較
+
+入力: `@台本.md` の指定、またはパス1本。台本ファイルは [config/calibration.md](config/calibration.md) のマーカー行より上を AI原稿（A）、より下を手元の確定稿（B）とみなす。`@` なしでパスだけ渡してもよい。
+
+出力: チャット上の分析（言葉づかい・リズム・構成・削りすぎ候補）と、差分の本質に応じた SSOT／エージェント指示への改善案。`config/voice.md` だけに閉じず、brand / audience / quality / templates / 各 agents のどれをどう変えると再現性が上がるかを指名する。編集は自動では行わない。
+
+```
+実行内容：
+1. config/quality.md「推敲比較時の絶対ルール」に準拠（推測で埋めず、不足時は必ず質問）
+2. config/calibration.md のマーカーで A/B を分割。B が空なら貼り付けを促す
+3. agents/calibrator.md の手順で比較と提案を行う
+4. outputs/ へのレポート保存は利用者が明示したときのみ（例: 06-calibration.md）
 ```
 
 ---
@@ -200,8 +217,21 @@ CLAUDE.md（このファイル）
 1. ルートで `cp .env.example .env` にし `ANTHROPIC_API_KEY` を設定
 2. `npm install` のあと `npm run title-studio`
 3. ブラウザで http://127.0.0.1:3847/（詳細: [tools/title-studio/README.md](tools/title-studio/README.md)）
+   - テーマだけで 企画→タイトル一気通貫 は UI の上部ボタン、または `POST /api/pipeline`。
 
 チャットの `/タイトル` と併用可。
+
+### 台本のドキュメントHTML（印刷・PDF向け）
+
+トークスクリプト（`03-script.md` など）ができたら、同じ `outputs/...` に単体HTMLを置ける。
+
+```bash
+npm run script-doc -- outputs/YYYYMMDD-ラベル/03-script.md
+```
+
+- 出力: 入力と同じフォルダに、拡張子 `.html` の同名ファイル（例: `03-script.html`）
+- ブラウザで開き、「印刷 → PDFに保存」でダウンロード用に使う
+- 実装: `tools/script-to-doc/export-doc.mjs`（引数は複数可）
 
 ---
 
@@ -217,6 +247,7 @@ CLAUDE.md（このファイル）
 | 文体・トーンの確認 | config/voice.md |
 | 品質基準・NG確認 | config/quality.md |
 | 台本の型を確認 | templates/structure-*.md |
+| AI原稿と確定稿の推敲比較・マーカー運用 | config/calibration.md → agents/calibrator.md、補助として config/quality.md（推敲比較の絶対ルール） |
 
 ---
 
@@ -288,8 +319,11 @@ outputs/
     ├── 02-structure.md   ← 構成案
     ├── 03-script.md      ← 台本
     ├── 04-title.md       ← タイトル・サムネ案
-    └── 05-review.md      ← レビュー結果
+    ├── 05-review.md      ← レビュー結果
+    └── 06-calibration.md ← 推敲比較メモ（利用者が明示した場合のみ）
 ```
+
+Markdown で保存するときは、強調に `**`（太字）記法は使わない（`config/quality.md`・`.cursor/rules/no-markdown-bold-output.mdc` 参照）。見出し・箇条書き・言い換えで構造化する。
 
 ---
 
@@ -307,11 +341,12 @@ outputs/
 ・視聴維持率が高かった台本 → examples/ に追加
 ・新しいNGパターン発見 → config/quality.md に追加
 ・成功フレーズ発見 → config/voice.md に追加
+・推敲比較で再現したい差分が brand・構成・企画方針に関わる → 該当する config/* や agents/*・templates/* を人間が承認のうえ更新（/推敲比較の提案を参照）
 ```
 
 ### マニュアル類の扱い
 
-- **`MANUAL.md`** と **`manual/index.html`**（使い方の案内）は、**利用者から「マニュアルを更新して」等の明示的な指示があるまで編集しない**。
+- `MANUAL.md` と `manual/index.html`（使い方の案内）は、利用者から「マニュアルを更新して」等の明示的な指示があるまで編集しない。
 - `CLAUDE.md`・`config/`・`agents/` などの変更だけを理由に、マニュアルを勝手に追従させない。
 - 迷ったら「詳細仕様が知りたい」と利用者へ案内すべき既定の入口は、この `CLAUDE.md` と `config/` である。
 
@@ -328,12 +363,14 @@ YT_TalkScript/
 ├── manual/
 │   └── index.html         ← 使い方（ブラウザ向け／同じく明示指示時のみ更新）
 ├── tools/
-│   └── title-studio/      ← ローカルでタイトル案API（npm run title-studio）
+│   ├── title-studio/     ← ローカルでタイトル案API（npm run title-studio）
+│   └── script-to-doc/    ← 台本.md → ドキュメントHTML（npm run script-doc）
 ├── config/
 │   ├── brand.md           ← ブランド定義
 │   ├── audience.md        ← 視聴者ペルソナ
 │   ├── voice.md           ← 文体・トーン
-│   └── quality.md         ← 品質基準
+│   ├── quality.md         ← 品質基準
+│   └── calibration.md     ← 推敲比較マーカー（A/B境界）
 ├── templates/
 │   ├── structure-A.md     ← ツール活用型
 │   ├── structure-B.md     ← 機能紹介型
@@ -344,7 +381,8 @@ YT_TalkScript/
 │   ├── architect.md       ← 構成エージェント
 │   ├── writer.md          ← 執筆エージェント
 │   ├── titler.md          ← タイトル・サムネエージェント
-│   └── reviewer.md        ← レビューエージェント
+│   ├── reviewer.md        ← レビューエージェント
+│   └── calibrator.md      ← 推敲比較エージェント
 ├── examples/              ← 成功台本サンプル（今後追加）
 └── outputs/               ← 成果物出力先
 ```
@@ -361,3 +399,5 @@ YT_TalkScript/
 | 2026-05-02 | `/テーマ調査`・agents/scout.md（市場調査スカウト）を追加 |
 | 2026-05-03 | 台本の文字数基準（3001字以上・目安〜4200字）を brand/quality/agents/templates に反映 |
 | 2026-05-03 | `tools/title-studio`（Anthropic API・ローカル）、`package.json`・`.env.example` 追加 |
+| 2026-05-07 | `tools/script-to-doc`・`npm run script-doc`（台本.md→ドキュメントHTMLをoutputsへ） |
+| 2026-05-07 | `/推敲比較`・agents/calibrator.md・config/calibration.md（同一ファイル内A/B・Writer末尾ブロック・再執筆時のマーカー下維持） |

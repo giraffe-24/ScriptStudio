@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>台本（参考ドラフト）｜Windowsの付箋をAndroidで見る〜同期の確認まで</title>
+  <style>
+    :root { --fg: #1a1a1a; --muted: #555; --border: #ccc; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0 auto;
+      max-width: 44rem;
+      padding: 1.5rem 1.25rem 3rem;
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+      line-height: 1.65;
+      color: var(--fg);
+      font-size: 11pt;
+    }
+    header.doc-banner {
+      border: 1px solid var(--border);
+      background: #f7f9fc;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.75rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    header.doc-banner strong { color: var(--fg); font-weight: 600; }
+    article.talk-script h1 { font-size: 1.35rem; margin: 0 0 1rem; line-height: 1.35; }
+    article.talk-script h2 {
+      font-size: 1.12rem;
+      margin: 1.75rem 0 0.65rem;
+      padding-bottom: 0.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    article.talk-script h3 { font-size: 1.02rem; margin: 1.25rem 0 0.5rem; }
+    article.talk-script p { margin: 0.5rem 0 0.85rem; }
+    article.talk-script ul { margin: 0.4rem 0 0.9rem; padding-left: 1.35rem; }
+    article.talk-script li { margin: 0.25rem 0; }
+    article.talk-script code {
+      font-size: 0.92em;
+      background: #f0f0ee;
+      padding: 0.12em 0.35em;
+      border-radius: 4px;
+    }
+    blockquote.doc-note {
+      margin: 0 0 1.25rem;
+      padding: 0.65rem 1rem;
+      background: #faf9f5;
+      border-left: 4px solid #c9b88a;
+      font-size: 0.92rem;
+      color: #333;
+    }
+    blockquote.doc-note p { margin: 0.35rem 0; }
+    blockquote.doc-note ul { margin: 0.35rem 0 0.5rem; }
+    hr.doc-sep { border: none; border-top: 1px dashed var(--border); margin: 1.5rem 0; }
+    footer.doc-footer {
+      margin-top: 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    @media print {
+      body { max-width: none; padding: 0; font-size: 10.5pt; }
+      header.doc-banner { break-inside: avoid; }
+      article.talk-script h2 { break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="doc-banner">
+    <strong>ドキュメント版（トークスクリプト）</strong> · ブラウザの「印刷」からPDFに保存できます。
+    <br />元ファイル: <code>outputs/20260503-evergreen-scout/03-script-sticky-windows-android-draft.md</code>
+    <br />生成: 2026-05-08 07:41:43
+  </header>
+  <article class="talk-script">
+<p>投稿管理番号: 54</p>
+
+<h1>台本（参考ドラフト）｜Windowsの付箋をAndroidで見る〜同期の確認まで</h1>
+
+<blockquote class="doc-note">
+<p>読み込みメモ（エージェント／人間向け）</p>
+<ul>
+  <li>ソース: <code>02-structure-sticky-windows-android-8min.md</code> に沿った口述用の完成形です。「ドキュメント記事」ではなくトーク原稿です。</li>
+  <li>SSOT: <code>config/voice.md</code>・<code>config/quality.md</code>・<code>config/brand.md</code>（定型締め・自己紹介は brand どおり）</li>
+  <li>範囲: Windows と Android のみ。Mac・iPhone には言及しない。タイトル側で Windows を明示する前提。</li>
+  <li>尺の目安: 約8分収録想定。収録前にアプリ名・メニュー表記は実機の画面に合わせて差し替えてください。</li>
+  <li><code>/執筆</code> や <code>/チェック</code> にこのファイルを渡すとリライトのたたき台／参考として使えます。</li>
+</ul>
+</blockquote>
+
+<hr class="doc-sep" />
+
+<h2>【導入】</h2>
+
+<p>「楽」を極めて最大の結果を出す、効率化オタクのあらきりです。</p>
+
+<p>Windows のパソコンでちょこちょこメモするんだけれど、外出先にはスマホだけ、という方いますよね。私もそうなんですが、スマホ側は Android を使っていて、PC の付箋に書いたことをそのまま一覧で見たいだけなのに、どこから手をつければいいのか、ちょっとだけ迷うことがありました。</p>
+
+<p>今回の動画では、付箋アプリの細かい便利機能を全部紹介するわけではなく、「同期して、同じ一覧が Android でも見える状態になるところまで」に絞ってお話しします。</p>
+
+<p>あらかじめお伝えしますが、今回お見せするのは Windows と Android の組み合わせです。Mac や iPhone の手順は別の世界になりますので、この動画ではそこには触れませんね。</p>
+
+<p>ってことで、準備ができたらパソコンと Android を手元に置いた状態で、一緒に確認していきましょう。</p>
+
+<hr class="doc-sep" />
+
+<h2>【本題】今日やらないこと／今日のゴール</h2>
+
+<p>まず「やらないこと」をはっきりさせます。</p>
+
+<p>今日は、メモ術の講座でもなければ、付箋の色の使い分けを哲学する回でもありません。ほかのメモアプリとどれが正しいかみたいな話もしません。</p>
+
+<p>ゴールは一つだけです。パソコンの付箋に書いた内容が、Android 上で、Microsoft の公式のアプリの経路を通じて一覧として見える状態になっているかを、こちらでチェックできるようにすること。ここまでできれば、今日の勝ち、と考えてください。</p>
+
+<hr class="doc-sep" />
+
+<h2>【本題】Windows 側｜ここだけ押さえる3点</h2>
+
+<p>では PC 側です。付箋って、正式には Sticky Notes と呼ばれるアプリですね。まずはそれを開きます。スタートメニューからでも、検索からでも、普段のやり方で一つに決めてしまうと、説明も撮影もラクです。</p>
+
+<p>開けたら確認してほしいのは、大きく三つです。</p>
+
+<p>一つ目、付箋がちゃんと起動していること。当たり前に聞こえるかもしれませんが、ここから先は「アプリが開いている」前提で話を進めます。</p>
+
+<p>二つ目、Microsoft アカウントでサインインできているか。アカウントの確認方法は、Windows のバージョンや付箋の画面で少し差が出ます。なので、画面上に表示されている「今、どのアカウントでログインしているか」という表示を、自分の目で一度見てください。ここは画面上で確かめられる範囲でしか言い切れないので、その言い方だけは覚えておいてくださいね。</p>
+
+<p>三つ目、テスト用に、短い文を一つ、新しい付箋として書いておきましょう。「テスト」だけでもいいので、あとで Android 側に同じ文字列が出てきたか確認するための目印です。</p>
+
+<p>ここまで終わったら、いったん PC はそのままで大丈夫です。</p>
+
+<hr class="doc-sep" />
+
+<h2>【本題】Android 側｜インストールから一覧まで</h2>
+
+<p>続いて Android です。Google Play を開いて、Microsoft が提供している 付箋、英語表記の場合は Sticky Notes という名前のアプリを探して、インストールしてください。ストアに載っている表記は時期で少し変わることがあるので、「Microsoft さんの公式の付箋アプリかどうか」を見極めてから入れるのが安心です。</p>
+
+<p>インストールが終わったらアプリを起動して、さっき PC で確認したのと同じ Microsoft アカウントでサインインします。ここ、本当に大事なので、もう一度言います。PC と Android で、アカウントがズレていると、今日やりたいことは成立しません。 メールアドレスが同じ系列か、設定画面で最後の数桁が合うか、映せる範囲で軽く照合しておくとよいです。</p>
+
+<p>サインインが済むと、だいたいはメモの一覧のような画面に入ります。権限のダイアログが出たら、付箋を普通に使うのに必要そうなものだけ、テキストの指示にしたがって許可してください。ここで「全部ブロック」を選んでしまうと、後で説明できないタイプのつまずきになることがありますので、ひと工夫という感じで大丈夫です。</p>
+
+<p>それから大事なことを一つだけ。同期って、環境によってはすぐ終わらないときがあります。今タップしたのに一覧がパッと変わらない、というときは、数十秒単位から、少し長めに待ってから、画面上で更新できる操作があればそれを試す、くらいの感覚でいてください。何十秒で必ず終わる、とは言い切れないので、そこだけ期待値をリアルにしておきましょう。</p>
+
+<hr class="doc-sep" />
+
+<h2>【本題】同期の確認〜試し書き</h2>
+
+<p>さて、Android の一覧を見てください。さっき PC で書いたテスト用の短文が、もう並んでいますか？</p>
+
+<p>もし並んでいたら、その時点でもう「今日やりたかったことの核」はクリアです。拍手。</p>
+
+<p>もしまだだったら、アプリをいったん止めてから開き直す、Wi-Fi とモバイルデータの状態を確認する、ログイン情報を見直す、という順で丁寧にいきましょう。</p>
+
+<p>余裕がある方は、Android 側で一行だけ追記してみて、そのあとパソコン側の一覧を確認する、という片方向だけのテストでも構いません。尺や撮影の都合があれば、ここは飛ばしても大丈夫です。</p>
+
+<hr class="doc-sep" />
+
+<h2>【本題】うまくいかないとき｜チェックは三つだけに絞る</h2>
+
+<p>トラブルシュートを長くすると動画全体がぐだっとしますので、チェックリストは 三項目だけ にします。</p>
+
+<p>一つ目、やはりこれです。PC と Android が、同じ Microsoft アカウントになっているか。 両方の設定やアカウント情報を並べられるなら並べて、心当たりがないズレがないか見る。</p>
+
+<p>二つ目、アプリ本体と Windows 側のアップデートを一度、自分のタイミングで確認する。どのバージョンから使えない、まではここでは断定しませんが、「古いまま放置」は避けたいですよね。</p>
+
+<p>三つ目、サインインの切れ。どちらかでログアウトしたり、アカウント変更したりしていたら、再接続が必要です。再サインインの手順は、画面ひとつの範囲で終わるように自分でルートを決めてください。</p>
+
+<p>ほかにも原因はあり得ますが、この三つがクリアになると不思議なくらいハマることが多いです。それでも無理なら、コミュニティの情報やヘルプをあわせて見るくらいの姿勢でOKです。特定のサービスの悪口に逃げないようにだけ注意してほしいです。私たちはあくまで自分の環境で再現することに集中しましょう。</p>
+
+<hr class="doc-sep" />
+
+<h2>【まとめ】</h2>
+
+<p>というわけで、今回やったことを短くおさらいします。</p>
+
+<p>Windows の付箋は、気軽なメモ向きのアプリでありながら、同じアカウントさえそろえば Android 側の公式アプリから一覧できるので、コンビニの前で急に思い出したメモを見返す、みたいな場面で重宝します。</p>
+
+<p>ただし、付箋はあくまで短期のメモ向きです。心の中で「ここに人生の全部を預ける」と決めつけないでください。大事な原本は、みなさんが普段から信頼している保管の仕方と併用するのが安全です。</p>
+
+<p>今日の時点で、Android の一覧に PC のテストメモが見えていれば、目的は達成です。ぜひ一度、ご自身の仕事や生活のワンシーンで試してみてください。</p>
+
+<hr class="doc-sep" />
+
+<h2>【定型締め】（固定・一字一句）</h2>
+
+<p>このチャンネルでは「楽」を極めるために私が検証し、本当に効果があった仕組みだけを紹介しています。</p>
+
+<p>大人の教養として『賢くサボる』を知りたい方は、ぜひチャンネル登録と高評価をお願いします。</p>
+
+<p>日常に潜む「無駄な手間」や｢これも知りたい｣などのリクエストも、遠慮なくコメントで教えてください。</p>
+
+<p>それでは、また次回の動画でお会いしましょう。さようなら。</p>
+
+<hr class="doc-sep" />
+
+<hr class="doc-sep" />
+
+<p>&lt;&lt;&lt;YT_TALKSCRIPT_CALIB_SPLIT&gt;&gt;&gt;</p>
+
+<p>（推敲比較用）この行より下に、手直し後の確定稿を全文貼り付けてください。再執筆で本文を置き換えるときは、このマーカー行より下は可能な限りそのまま残し、利用者の貼り付けを消さない。</p>
+
+  </article>
+  <footer class="doc-footer">
+    効率化オタクのあらきり · YT_TalkScript · npm run script-doc で再生成
+  </footer>
+</body>
+</html>

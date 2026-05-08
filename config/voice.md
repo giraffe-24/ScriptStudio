@@ -1,7 +1,7 @@
 # 文体・トーン（SSOT）
 
-> このファイルは「あらきりの声」の単一の真実の源（SSOT）です。
 > 執筆エージェントはこのファイルに基づいて台本を書きます。
+> 推敲比較（/推敲比較）で差分を直すときは、言葉の問題に限らず brand・構成・品質など該当する SSOT へ反映する。手順は [agents/calibrator.md](../agents/calibrator.md) と [config/quality.md](quality.md) の推敲比較の節を参照。
 
 ---
 
