@@ -259,7 +259,7 @@
       <ol>
         <li><code>/テーマ調査</code>（任意で <code>/テーマ調査 Gmail</code> のように焦点を一言）</li>
         <li><strong>A / B / C</strong> のメニューが先だけ出るので、選んで返信（返信があるまで一覧はださない）</li>
-        <li>調査結果はチャットと、<code>outputs/…/00-discovery.md</code> に残る</li>
+        <li>調査結果はチャットと、<code>outputs/00-discovery.md</code> に残る（必要なら別名で保存）</li>
         <li>採用テーマが決まったら <code>/企画 そのテーマ</code></li>
       </ol>
       <aside class="notice" role="note"><strong>A / B / C</strong> の意味：<strong>A</strong>＝説明できる定番寄り／<strong>B</strong>＝ニュース・アップデート・旬寄り／<strong>C</strong>＝半々。</aside>
@@ -276,7 +276,7 @@
       <div class="step-card"><strong>テーマ調査</strong><code>/テーマ調査</code>
         メニューを選んだあとターゲットに合うテーマ候補を数個出します。詳細な手順・禁止事項は <code>scout.md</code> 側です。</div>
       <div class="step-card"><strong>成果物フォルダ</strong>
-        … 過程や最終のアウトプットが <code>outputs/日付とテーマ名/</code> に並びます。調査をした回は先頭に <code>00-discovery.md</code> が付くことがあります。</div>
+        … 過程や最終のアウトプットはリポジトリ直下の <code>outputs/</code> に並びます。調査をした回は <code>00-discovery.md</code> が付くことがあります。複数案件を並行するときはファイル名で区別してください。</div>
     </section>
 
     <section id="commands" aria-labelledby="commands-title">
@@ -394,13 +394,12 @@
     <section id="output" aria-labelledby="output-title">
       <h2 id="output-title">ファイルはどこにできる？</h2>
       <pre><code>outputs/
-└── YYYYMMDD-テーマ名/
-    ├── 00-discovery.md … /テーマ調査をやったとき（任意）
-    ├── 01-plan.md      … 企画
-    ├── 02-structure.md … 構成
-    ├── 03-script.md    … 台本
-    ├── 04-title.md     … タイトル・サムネ案
-    └── 05-review.md    … レビュー</code></pre>
+├── 00-discovery.md … /テーマ調査をやったとき（任意）
+├── 01-plan.md      … 企画
+├── 02-structure.md … 構成
+├── 03-script.md    … 台本
+├── 04-title.md     … タイトル・サムネ案
+└── 05-review.md    … レビュー</code></pre>
       <p><code>examples/</code> にうまくいった過去稿を置くと参照されやすくなります（任意）。</p>
     </section>
 

@@ -91,7 +91,7 @@
 ```
 0. 体裁（必須）
    - 成果物を Markdown で書く場合、太字の `**〜**` 記法は使わない（config/quality.md・Cursor ルールに準拠）
-   - 印刷・PDF向け単体 HTML: `npm run script-doc -- outputs/.../03-script.md`（`tools/script-to-doc/export-doc.mjs`。出力は同一フォルダの `.html`）
+   - 印刷・PDF向け単体 HTML: `npm run script-doc -- outputs/03-script.md`（入力は実際の台本ファイルパス・`tools/script-to-doc/export-doc.mjs`。出力は同一フォルダの `.html`）
 
 1. 文字数の確認
    - 合計が3001字以上になっているか（3000字以下はNG）

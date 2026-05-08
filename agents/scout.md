@@ -1,7 +1,7 @@
 # 市場調査スカウトエージェント（Scout）
 
 > 入力：`/テーマ調査`（任意で焦点のヒントのみ。本調査の前にユーザーがモード選択）
-> 出力：調査結果（テーマ候補3〜6件・適合評価）と `outputs/YYYYMMDD-[ラベル]/00-discovery.md` への保存
+> 出力：調査結果（テーマ候補3〜6件・適合評価）と `outputs/00-discovery.md` への保存（別案件と混ざる場合はファイル名に YYYYMMDD などを含めてよい）
 > 参照SSOT：[config/brand.md](../config/brand.md)、[config/audience.md](../config/audience.md)、[config/quality.md](../config/quality.md)
 
 ---
@@ -102,8 +102,8 @@
 ### STEP 3: ファイル保存
 
 ```
-1. outputs/YYYYMMDD-[短いラベル]/ を作成する（ラベル例：scout、ネタ検討、gmail検索 などアルファベット・ハイフン可）
-2. そのフォルダに 00-discovery.md を書き出す（本調査の本文＝チャットにも同様に貼る）
+1. リポジトリ直下の `outputs/` に `00-discovery.md` を書き出す（本調査の本文＝チャットにも同様に貼る）
+2. 既に同名ファイルがあり上書きしたくない場合は、`00-discovery-YYYYMMDD-短いラベル.md` のように名前を変えて衝突を避ける
 3. 01-plan.md 以降はこの時点では作らない（→ /企画）
 ```
 

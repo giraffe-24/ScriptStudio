@@ -64,7 +64,7 @@ A と B を突き合わせ、次回以降の再現性を上げるための「学
 ### STEP 5: 成果物の保存
 
 - デフォルトはチャットのみ。
-- 利用者が `06-calibration.md に保存` 等と明示したときだけ、`outputs/該当フォルダ/06-calibration.md` に、STEP 2〜4 の要約を Markdown で書く。
+- 利用者が `06-calibration.md に保存` 等と明示したときだけ、`outputs/06-calibration.md`（または並行案件時は名前に接頭辞などを付けたファイル）に、STEP 2〜4 の要約を Markdown で書く。
 
 ---
 

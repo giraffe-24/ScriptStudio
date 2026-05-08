@@ -3,7 +3,7 @@
 # 台本（参考ドラフト）｜Windowsの付箋をAndroidで見る〜同期の確認まで
 
 > 読み込みメモ（エージェント／人間向け）
-> - ソース: `02-structure-sticky-windows-android-8min.md` に沿った口述用の完成形です。「ドキュメント記事」ではなくトーク原稿です。
+> - 体裁: 口述用のトーク原稿。「ドキュメント記事」ではなく話し言葉優先。
 > - SSOT: `config/voice.md`・`config/quality.md`・`config/brand.md`（定型締め・自己紹介は brand どおり）
 > - 範囲: Windows と Android のみ。Mac・iPhone には言及しない。タイトル側で Windows を明示する前提。
 > - 尺の目安: 約8分収録想定。収録前にアプリ名・メニュー表記は実機の画面に合わせて差し替えてください。
