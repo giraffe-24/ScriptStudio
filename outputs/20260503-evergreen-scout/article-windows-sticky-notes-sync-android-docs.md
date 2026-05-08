@@ -1,7 +1,7 @@
 # Windowsの付箋（Sticky Notes）をAndroidで確認する〜同期のためのセットアップ手順
 
 > トーク原稿（口述用）が必要なときは、こちらを参照・読み込みください：  
-> `03-script-sticky-windows-android-draft.md`（`02-structure-…` に沿った参考台本ドラフト）
+> `54-03-script-sticky-windows-android-draft.md`（`02-structure-…` に沿った参考台本ドラフト）
 
 ---
 
