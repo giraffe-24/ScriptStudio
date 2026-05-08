@@ -208,6 +208,8 @@ CLAUDE.md（このファイル）
 4. outputs/ へのレポート保存は利用者が明示したときのみ（例: 06-calibration.md）
 ```
 
+Cursor のプロジェクトコマンドとして [`.cursor/commands/推敲比較.md`](.cursor/commands/推敲比較.md) から `/推敲比較` を呼べる。
+
 ---
 
 ## タイトル案（Anthropic API・ローカル）
@@ -356,6 +358,9 @@ Markdown で保存するときは、強調に `**`（太字）記法は使わな
 
 ```
 YT_TalkScript/
+├── .cursor/
+│   └── commands/
+│       └── 推敲比較.md     ← `/推敲比較` プロンプト（任意）
 ├── CLAUDE.md              ← このファイル（エントリーポイント）
 ├── package.json           ← Node（タイトルスタジオ用）
 ├── .env.example           ← ANTHROPIC_API_KEY テンプレ（要コピーで .env）
@@ -401,3 +406,4 @@ YT_TalkScript/
 | 2026-05-03 | `tools/title-studio`（Anthropic API・ローカル）、`package.json`・`.env.example` 追加 |
 | 2026-05-07 | `tools/script-to-doc`・`npm run script-doc`（台本.md→ドキュメントHTMLをoutputsへ） |
 | 2026-05-07 | `/推敲比較`・agents/calibrator.md・config/calibration.md（同一ファイル内A/B・Writer末尾ブロック・再執筆時のマーカー下維持） |
+| 2026-05-08 | `.cursor/commands/推敲比較.md`（Cursor で `/推敲比較` を明示） |
