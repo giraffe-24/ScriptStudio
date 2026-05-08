@@ -7,4 +7,4 @@ alwaysApply: true
 
 - `MANUAL.md` と `manual/index.html`（およびそれに準ずるユーザー向け手順書）を、`CLAUDE.md`・`config/`・`agents/`・テンプレの変更だけを理由に自動では更新しない。
 - ユーザーが「マニュアルを更新」「手順ページを修正」など明示的に依頼したときのみ、`MANUAL.md` とブラウザ用マニュアルを編集してよい。
-- 詳細仕様の参照先として案内すべき既定は `CLAUDE.md` と `config/` である。
+- 詳細仕様の参照先として案内すべき既定は `CLAUDE.md` と `config/` と `docs/orchestration.md`（運用の長文）である。

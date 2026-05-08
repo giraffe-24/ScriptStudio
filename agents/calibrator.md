@@ -44,14 +44,13 @@ A と B を突き合わせ、次回以降の再現性を上げるための「学
 
 ### STEP 4: SSOT／エージェントへの提案（voice に閉じない）
 
-**自動で config や agents を編集しない。** 利用者または別セッションでの人間承認後の変更を前提に、次のいずれか（複数可）へ「どの性質をどう変えると A が B に近づくか」を指名する。
-
-| 差分の性質が近いもの | 参照・更新候補 |
+自動で config や agents を編集しない。利用者または別セッションでの人間承認後の変更を前提に、次のいずれか（複数可）へ「どの性質をどう変えると A が B に近づくか」を指名する。
 |----------------------|----------------|
 | チャンネルらしさ・価値の言い方 | `config/brand.md` |
 | 誰に向けて何を省略するか | `config/audience.md` |
 | 文体・口語・頻出表現 | `config/voice.md` |
-| 品質・NG・チェック観点 | `config/quality.md` |
+| 品質・NGの方針 | `config/quality.md` |
+| レビュー項目の列挙・採点 | `agents/reviewer-rubric.md` |
 | セクションの型・時間配分 | `templates/structure-A.md` / `B` / `C` |
 | 章立て・導線 | `agents/architect.md` |
 | 執筆時の手順・出力形式 | `agents/writer.md` |
