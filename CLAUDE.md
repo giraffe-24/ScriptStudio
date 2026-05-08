@@ -247,6 +247,7 @@ npm run script-doc -- outputs/03-script.md
 | 視聴者に響くか確認 | config/audience.md |
 | 文体・トーンの確認 | config/voice.md |
 | 品質基準・NG確認 | config/quality.md |
+| アプリ・製品の名称・経路など事実確認 | config/quality.md（「製品・アプリの事実」／公式ヘルプで裏取りしてから書く） |
 | 台本の型を確認 | templates/structure-*.md |
 | AI原稿と確定稿の推敲比較・マーカー運用 | config/calibration.md → agents/calibrator.md、補助として config/quality.md（推敲比較の絶対ルール） |
 
@@ -273,7 +274,7 @@ npm run script-doc -- outputs/03-script.md
 ❌ 専門用語無説明
 ```
 
-詳細は [config/quality.md](config/quality.md) を参照。
+詳細は [config/quality.md](config/quality.md) を参照（含む: 製品・アプリ記述の公式確認ルール）。
 
 ---
 
@@ -407,3 +408,4 @@ YT_TalkScript/
 | 2026-05-07 | `tools/script-to-doc`・`npm run script-doc`（台本.md→ドキュメントHTMLをoutputsへ） |
 | 2026-05-07 | `/推敲比較`・agents/calibrator.md・config/calibration.md（同一ファイル内A/B・Writer末尾ブロック・再執筆時のマーカー下維持） |
 | 2026-05-08 | `.cursor/commands/推敲比較.md`。`outputs/` を日付別サブフォルダなしの直下運用に変更（scout・MANUAL・manual/index と整合） |
+| 2026-05-09 | config/quality「製品・アプリの事実」、reviewer/writer と台本 54（Android の付箋は主に OneNote 経由等の公式準拠） |

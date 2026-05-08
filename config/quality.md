@@ -20,6 +20,26 @@
 
 ---
 
+## 製品・アプリの事実（誤情報・未確認断定の禁止）
+
+台本では、確認していない状態でアプリの有無・入手方法・画面上の名前を断定しない。OS やブランド・アプリの構成は変更されやすいため、ツール依存の回では次を守る。
+
+1. 執筆前：Microsoft / Google / Apple など公式ヘルプ、または開発元の現在の製品ページを参照する（検索結果の要約だけで済ませず、本文の主張どおりか本文を自分で読む）。
+2. 本文では：変更されうる文言（ボタンの位置・アプリの版）は「画面上で確認して」「自分の環境のアプリでは」と逃がす余地を残す。
+3. 典型例（Microsoft Sticky Notes × Android／再発防止のため SSOT に明記）  
+   Android で「Sticky Notes と名のついただけの単体アプリ」を入れるだけで Windows の付箋一覧に触れると断定するような書き方は、視聴者を誤解させうる。Microsoft の公式説明では、Android は主に Microsoft OneNote アプリの中にある付箋（Sticky Notes）から利用する。また Microsoft Launcher でフィード経由になる、という案内がある。収録では、OneNote 内で「Sticky Notes／付箋」が自分の画面上で実際どう見えるか、実機か最新公式の説明画像で確認する。  
+   一次ソース（執筆時点で内容を自分で確認する）：  
+   - Microsoft サポート「See your sticky notes on other devices and the web」  
+     https://support.microsoft.com/office/see-your-sticky-notes-on-other-devices-and-the-web-cf4bacd0-c042-46fd-9077-ca8c82dc0236  
+   - トラブル時の複数アプリへの言及例（Android で OneNote / Office / Launcher 等への言及）  
+     https://support.microsoft.com/office/troubleshoot-sticky-notes-89b1bb37-ef52-4e56-a066-418d7ea0f112  
+   - 複数デバイスで見られないときの説明（「OneNote が入っていて同じアカウント」等）の例  
+     https://support.microsoft.com/office/where-did-my-sticky-notes-go-170fcaa4-99c1-4c21-98ff-83c8f97017f7  
+
+チェック側（reviewer）は、上記のような製品説明としての誤りを検出したら NG に近い重大指摘として扱う（詳細は [agents/reviewer.md](../agents/reviewer.md)）。
+
+---
+
 ## 推敲比較（キャリブレーション）時の絶対ルール
 
 以下は SSOT として、推敲比較（AI原稿と手元の確定稿の読み比べ）を行うあらゆるエージェント・チャット指示に準拠する。
