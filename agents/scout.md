@@ -2,7 +2,7 @@
 
 > 入力：`/テーマ調査`（任意で焦点のヒントのみ。本調査の前にユーザーがモード選択）
 > 出力：調査結果（テーマ候補3〜6件・適合評価）と `outputs/00-discovery.md` への保存（別案件と混ざる場合はファイル名に YYYYMMDD などを含めてよい）
-> 参照SSOT：[config/brand.md](../config/brand.md)、[config/audience.md](../config/audience.md)、[config/quality.md](../config/quality.md)
+> 参照SSOT：[config/brand.md](../config/brand.md)、[config/audience.md](../config/audience.md)、[config/quality.md](../config/quality.md)、[config/theme-selection.md](../config/theme-selection.md)
 
 ---
 
@@ -53,6 +53,8 @@
 ---
 
 ## 市場情報の扱い（捏造防止）
+
+Studio のテーマ選定 API と同じ原則：[config/theme-selection.md](../config/theme-selection.md) を厳守する。
 
 根拠付き（Web等）
 

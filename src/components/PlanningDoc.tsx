@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ThemeCandidate, ChatMessage } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
-import { stripTimeFromSection } from "@/lib/plan-outline";
+import { sanitizePlanOutline, sanitizeSectionName } from "@/lib/plan-outline";
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
-  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none overflow-hidden focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 leading-relaxed placeholder:text-gray-300 transition-colors";
+  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 leading-relaxed placeholder:text-gray-300 transition-colors";
 
 const EDITABLE_INPUT =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 placeholder:text-gray-300 transition-colors";
@@ -26,12 +26,14 @@ interface Plan {
 interface Props {
   candidate: ThemeCandidate | null;
   plan?: Plan | null;
+  episodeNumber?: number | null;
   onPlanReady: (plan: Plan, title: string) => void;
   onTitleChange?: (title: string) => void;
+  onEpisodeNumberChange?: (number: number) => void;
   onPlanChange?: (plan: Plan) => void;
 }
 
-export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitleChange, onPlanChange }: Props) {
+export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPlanReady, onTitleChange, onEpisodeNumberChange, onPlanChange }: Props) {
   const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
@@ -39,11 +41,14 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
 
   useEffect(() => {
     if (initialPlan) {
-      setPlan(initialPlan);
-      setChatSection(null);
-      setChatHistory([]);
+      setPlan(sanitizePlanOutline(initialPlan));
+    } else if (!candidate) {
+      setPlan(null);
     }
-  }, [initialPlan]);
+    setChatSection(null);
+    setChatHistory([]);
+    setLoading(false);
+  }, [initialPlan, candidate]);
 
   useEffect(() => {
     if (!candidate) return;
@@ -78,7 +83,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
     }
 
     const data = await res.json();
-    setPlan(data.plan ?? null);
+    setPlan(sanitizePlanOutline(data.plan ?? null));
     setLoading(false);
   }
 
@@ -122,15 +127,37 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
 
           {/* タイトル */}
           <DocSection label="タイトル">
-            <input
-              value={plan.episodeTitle}
-              onChange={(e) => {
-                update("episodeTitle", e.target.value);
-                onTitleChange?.(e.target.value);
-              }}
-              className={EDITABLE_INPUT}
-              placeholder="動画タイトルを入力…"
-            />
+            <div className="flex gap-2 items-stretch">
+              <div className="relative w-14 shrink-0">
+                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-mono text-gray-400 select-none">
+                  #
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={3}
+                  value={episodeNumber != null ? String(episodeNumber) : ""}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 3);
+                    if (!digits) return;
+                    const n = parseInt(digits, 10);
+                    if (n > 0) onEpisodeNumberChange?.(n);
+                  }}
+                  className={`${EDITABLE_INPUT} w-full text-left font-mono pl-5 pr-1.5 py-2 tabular-nums`}
+                  placeholder="—"
+                  aria-label="動画管理番号"
+                />
+              </div>
+              <input
+                value={plan.episodeTitle}
+                onChange={(e) => {
+                  update("episodeTitle", e.target.value);
+                  onTitleChange?.(e.target.value);
+                }}
+                className={`${EDITABLE_INPUT} flex-1 min-w-0`}
+                placeholder="動画タイトルを入力…"
+              />
+            </div>
           </DocSection>
 
           {/* フック */}
@@ -404,7 +431,10 @@ function OutlineEditor({
     const next = cloneOutline(items);
     next[index] = {
       ...next[index],
-      [field]: field === "section" ? stripTimeFromSection(value) : value,
+      [field]:
+        field === "section"
+          ? sanitizeSectionName(value, next[index].content)
+          : value,
     };
     skipHistoryRef.current = true;
     onChange(next);
@@ -545,7 +575,7 @@ function OutlineEditor({
   );
 }
 
-/* ── 共通：自動リサイズ textarea ── */
+/* ── 共通：自動リサイズ textarea（全文常時表示・スクロール禁止） ── */
 function AutoResizeTextarea({
   value,
   onChange,
@@ -561,23 +591,41 @@ function AutoResizeTextarea({
   onFocus?: () => void;
   onBlur?: () => void;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useLayoutEffect(() => {
+    resize();
+  }, [value, resize]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(resize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [resize]);
+
   return (
     <textarea
+      ref={ref}
       value={value}
-      onChange={(e) => {
-        onChange(e.target.value);
-        e.target.style.height = "auto";
-        e.target.style.height = `${e.target.scrollHeight}px`;
-      }}
-      onFocus={(e) => {
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={() => {
         onFocus?.();
-        e.target.style.height = "auto";
-        e.target.style.height = `${e.target.scrollHeight}px`;
+        resize();
       }}
       onBlur={() => onBlur?.()}
-      rows={2}
+      rows={1}
       placeholder={placeholder}
       className={`${EDITABLE}${className ? ` ${className}` : ""}`}
+      style={{ overflow: "hidden" }}
     />
   );
 }

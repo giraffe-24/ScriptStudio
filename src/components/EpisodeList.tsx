@@ -1,30 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Episode } from "@/lib/types";
-
-const STATUS_LABEL: Record<string, string> = {
-  planning: "企画中",
-  scripting: "執筆中",
-  review: "確認中",
-  done: "完了",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  planning: "bg-yellow-100 text-yellow-700",
-  scripting: "bg-blue-100 text-blue-700",
-  review: "bg-purple-100 text-purple-700",
-  done: "bg-green-100 text-green-700",
-};
+import type { Episode, EpisodeStatus } from "@/lib/types";
+import { EPISODE_STATUSES, STATUS_COLOR, STATUS_LABEL } from "@/lib/episode-status";
+import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
 
 interface Props {
   selectedId: string | null;
-  titleOverride?: { id: string; title: string };
+  selectedSlug?: string | null;
+  titleOverride?: { slug: string; title: string };
+  numberOverride?: { slug: string; number: number };
+  statusOverride?: { slug: string; status: EpisodeStatus };
   onSelect: (episode: Episode) => void;
+  onStatusChange?: (episode: Episode, status: EpisodeStatus) => void;
   refreshKey?: number;
 }
 
-export function EpisodeList({ selectedId, titleOverride, onSelect, refreshKey }: Props) {
+export function EpisodeList({
+  selectedId,
+  selectedSlug,
+  titleOverride,
+  numberOverride,
+  statusOverride,
+  onSelect,
+  onStatusChange,
+  refreshKey,
+}: Props) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,9 +33,22 @@ export function EpisodeList({ selectedId, titleOverride, onSelect, refreshKey }:
     setLoading(true);
     fetch("/api/files?action=list")
       .then((r) => r.json())
-      .then((d) => setEpisodes(d.episodes ?? []))
+      .then((d) => setEpisodes(sortEpisodesByNumberDesc(d.episodes ?? [])))
       .finally(() => setLoading(false));
   }, [refreshKey]);
+
+  useEffect(() => {
+    if (!numberOverride) return;
+    setEpisodes((prev) =>
+      sortEpisodesByNumberDesc(
+        prev.map((ep) =>
+          ep.slug === numberOverride.slug
+            ? { ...ep, number: numberOverride.number, id: String(numberOverride.number) }
+            : ep,
+        ),
+      ),
+    );
+  }, [numberOverride]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -51,39 +65,54 @@ export function EpisodeList({ selectedId, titleOverride, onSelect, refreshKey }:
           </div>
         ) : (
           episodes.map((ep) => {
-            const isSelected = ep.id === selectedId;
+            const isSelected = ep.id === selectedId || (!!selectedSlug && ep.slug === selectedSlug);
 
             const displayTitle =
-              titleOverride?.id === ep.id ? titleOverride.title : ep.title;
+              titleOverride?.slug === ep.slug ? titleOverride.title : ep.title;
+
+            const displayNumber =
+              numberOverride?.slug === ep.slug ? numberOverride.number : ep.number;
+
+            const displayStatus =
+              statusOverride?.slug === ep.slug ? statusOverride.status : ep.status;
 
             return (
               <div
-                key={ep.id}
+                key={ep.slug}
                 className={`border-l-2 transition-colors ${
                   isSelected
                     ? "border-blue-500 bg-blue-50"
                     : "border-transparent hover:bg-white"
                 }`}
               >
-                {/* タイトル行 */}
                 <button
                   onClick={() => onSelect(ep)}
                   className="w-full text-left px-3 py-2.5 transition-colors"
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className={`text-[10px] font-mono shrink-0 ${isSelected ? "text-blue-500" : "text-gray-400"}`}>
-                      #{ep.number}
+                      #{displayNumber}
                     </span>
                     {ep.createdAt && (
                       <span className="text-[10px] text-gray-300 shrink-0">{ep.createdAt}</span>
                     )}
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
-                        STATUS_COLOR[ep.status] ?? "bg-gray-100 text-gray-600"
-                      }`}
+                    <select
+                      value={displayStatus}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onStatusChange?.(ep, e.target.value as EpisodeStatus);
+                      }}
+                      aria-label="ステータスを変更"
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 border-0 cursor-pointer appearance-none text-center ${STATUS_COLOR[displayStatus]}`}
                     >
-                      {STATUS_LABEL[ep.status] ?? ep.status}
-                    </span>
+                      {EPISODE_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {STATUS_LABEL[status]}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <p className={`text-xs leading-snug line-clamp-2 ${isSelected ? "text-blue-700 font-medium" : "text-gray-800"}`}>
                     {displayTitle}

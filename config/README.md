@@ -15,4 +15,6 @@
 | audience.md | ペルソナ |
 | voice.md | 文体 |
 | quality.md | NG・事実・推敲方針 |
+| planning.md | 企画書・目次案（Studio / 台本 ## 見出し） |
+| theme-selection.md | テーマ選定（検索・ハルシネーション禁止） |
 | calibration.md | A/B マーカー |

@@ -1,10 +1,13 @@
-export type EpisodeStatus = "planning" | "scripting" | "review" | "done";
+import type { EpisodeStatus } from "./episode-status";
+export type { EpisodeStatus } from "./episode-status";
 export type ThemePattern = "market" | "user-input";
 
 export interface ChannelConfig {
   brand: string;
   audience: string;
   quality: string;
+  planning?: string;
+  themeSelection?: string;
 }
 
 export interface Episode {

@@ -5,13 +5,19 @@ import type { ChannelConfig } from "./types";
 const ROOT = process.cwd();
 const CONFIG_DIR = path.join(ROOT, "config");
 
+async function readConfigFile(name: string): Promise<string> {
+  return fs.readFile(path.join(CONFIG_DIR, name), "utf-8").catch(() => "");
+}
+
 export async function loadChannelConfig(): Promise<ChannelConfig> {
-  const [brand, audience, quality] = await Promise.all([
-    fs.readFile(path.join(CONFIG_DIR, "brand.md"), "utf-8").catch(() => ""),
-    fs.readFile(path.join(CONFIG_DIR, "audience.md"), "utf-8").catch(() => ""),
-    fs.readFile(path.join(CONFIG_DIR, "quality.md"), "utf-8").catch(() => ""),
+  const [brand, audience, quality, planning, themeSelection] = await Promise.all([
+    readConfigFile("brand.md"),
+    readConfigFile("audience.md"),
+    readConfigFile("quality.md"),
+    readConfigFile("planning.md"),
+    readConfigFile("theme-selection.md"),
   ]);
-  return { brand, audience, quality };
+  return { brand, audience, quality, planning, themeSelection };
 }
 
 export function buildSystemPrompt(config: ChannelConfig): string {
@@ -26,5 +32,11 @@ ${config.brand}
 ${config.audience}
 
 === 品質基準 ===
-${config.quality}`;
+${config.quality}
+
+=== 企画書・目次案 ===
+${config.planning ?? ""}
+
+=== テーマ選定 ===
+${config.themeSelection ?? ""}`;
 }

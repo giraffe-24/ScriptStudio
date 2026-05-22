@@ -2,59 +2,83 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import type { ThemeCandidate } from "@/lib/types";
+import { buildThemeSearchUserPrompt, runThemeSearch } from "@/lib/theme-search";
 
 export async function POST(req: NextRequest) {
   try {
-  const { theme } = await req.json();
-  if (!theme) return NextResponse.json({ error: "theme required" }, { status: 400 });
+    const { theme } = await req.json();
+    if (!theme) return NextResponse.json({ error: "theme required" }, { status: 400 });
 
-  const config = await loadChannelConfig();
-  const systemPrompt = buildSystemPrompt(config);
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    if (!process.env.YOUTUBE_DATA_API_KEY) {
+      return NextResponse.json(
+        {
+          error:
+            "YOUTUBE_DATA_API_KEY が未設定です。テーマ選定には YouTube 検索が必要です（.env を確認してください）。",
+        },
+        { status: 503 },
+      );
+    }
 
-  const message = await client.messages.create({
-    model: "claude-opus-4-5",
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: `以下のテーマを「効率化オタクのあらきり」チャンネルに最適化した3パターンに改変してください。
+    const searchQuery = `${theme} 使い方 スマホ 設定`;
+    const searchResult = await runThemeSearch(searchQuery);
 
-入力テーマ：「${theme}」
+    if (searchResult.youtube.length === 0) {
+      return NextResponse.json(
+        {
+          error: "YouTube 検索結果が 0 件でした。テーマの言い方を変えて再検索してください。",
+          candidates: [],
+          searchSources: searchResult.sources,
+        },
+        { status: 422 },
+      );
+    }
 
-改変にあたり以下を必ず考慮してください：
-- 視聴者（40〜60代、ITリテラシー初〜中級）の言葉で表現する
-- チャンネルの品質基準（具体的・再現可能・驚き要素）を満たす
-- 元テーマのエッセンスは残しつつ、より刺さる切り口にする
-- 切り口・フック・ターゲット層をそれぞれ変えて多様な案を出す
+    const config = await loadChannelConfig();
+    const systemPrompt = buildSystemPrompt(config);
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-最低6件・最大10件。質を妥協せず異なる角度で提案すること。
+    const userPrompt = buildThemeSearchUserPrompt(
+      searchQuery,
+      searchResult,
+      `入力テーマ：「${theme}」
 
-以下のJSON配列形式のみで回答してください：
+上記を踏まえ、入力テーマを「効率化オタクのあらきり」チャンネル向けに改変した候補を 6〜10 件出してください。
+- 視聴者（40〜60代、ITリテラシー初〜中級）の言葉で表現
+- YouTube を第一指標とし、元テーマのエッセンスは残して多様化
+- reason には参照した YouTube 動画タイトルを必ず 1 件以上含める
+
+以下の JSON 配列形式のみで回答してください：
 [
   {
     "title": "改変後のタイトル案",
-    "hook": "最初の30秒で言うフック文",
-    "targetPain": "視聴者のどの悩み・欲求に当たるか",
-    "reason": "この切り口が刺さる理由（2〜3行）",
+    "hook": "最初の30秒のフック文",
+    "targetPain": "視聴者の悩み",
+    "reason": "参照 YouTube 動画タイトルと改変理由（2〜3行）",
     "score": "high | medium | low"
   }
 ]`,
-      },
-    ],
-  });
+    );
 
-  let candidates: ThemeCandidate[] = [];
-  try {
-    const text = message.content[0].type === "text" ? message.content[0].text : "[]";
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    candidates = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
-  } catch {
-    candidates = [];
-  }
+    const message = await client.messages.create({
+      model: "claude-opus-4-5",
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
 
-  return NextResponse.json({ candidates });
+    let candidates: ThemeCandidate[] = [];
+    try {
+      const text = message.content[0].type === "text" ? message.content[0].text : "[]";
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      candidates = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    } catch {
+      candidates = [];
+    }
+
+    return NextResponse.json({
+      candidates,
+      searchSources: searchResult.sources,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[adapt-theme]", msg);

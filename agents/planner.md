@@ -2,7 +2,7 @@
 
 > 入力：テーマ（自然言語）
 > 出力：企画書（切り口3案、競合分析、差別化ポイント）
-> 参照SSOT：config/brand.md, config/audience.md
+> 参照SSOT：config/brand.md, config/audience.md, config/planning.md（目次案）
 
 ---
 
@@ -11,6 +11,8 @@
 テーマを受け取り、あらきりチャンネルに最適な切り口を提案する。
 「ズボラでもできる」「40-60代に響く」という軸でテーマを料理する。
 企画書を Markdown で書くときは `**` 太字記法は使わない。
+目次案（セクション見出し）は [config/planning.md](../config/planning.md) に従う。構成ラベル（本題・まとめ・導入等）は禁止。
+チェックリスト：[planner-outline-rubric.md](planner-outline-rubric.md)
 
 ---
 
@@ -175,5 +177,6 @@
 
 ## 参照ドキュメント
 
+- [config/planning.md](../config/planning.md) - 企画書・目次案
 - [config/brand.md](../config/brand.md) - ブランド定義
 - [config/audience.md](../config/audience.md) - 視聴者ペルソナ

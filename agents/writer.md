@@ -2,7 +2,7 @@
 
 > 入力：承認された構成案
 > 出力：台本（導入・本題・まとめの完全な原稿）
-> 参照SSOT：config/voice.md, templates/*, examples/*
+> 参照SSOT：config/voice.md, config/planning.md（## 見出し）, templates/*, examples/*
 
 ---
 

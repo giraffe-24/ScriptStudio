@@ -38,19 +38,20 @@ ${reason ? `選定理由：${reason}` : ""}
     "コンテンツの核となるポイント3"
   ],
   "outline": [
-    { "section": "導入", "content": "内容の概要" },
-    { "section": "本題 - 〇〇の設定", "content": "内容の概要" },
-    { "section": "本題 - 〇〇の確認", "content": "内容の概要" },
-    { "section": "まとめ", "content": "内容の概要" }
+    { "section": "なぜ今この設定が必要か", "content": "視聴者の悩みと解決の全体像" },
+    { "section": "Geminiに食事ログを送る習慣づくり", "content": "写真・メモのテンプレと声かけ例" },
+    { "section": "3か月続けたときの振り返り方", "content": "体重・体調・続けやすさのチェック" }
   ],
   "competitorAnalysis": "競合動画との差別化ポイント（2〜3行）",
   "estimatedLength": "想定動画尺（例：8〜12分）"
 }
 
-目次案（outline.section）のルール：
+目次案（outline.section）のルール（config/planning.md 厳守）：
+- 視聴者にそのまま見せる内容見出しだけを書く（構成ラベル禁止）
+- 「本題」「まとめ」「導入」「本題 - 〇〇」「【本題】」等は絶対に使わない
 - 時間・尺・タイムコードを入れない（「0:00」「5分」「（3:00〜）」等は禁止）
 - 尺の目安は estimatedLength にのみ書く
-- section には内容を表す見出し名だけを書く`,
+- section には章のトピック名だけ。手順の詳細は content 欄へ`,
         },
       ],
     });

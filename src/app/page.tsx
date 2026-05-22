@@ -1,13 +1,13 @@
 "use client";
 
-import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import YouTubeIcon from "@image/YouTubeIcon.svg";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
 import { ThemeInput } from "@/components/ThemeInput";
 import { PlanningDoc } from "@/components/PlanningDoc";
 import { ScriptPane } from "@/components/ScriptPane";
-import type { Episode, ThemeCandidate, ThemePattern } from "@/lib/types";
+import type { Episode, EpisodeStatus, ThemeCandidate, ThemePattern } from "@/lib/types";
 
 interface Plan {
   episodeTitle: string;
@@ -29,9 +29,28 @@ export default function Home() {
   const [newEpisodeMode, setNewEpisodeMode] = useState(false);
   const [creatingEpisode, setCreatingEpisode] = useState(false);
   const [inferringPlan, setInferringPlan] = useState(false);
-  const [titleOverride, setTitleOverride] = useState<{ id: string; title: string } | undefined>(undefined);
+  const [titleOverride, setTitleOverride] = useState<{ slug: string; title: string } | undefined>(undefined);
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const numberSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scriptGenerateKey, setScriptGenerateKey] = useState(0);
+  const [nextEpisodeNumber, setNextEpisodeNumber] = useState<number | null>(null);
+  const [numberOverride, setNumberOverride] = useState<{ slug: string; number: number } | undefined>(undefined);
+  const [statusOverride, setStatusOverride] = useState<{ slug: string; status: EpisodeStatus } | undefined>(undefined);
+  const [workspaceResetKey, setWorkspaceResetKey] = useState(0);
+
+  useEffect(() => {
+    if (!newEpisodeMode || selectedEpisode) {
+      setNextEpisodeNumber(null);
+      return;
+    }
+    fetch("/api/files?action=list")
+      .then((r) => r.json())
+      .then((d) => {
+        const max = Math.max(0, ...(d.episodes ?? []).map((e: Episode) => e.number));
+        setNextEpisodeNumber(max + 1);
+      })
+      .catch(() => setNextEpisodeNumber(null));
+  }, [newEpisodeMode, selectedEpisode]);
 
   async function handlePlanReady(plan: Plan, title: string) {
     let episode = selectedEpisode;
@@ -41,6 +60,7 @@ export default function Home() {
       const listRes = await fetch("/api/files?action=list");
       const listData = await listRes.json();
       const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
+      const assignNumber = nextEpisodeNumber ?? maxNumber + 1;
 
       const res = await fetch("/api/files", {
         method: "POST",
@@ -48,14 +68,14 @@ export default function Home() {
         body: JSON.stringify({
           action: "create",
           episode: {
-            id: String(maxNumber + 1),
-            number: maxNumber + 1,
+            id: String(assignNumber),
+            number: assignNumber,
             slug:
               title
                 .toLowerCase()
                 .replace(/[^\w\s-]/g, "")
                 .replace(/\s+/g, "-")
-                .slice(0, 30) || `episode-${maxNumber + 1}`,
+                .slice(0, 30) || `episode-${assignNumber}`,
             title,
             status: "scripting",
             themePattern: pattern,
@@ -91,10 +111,17 @@ export default function Home() {
   }
 
   function handleNewEpisode() {
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
     setSelectedEpisode(null);
     setSelectedCandidate(null);
     setCurrentPlan(null);
     setNewEpisodeMode(true);
+    setInferringPlan(false);
+    setTitleOverride(undefined);
+    setNumberOverride(undefined);
+    setStatusOverride(undefined);
+    setWorkspaceResetKey((k) => k + 1);
   }
 
   async function handleEpisodeSelect(ep: Episode) {
@@ -103,6 +130,8 @@ export default function Home() {
     setSelectedCandidate(null);
     setCurrentPlan(null);
     setTitleOverride(undefined);
+    setNumberOverride(undefined);
+    setStatusOverride(undefined);
 
     // plan.json を読み込む。なければ台本から推論して保存
     const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
@@ -160,7 +189,7 @@ export default function Home() {
 
     // エピソード一覧をリアルタイム更新
     if (selectedEpisode) {
-      setTitleOverride({ id: selectedEpisode.id, title });
+      setTitleOverride({ slug: selectedEpisode.slug, title });
 
       // manifest への書き込みは 800ms デバウンス
       if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
@@ -179,12 +208,69 @@ export default function Home() {
     }
   }
 
+  function handleEpisodeNumberChange(newNumber: number) {
+    if (selectedEpisode) {
+      const slug = selectedEpisode.slug;
+      const oldNumber = selectedEpisode.number;
+
+      setSelectedEpisode({ ...selectedEpisode, id: String(newNumber), number: newNumber });
+      setNumberOverride({ slug, number: newNumber });
+
+      if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
+      numberSaveTimer.current = setTimeout(async () => {
+        const res = await fetch("/api/files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update-number",
+            oldNumber,
+            slug,
+            newNumber,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: res.statusText }));
+          alert(err.error ?? "番号の更新に失敗しました");
+          setSelectedEpisode({ ...selectedEpisode, id: String(oldNumber), number: oldNumber });
+          setNumberOverride(undefined);
+          return;
+        }
+        const data = await res.json();
+        setSelectedEpisode(data.episode);
+        setNumberOverride(undefined);
+        setEpisodeRefreshKey((k) => k + 1);
+      }, 800);
+      return;
+    }
+
+    setNextEpisodeNumber(newNumber);
+  }
+
+  async function handleStatusChange(ep: Episode, status: EpisodeStatus) {
+    setStatusOverride({ slug: ep.slug, status });
+    if (selectedEpisode?.slug === ep.slug) {
+      setSelectedEpisode({ ...selectedEpisode, status });
+    }
+
+    await fetch("/api/files", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update-status",
+        number: ep.number,
+        slug: ep.slug,
+        status,
+      }),
+    });
+  }
+
   async function handleRegister() {
     // エピソードがまだ存在しない場合は新規作成
     if (!selectedEpisode) {
       const listRes = await fetch("/api/files?action=list");
       const listData = await listRes.json();
       const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
+      const assignNumber = nextEpisodeNumber ?? maxNumber + 1;
       const title = currentPlan?.episodeTitle ?? "untitled";
       const res = await fetch("/api/files", {
         method: "POST",
@@ -192,9 +278,9 @@ export default function Home() {
         body: JSON.stringify({
           action: "create",
           episode: {
-            id: String(maxNumber + 1),
-            number: maxNumber + 1,
-            slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 30) || `episode-${maxNumber + 1}`,
+            id: String(assignNumber),
+            number: assignNumber,
+            slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 30) || `episode-${assignNumber}`,
             title,
             status: "scripting",
             themePattern: pattern,
@@ -218,8 +304,12 @@ export default function Home() {
       <div className="w-52 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
         <EpisodeList
           selectedId={selectedEpisode?.id ?? null}
+          selectedSlug={selectedEpisode?.slug ?? null}
           titleOverride={titleOverride}
+          numberOverride={numberOverride}
+          statusOverride={statusOverride}
           onSelect={handleEpisodeSelect}
+          onStatusChange={handleStatusChange}
           refreshKey={episodeRefreshKey}
         />
       </div>
@@ -228,13 +318,13 @@ export default function Home() {
         /* ウェルカム画面 */
         <div className="flex-1 flex items-center justify-center bg-white">
           <div className="text-center max-w-sm">
-            <Image
-              src="/Image/YouTubeIcon.svg"
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={YouTubeIcon.src}
               alt="YT_TalkScript Studio"
               width={80}
               height={68}
               className="mx-auto mb-6"
-              priority
             />
             <h2 className="text-xl font-bold text-gray-700 mb-2">YT_TalkScript Studio</h2>
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
@@ -271,7 +361,7 @@ export default function Home() {
                   setSelectedCandidate(null);
                 }}
               />
-              <ThemeInput pattern={pattern} onSelect={(c) => setSelectedCandidate(c)} />
+              <ThemeInput key={workspaceResetKey} pattern={pattern} onSelect={(c) => setSelectedCandidate(c)} />
             </div>
           </div>
 
@@ -301,10 +391,13 @@ export default function Home() {
                 </div>
               ) : (
                 <PlanningDoc
+                  key={workspaceResetKey}
                   candidate={selectedCandidate}
                   plan={currentPlan}
+                  episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
                   onPlanReady={handlePlanReady}
                   onTitleChange={handleTitleChange}
+                  onEpisodeNumberChange={handleEpisodeNumberChange}
                   onPlanChange={handlePlanChange}
                 />
               )}
@@ -314,8 +407,9 @@ export default function Home() {
           {/* Pane 4: 台本 */}
           <div className="flex-1 bg-white overflow-hidden flex flex-col">
             <ScriptPane
+              key={workspaceResetKey}
               plan={currentPlan}
-              episodeNumber={selectedEpisode?.number ?? null}
+              episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
               episodeSlug={selectedEpisode?.slug ?? ""}
               generateKey={scriptGenerateKey}
               onScriptSaved={handleScriptSaved}

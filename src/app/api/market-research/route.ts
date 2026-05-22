@@ -2,113 +2,81 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import type { ThemeCandidate } from "@/lib/types";
-
-interface YouTubeVideo {
-  title: string;
-  channelTitle: string;
-  viewCount?: string;
-  subscriberCount?: string;
-}
-
-async function fetchYouTubeVideos(query: string): Promise<YouTubeVideo[]> {
-  const apiKey = process.env.YOUTUBE_DATA_API_KEY;
-  if (!apiKey) return [];
-
-  const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
-  searchUrl.searchParams.set("part", "snippet");
-  searchUrl.searchParams.set("q", query);
-  searchUrl.searchParams.set("type", "video");
-  searchUrl.searchParams.set("order", "viewCount");
-  searchUrl.searchParams.set("maxResults", "20");
-  searchUrl.searchParams.set("regionCode", "JP");
-  searchUrl.searchParams.set("relevanceLanguage", "ja");
-  searchUrl.searchParams.set("key", apiKey);
-
-  const searchRes = await fetch(searchUrl.toString());
-  const searchData = await searchRes.json();
-  if (!searchData.items) return [];
-
-  const videoIds = searchData.items.map((item: { id: { videoId: string } }) => item.id.videoId).join(",");
-
-  const statsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
-  statsUrl.searchParams.set("part", "statistics,snippet");
-  statsUrl.searchParams.set("id", videoIds);
-  statsUrl.searchParams.set("key", apiKey);
-
-  const statsRes = await fetch(statsUrl.toString());
-  const statsData = await statsRes.json();
-
-  return (statsData.items ?? []).map((item: {
-    snippet: { title: string; channelTitle: string };
-    statistics: { viewCount?: string };
-  }) => ({
-    title: item.snippet.title,
-    channelTitle: item.snippet.channelTitle,
-    viewCount: item.statistics.viewCount,
-  }));
-}
+import { buildThemeSearchUserPrompt, runThemeSearch } from "@/lib/theme-search";
 
 export async function POST(req: NextRequest) {
   try {
-  const { category } = await req.json();
+    const { category } = await req.json();
 
-  const config = await loadChannelConfig();
-  const systemPrompt = buildSystemPrompt(config);
+    if (!process.env.YOUTUBE_DATA_API_KEY) {
+      return NextResponse.json(
+        {
+          error:
+            "YOUTUBE_DATA_API_KEY が未設定です。テーマ選定には YouTube 検索が必要です（.env を確認してください）。",
+        },
+        { status: 503 },
+      );
+    }
 
-  const searchQuery = category
-    ? `${category} スマホ 便利 簡単 設定`
-    : "スマホ 便利 使い方 設定 無料 Google 効率化";
+    const searchQuery = category
+      ? `${category} スマホ 便利 簡単 設定`
+      : "スマホ 便利 使い方 設定 無料 Google 効率化";
 
-  const videos = await fetchYouTubeVideos(searchQuery);
+    const searchResult = await runThemeSearch(searchQuery);
 
-  const hasYouTubeData = videos.length > 0;
-  const videoSummary = hasYouTubeData
-    ? videos
-        .slice(0, 15)
-        .map((v, i) => `${i + 1}. 「${v.title}」(${v.channelTitle}, ${Number(v.viewCount ?? 0).toLocaleString()}回再生)`)
-        .join("\n")
-    : "（YouTube API 未設定のため、AIの知識ベースで分析します）";
+    if (searchResult.youtube.length === 0) {
+      return NextResponse.json(
+        {
+          error: "YouTube 検索結果が 0 件でした。カテゴリを変えて再検索してください。",
+          candidates: [],
+          searchSources: searchResult.sources,
+        },
+        { status: 422 },
+      );
+    }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const config = await loadChannelConfig();
+    const systemPrompt = buildSystemPrompt(config);
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const message = await client.messages.create({
-    model: "claude-opus-4-5",
-    max_tokens: 2048,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: `以下は${hasYouTubeData ? "YouTubeで再生数が多い動画のリスト" : "分析のリクエスト"}です。
+    const userPrompt = buildThemeSearchUserPrompt(
+      searchQuery,
+      searchResult,
+      `あなたのチャンネル「効率化オタクのあらきり」の視聴者（40〜60代、ITリテラシー初〜中級、Google系・無料ツール好き）に刺さるテーマ候補を 6〜10 件提案してください。
+各候補は YouTube リストの動画タイトル・切り口から直接連想できるものを優先し、リストにない話題は出さないこと。
 
-${videoSummary}
-
-あなたのチャンネル「効率化オタクのあらきり」の視聴者（40〜60代、ITリテラシー初〜中級、Google系・無料ツール好き）に刺さるテーマ候補を8件提案してください。
-最低6件・最大10件。質を妥協せず、それぞれ異なる切り口・テーマで提案すること。
-
-以下のJSON配列形式で回答してください。他の説明文は不要です：
+以下の JSON 配列形式のみで回答してください：
 [
   {
-    "title": "動画タイトル案（視聴者に刺さる言葉を使ったもの）",
-    "hook": "最初の30秒で言うフック文（視聴者の悩みを直撃する一文）",
-    "targetPain": "audience.md のどの恐れ・欲求に当たるか（1〜2行）",
-    "reason": "なぜ今このテーマが視聴者に刺さるか（2〜3行）",
+    "title": "動画タイトル案",
+    "hook": "最初の30秒のフック文",
+    "targetPain": "視聴者の悩み（1〜2行）",
+    "reason": "参照した YouTube 動画タイトルを必ず含め、なぜ刺さるか（2〜3行。Google/X は補足可）",
     "score": "high | medium | low"
   }
 ]`,
-      },
-    ],
-  });
+    );
 
-  let candidates: ThemeCandidate[] = [];
-  try {
-    const text = message.content[0].type === "text" ? message.content[0].text : "[]";
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    candidates = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
-  } catch {
-    candidates = [];
-  }
+    const message = await client.messages.create({
+      model: "claude-opus-4-5",
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
 
-  return NextResponse.json({ candidates, hasYouTubeData });
+    let candidates: ThemeCandidate[] = [];
+    try {
+      const text = message.content[0].type === "text" ? message.content[0].text : "[]";
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      candidates = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    } catch {
+      candidates = [];
+    }
+
+    return NextResponse.json({
+      candidates,
+      searchSources: searchResult.sources,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[market-research]", msg);

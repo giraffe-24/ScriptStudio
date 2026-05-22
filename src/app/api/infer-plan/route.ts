@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import { sanitizePlanOutline } from "@/lib/plan-outline";
 
 export async function POST(req: NextRequest) {
@@ -7,11 +8,14 @@ export async function POST(req: NextRequest) {
     const { script, title } = await req.json();
     if (!script) return NextResponse.json({ error: "script required" }, { status: 400 });
 
+    const config = await loadChannelConfig();
+    const systemPrompt = buildSystemPrompt(config);
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const message = await client.messages.create({
       model: "claude-opus-4-5",
       max_tokens: 2000,
+      system: systemPrompt,
       messages: [
         {
           role: "user",
@@ -31,13 +35,16 @@ ${script.slice(0, 6000)}
   "promise": "この動画で視聴者が得られるもの（1〜2行）",
   "keyPoints": ["キーポイント1", "キーポイント2", "キーポイント3"],
   "outline": [
-    { "section": "セクション名（## 見出しから。時間表記は除く）", "content": "内容の要約（1行）" }
+    { "section": "視聴者向けの内容見出し（## 見出しから。構成ラベル禁止）", "content": "内容の要約（1行）" }
   ],
   "competitorAnalysis": "このテーマの競合・市場感（1〜2行）",
   "estimatedLength": "推定尺（台本の長さから）"
 }
 
-outline.section には時間・タイムコード（0:00、5分など）を入れないこと。尺は estimatedLength のみ。`,
+outline.section のルール（config/planning.md 厳守）：
+- 台本 ## 見出しから抽出するが、「本題」「まとめ」「導入」等の構成ラベルは除去し内容見出しだけ残す
+- 「本題 - 〇〇」は「〇〇」だけにする
+- 時間・タイムコード（0:00、5分など）は入れない。尺は estimatedLength のみ`,
         },
       ],
     });

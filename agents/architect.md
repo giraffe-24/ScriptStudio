@@ -2,15 +2,16 @@
 
 > 入力：承認された切り口（企画書）
 > 出力：構成案（台本タイプ選定、セクション設計、各セクション要点）
-> 参照SSOT：templates/structure-A.md, structure-B.md, structure-C.md
+> 参照SSOT：templates/structure-A.md, structure-B.md, structure-C.md, config/planning.md（目次案）
 
 ---
 
 ## 役割
 
 承認された切り口を受け取り、台本の骨組みを設計する。
-テンプレートに基づいて、導入・本題・まとめの構成を決める。
+テンプレートに基づいて、導入・本題・まとめの構成を決める（内部設計の枠。公開する目次案見出しに「本題」「まとめ」ラベルは出さない）。
 出力する Markdown では `**` による太字記法は使わない（`config/quality.md`）。
+目次案の見出しルール：[config/planning.md](../config/planning.md)、[planner-outline-rubric.md](planner-outline-rubric.md)
 
 ---
 
@@ -68,6 +69,7 @@
 2. セクション見出しを決める
    - STEP形式 or 番号形式 or 機能名形式
    - 見出しだけで「何をするか」がわかるように
+   - 「本題」「まとめ」「導入」等の構成ラベルは使わない（planning.md）
 
 3. 各セクションの要点を箇条書き
    - 結論（何ができるか）
@@ -206,6 +208,7 @@
 
 ## 参照ドキュメント
 
+- [config/planning.md](../config/planning.md) - 目次案・企画書
 - [templates/structure-A.md](../templates/structure-A.md) - ツール活用型
 - [templates/structure-B.md](../templates/structure-B.md) - 機能紹介型
 - [templates/structure-C.md](../templates/structure-C.md) - まとめ紹介型

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle } from "@/lib/file-manager";
+import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus } from "@/lib/file-manager";
+import { normalizeEpisodeStatus, type EpisodeStatus } from "@/lib/episode-status";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -49,6 +50,22 @@ export async function POST(req: NextRequest) {
   if (body.action === "update-title") {
     await updateManifestTitle(body.number, body.slug, body.title);
     return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "update-number") {
+    try {
+      const episode = await updateEpisodeNumber(body.oldNumber, body.slug, body.newNumber);
+      return NextResponse.json({ episode });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
+  }
+
+  if (body.action === "update-status") {
+    const status = normalizeEpisodeStatus(body.status);
+    await updateManifestStatus(body.number, body.slug, status);
+    return NextResponse.json({ ok: true, status });
   }
 
   return NextResponse.json({ error: "unknown action" }, { status: 400 });

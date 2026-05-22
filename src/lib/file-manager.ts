@@ -1,6 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import type { Episode } from "./types";
+import { normalizeEpisodeStatus, type EpisodeStatus } from "./episode-status";
+import { sortEpisodesByNumberDesc } from "./episode-sort";
 
 const ROOT = process.cwd();
 const OUTPUTS_DIR = path.join(ROOT, "outputs");
@@ -20,7 +22,7 @@ export async function listEpisodes(): Promise<Episode[]> {
         number: Number(m.id ?? 0),
         slug: m.slug ?? entry.name,
         title: m.title ?? entry.name,
-        status: m.status ?? "planning",
+        status: normalizeEpisodeStatus(m.status),
         themePattern: m.theme_pattern,
         createdAt: m.created_at ?? "",
         hook: m.hook,
@@ -32,7 +34,7 @@ export async function listEpisodes(): Promise<Episode[]> {
     }
   }
 
-  return episodes.sort((a, b) => b.number - a.number);
+  return sortEpisodesByNumberDesc(episodes);
 }
 
 export async function createEpisode(episode: Omit<Episode, "createdAt">): Promise<Episode> {
@@ -84,7 +86,7 @@ export async function readPlan(number: number, slug: string): Promise<Record<str
   try { return JSON.parse(content); } catch { return null; }
 }
 
-export async function updateManifestStatus(number: number, slug: string, status: string): Promise<void> {
+export async function updateManifestStatus(number: number, slug: string, status: EpisodeStatus): Promise<void> {
   const dirName = `${String(number).padStart(2, "0")}-${slug}`;
   const manifestPath = path.join(OUTPUTS_DIR, dirName, "manifest.json");
   const raw = await fs.readFile(manifestPath, "utf-8");
@@ -100,4 +102,52 @@ export async function updateManifestTitle(number: number, slug: string, title: s
   const m = JSON.parse(raw);
   m.title = title;
   await fs.writeFile(manifestPath, JSON.stringify(m, null, 2));
+}
+
+export async function updateEpisodeNumber(
+  oldNumber: number,
+  slug: string,
+  newNumber: number,
+): Promise<Episode> {
+  if (oldNumber === newNumber) {
+    const episodes = await listEpisodes();
+    const current = episodes.find((e) => e.number === oldNumber && e.slug === slug);
+    if (!current) throw new Error("Episode not found");
+    return current;
+  }
+
+  const oldDirName = `${String(oldNumber).padStart(2, "0")}-${slug}`;
+  const newDirName = `${String(newNumber).padStart(2, "0")}-${slug}`;
+  const oldPath = path.join(OUTPUTS_DIR, oldDirName);
+  const newPath = path.join(OUTPUTS_DIR, newDirName);
+
+  const newExists = await fs.access(newPath).then(() => true).catch(() => false);
+  if (newExists) {
+    throw new Error(`#${newNumber} は既に使用されています`);
+  }
+
+  const oldExists = await fs.access(oldPath).then(() => true).catch(() => false);
+  if (!oldExists) {
+    throw new Error("Episode folder not found");
+  }
+
+  const manifestPath = path.join(oldPath, "manifest.json");
+  const raw = await fs.readFile(manifestPath, "utf-8");
+  const m = JSON.parse(raw);
+  m.id = String(newNumber);
+  await fs.writeFile(manifestPath, JSON.stringify(m, null, 2));
+  await fs.rename(oldPath, newPath);
+
+  return {
+    id: String(newNumber),
+    number: newNumber,
+    slug,
+    title: m.title ?? slug,
+    status: normalizeEpisodeStatus(m.status),
+    themePattern: m.theme_pattern,
+    createdAt: m.created_at ?? "",
+    hook: m.hook,
+    targetPain: m.target_pain,
+    reason: m.reason,
+  };
 }
