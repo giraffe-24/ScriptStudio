@@ -8,6 +8,68 @@ interface Props {
   onSelect: (candidate: ThemeCandidate) => void;
 }
 
+const SAMPLE_MARKET: ThemeCandidate[] = [
+  {
+    title: "【40代50代向け】Gmailの未読が0になる！受信トレイ整理術5選",
+    hook: "毎朝メールを開くたびに未読が何百件…もう見るのが怖い、そんな方に今日は劇的に変わる方法をお伝えします",
+    targetPain: "メールが溜まりすぎて何から手をつければいいか分からない・見落としが怖い",
+    reason: "「Gmail 整理」は検索ボリュームが高く、ITに不慣れな層が求める「一度やれば解決する設定系」と相性が良い",
+    score: "high",
+  },
+  {
+    title: "Googleカレンダーとスマホを完全同期！予定を二重管理しない方法",
+    hook: "手帳とスマホとPCで予定がバラバラ、ダブルブッキングしたことがある方、今日から1つにまとめられます",
+    targetPain: "複数デバイス・複数ツールで予定がバラバラ、管理が面倒",
+    reason: "Google カレンダーとスマホ連携は「知っているようで知らない」層が多く、ハウツー需要が安定して高い",
+    score: "high",
+  },
+  {
+    title: "Androidのバッテリーが長持ちする！今すぐできる設定7つ",
+    hook: "夕方には電池が残り10%…充電器を持ち歩くのが当たり前になっていませんか？",
+    targetPain: "バッテリーの減りが早い、外出先で充電切れが心配",
+    reason: "「バッテリー 長持ち 設定」は常に検索上位。操作手順が明確で再現性が高く、視聴完了率が出やすい",
+    score: "medium",
+  },
+  {
+    title: "Google フォトで家族の写真を自動整理！アルバム作成を全自動化する",
+    hook: "スマホの容量がいっぱいで写真が撮れない…でも消すのは怖い。そんな方に今日は完全解決の方法を",
+    targetPain: "写真が溜まりすぎてスマホ容量がいっぱい、整理する時間がない",
+    reason: "Google フォトの自動バックアップ・アルバム機能は50代以上に需要が高く、家族向けコンテンツとして差別化できる",
+    score: "medium",
+  },
+  {
+    title: "LINEの通知をすっきり整理！重要な連絡だけ受け取る設定方法",
+    hook: "LINEの通知が鳴るたびにびっくりして…でも全部オフにすると大事な連絡を見逃しそう",
+    targetPain: "LINE通知が多すぎてストレス、でも全オフにするのは不安",
+    reason: "LINEの通知管理はシニア層の悩みトップ3に入る定番テーマ。設定画面の解説が具体的に作れる",
+    score: "medium",
+  },
+];
+
+const SAMPLE_ADAPT = (theme: string): ThemeCandidate[] => [
+  {
+    title: `【40代50代向け】${theme}を3ステップで完全解決`,
+    hook: `「${theme}」って難しそう…そう思っていた方、今日は誰でも5分でできる方法をお伝えします`,
+    targetPain: "やり方が分からず後回しにしている・失敗が怖い",
+    reason: "具体的なステップ数と「誰でもできる」訴求でクリック率が上がる定番フォーマット",
+    score: "high",
+  },
+  {
+    title: `知らないと損する「${theme}」完全ガイド`,
+    hook: `実は「${theme}」を使いこなすだけで、毎日の◯◯が劇的に楽になります。今日初めて知る方も多いはず`,
+    targetPain: "存在は知っているが使い方が分からず活用できていない",
+    reason: "「知らないと損する」は損失回避心理を刺激する鉄板フック。検索意図とマッチしやすい",
+    score: "high",
+  },
+  {
+    title: `${theme}の設定はこれだけでOK！時短で終わる手順を解説`,
+    hook: `「${theme}の設定って面倒そう」と避けていた方、実は10分あれば全部終わります`,
+    targetPain: "設定が複雑そうで取り掛かれない・時間がかかりそうで後回しにしている",
+    reason: "「時短」「これだけでOK」は行動障壁を下げるワードとして再生数・保存率の両方に効く",
+    score: "medium",
+  },
+];
+
 const SCORE_BORDER = {
   high: "border-blue-300",
   medium: "border-yellow-300",
@@ -62,7 +124,8 @@ export function ThemeInput({ pattern, onSelect }: Props) {
           body: JSON.stringify({ category }),
         });
         const data = await res.json();
-        setCandidates(data.candidates ?? []);
+        const results: ThemeCandidate[] = data.candidates ?? [];
+        setCandidates(results.length > 0 ? results : SAMPLE_MARKET);
         setHasYouTubeData(data.hasYouTubeData ?? false);
       } else {
         const res = await fetch("/api/adapt-theme", {
@@ -71,8 +134,12 @@ export function ThemeInput({ pattern, onSelect }: Props) {
           body: JSON.stringify({ theme: userTheme }),
         });
         const data = await res.json();
-        setCandidates(data.candidates ?? []);
+        const results: ThemeCandidate[] = data.candidates ?? [];
+        setCandidates(results.length > 0 ? results : SAMPLE_ADAPT(userTheme));
       }
+    } catch (e) {
+      console.error("ThemeInput fetch error:", e);
+      setCandidates(pattern === "market" ? SAMPLE_MARKET : SAMPLE_ADAPT(userTheme));
     } finally {
       setLoading(false);
     }
