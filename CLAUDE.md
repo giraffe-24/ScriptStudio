@@ -21,7 +21,7 @@ agents/
 ├── scout planner architect writer titler reviewer calibrator
 └── reviewer-rubric.md   ← `/チェック` のチェックリスト・採点表（policy は quality.md）
 
-outputs/（直下に成果物 Markdown / HTML）
+outputs/（1案件1フォルダ。直下は 00-discovery.md のみ。詳細: .cursor/rules/outputs-layout.mdc）
 ```
 
 ---

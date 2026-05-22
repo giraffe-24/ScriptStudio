@@ -198,6 +198,12 @@
 
 ---
 
+## 保存先
+
+構成案は企画書と同じ `outputs/{NN}-{slug}/00-plan-and-structure.md` に追記するか、単独ファイルとして同フォルダに置く（詳細: [`.cursor/rules/outputs-layout.mdc`](../.cursor/rules/outputs-layout.mdc)）。
+
+---
+
 ## 参照ドキュメント
 
 - [templates/structure-A.md](../templates/structure-A.md) - ツール活用型

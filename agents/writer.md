@@ -94,7 +94,7 @@
 ```
 0. 体裁（必須）
    - 成果物を Markdown で書く場合、太字の `**〜**` 記法は使わない（config/quality.md・Cursor ルールに準拠）
-   - 印刷・PDF向け単体 HTML: `npm run script-doc -- outputs/03-script.md`（入力は実際の台本ファイルパス・`tools/script-to-doc/export-doc.mjs`。出力は同一フォルダの `.html`）
+   - 印刷・PDF向け単体 HTML: `npm run script-doc -- outputs/{NN}-{slug}/01-script-draft.md`（入力は実際の台本ファイルパス・`tools/script-to-doc/export-doc.mjs`。出力は同一フォルダの `.html`）
 
 1. 文字数の確認
    - 合計が3001字以上になっているか（3000字以下はNG）
@@ -108,11 +108,12 @@
    - 誇張表現がないか
    - 競合批判がないか
    - 不安煽りがないか
+   - `config/quality.md` の「視聴者の尊厳を損なうラベル」に当たる言い回しがないか（能力・段位で視聴者を並べない）
 ```
 
 ### STEP 6: 推敲比較用ブロックと再執筆時の結合（必須）
 
-`outputs/` に台本を保存するとき：
+`outputs/{NN}-{slug}/01-script-draft.md` に台本を保存するとき（フォルダ構成: [`.cursor/rules/outputs-layout.mdc`](../.cursor/rules/outputs-layout.mdc)）：
 
 1. ファイル末尾に [config/calibration.md](../config/calibration.md) の「執筆成果物に付ける末尾ブロック」をそのまま付与する（マーカー行は一字一句同じ）。
 2. 同一パスへの再執筆・上書き時：既存ファイルに分割マーカーがあり、マーカーより下に利用者の貼り付け（確定稿）がすでにある場合、新しい本文（A）をマーカーより上に書き換えたあと、マーカー行からファイル末尾までを既存どおり繰り返し掲載し、利用者のブロックを消さない。マーカーが無い旧ファイルは、今回の書き出しでブロックを新設する。

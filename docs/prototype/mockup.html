@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Episode Studio — インタラクティブモックアップ</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  font-size: 13px; color: #1a1a1a; background: #f5f5f5; height: 100vh; overflow: hidden;
+}
+
+/* ── App shell ── */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.topbar {
+  height: 40px; background: #1a1a2e; display: flex; align-items: center;
+  padding: 0 16px; gap: 10px; flex-shrink: 0;
+}
+.topbar-logo { color: #fff; font-weight: 700; font-size: 14px; }
+.topbar-sep { color: #555; }
+.topbar-episode { color: #9ca3af; font-size: 12px; }
+.panes { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Pane 1: Episode list ── */
+.pane-episodes {
+  width: 160px; flex-shrink: 0; background: #fafafa;
+  border-right: 1px solid #e5e5e5; display: flex; flex-direction: column;
+}
+.pane-header { padding: 10px 12px 4px; font-size: 10px; font-weight: 700; color: #999; letter-spacing: 0.8px; text-transform: uppercase; }
+.add-btn {
+  margin: 4px 10px 6px; padding: 5px 8px; border: 1px dashed #ddd; border-radius: 5px;
+  background: none; cursor: pointer; color: #999; font-size: 11px; text-align: center; transition: background .15s;
+}
+.add-btn:hover { background: #f0f0f0; color: #555; }
+.ep-list { flex: 1; overflow-y: auto; }
+.ep-item {
+  display: flex; align-items: flex-start; gap: 6px; padding: 7px 12px;
+  cursor: pointer; color: #555; transition: background .1s; border-left: 3px solid transparent;
+}
+.ep-item:hover { background: #f0f0f0; }
+.ep-item.active { background: #eff6ff; border-left-color: #3b82f6; color: #1d4ed8; font-weight: 500; }
+.ep-icon { font-size: 11px; margin-top: 1px; opacity: .7; flex-shrink: 0; }
+.ep-name { font-size: 11px; line-height: 1.4; }
+
+/* ── Pane 2: Section nav ── */
+.pane-sections {
+  width: 210px; flex-shrink: 0; background: #fff;
+  border-right: 1px solid #e5e5e5; display: flex; flex-direction: column;
+}
+.pane-header-row {
+  padding: 10px 12px 8px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+}
+.pane-title { font-size: 12px; font-weight: 600; color: #333; }
+.icon-btn {
+  display: flex; align-items: center; gap: 4px; background: none; border: none;
+  cursor: pointer; color: #777; font-size: 11px; padding: 3px 6px; border-radius: 4px;
+  transition: background .15s;
+}
+.icon-btn:hover { background: #f5f5f5; color: #333; }
+.section-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.section-item {
+  display: flex; align-items: center; padding: 8px 10px 8px 12px; cursor: pointer;
+  transition: background .1s; border-left: 3px solid transparent; gap: 6px;
+}
+.section-item:hover { background: #f7f7f7; }
+.section-item.active { background: #1a1a2e; border-left-color: #1a1a2e; }
+.section-item.active .sec-num,
+.section-item.active .sec-name { color: #fff; }
+.section-item.active .sec-time { color: #6b7280; }
+.section-item.has-change { border-left-color: #22c55e; }
+.section-item.has-change:not(.active) { background: #f0fdf4; }
+.sec-num { font-size: 11px; color: #bbb; width: 14px; flex-shrink: 0; }
+.sec-name-wrap { flex: 1; min-width: 0; }
+.sec-name {
+  font-size: 12px; color: #444; outline: none; border: none; background: transparent;
+  width: 100%; cursor: pointer; font-family: inherit;
+}
+.section-item.active .sec-name { color: #fff; cursor: text; }
+.sec-name:focus { background: rgba(255,255,255,.1); border-radius: 3px; padding: 0 3px; margin: 0 -3px; }
+.sec-time { font-size: 10px; color: #ccc; flex-shrink: 0; }
+.section-add { margin: 4px 10px 8px; padding: 5px; border: 1px dashed #e0e0e0; border-radius: 5px; background: none; cursor: pointer; color: #bbb; font-size: 11px; text-align: center; width: calc(100% - 20px); }
+.section-add:hover { background: #f9f9f9; color: #888; }
+
+/* ── Pane 3: Script editor ── */
+.pane-editor {
+  flex: 1; background: #fff; border-right: 1px solid #e5e5e5;
+  display: flex; flex-direction: column; min-width: 0;
+}
+.editor-toolbar {
+  padding: 8px 16px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #f0f0f0; gap: 10px; flex-shrink: 0;
+}
+.breadcrumb { font-size: 12px; color: #3b82f6; font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.breadcrumb span { color: #cbd5e1; margin: 0 4px; }
+.toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.toggle-wrap { display: flex; align-items: center; gap: 5px; }
+.toggle-label { font-size: 11px; color: #666; white-space: nowrap; }
+.toggle {
+  width: 34px; height: 18px; background: #e5e7eb; border-radius: 9px;
+  position: relative; cursor: pointer; border: none; transition: background .2s; flex-shrink: 0;
+}
+.toggle.on { background: #3b82f6; }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.toggle.on::after { left: 18px; }
+.btn-record {
+  display: flex; align-items: center; gap: 5px; padding: 5px 12px; background: #3b82f6;
+  color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500;
+  transition: background .15s; white-space: nowrap;
+}
+.btn-record:hover { background: #2563eb; }
+.btn-secondary {
+  padding: 5px 10px; background: none; border: 1px solid #e5e7eb;
+  border-radius: 5px; cursor: pointer; font-size: 12px; color: #555; white-space: nowrap;
+  transition: background .15s;
+}
+.btn-secondary:hover { background: #f9f9f9; }
+
+.editor-body { flex: 1; overflow-y: auto; padding: 12px 20px 60px; }
+
+/* ── Paragraph blocks ── */
+.para-block { display: flex; gap: 10px; margin-bottom: 14px; align-items: flex-start; }
+.para-gutter {
+  display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0;
+  width: 28px; padding-top: 6px; gap: 4px;
+}
+.para-num {
+  font-size: 11px; color: #3b82f6; font-weight: 700; font-family: monospace;
+  border-left: 2px solid #3b82f6; padding-left: 4px; transition: border-color .2s, color .2s;
+  line-height: 1.4; cursor: default;
+}
+.para-block.changed .para-num { border-left-color: #22c55e; color: #16a34a; }
+.para-card {
+  flex: 1; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 7px;
+  padding: 0; overflow: hidden; transition: border-color .15s, box-shadow .15s;
+  cursor: default;
+}
+.para-card:hover { border-color: #e5e7eb; }
+.para-block.selected .para-card {
+  border-color: #93c5fd; box-shadow: 0 0 0 2px rgba(59,130,246,.1); background: #fff;
+}
+.para-block.changed .para-card { border-color: #86efac; }
+
+/* Slide memo row */
+.slide-memo-row {
+  display: flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border-bottom: 1px solid #f5f5f5; min-height: 26px;
+}
+.slide-memo-icon { color: #94a3b8; flex-shrink: 0; }
+.slide-memo-input {
+  flex: 1; border: none; background: transparent; font-size: 11px; color: #64748b;
+  outline: none; font-family: inherit; cursor: text; min-width: 0;
+}
+.slide-memo-input::placeholder { color: #c0c0c0; }
+.slide-thumb-mini {
+  width: 28px; height: 18px; background: #1a1a2e; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: 9px; color: #6b7280;
+}
+.slide-assigned-label { font-size: 10px; color: #3b82f6; white-space: nowrap; }
+
+/* Paragraph text area */
+.para-text-wrap { padding: 7px 10px 4px; }
+.para-editable {
+  font-size: 13px; line-height: 1.75; color: #222; outline: none; min-height: 24px;
+  word-break: break-all; white-space: pre-wrap;
+}
+.para-editable:empty::before { content: attr(data-placeholder); color: #ccc; }
+.para-footer { display: flex; justify-content: flex-end; padding: 2px 10px 5px; }
+.para-char { font-size: 10px; color: #d1d5db; }
+
+/* Diff view */
+.diff-old-text {
+  font-size: 13px; line-height: 1.75; color: #dc2626;
+  text-decoration: line-through; text-decoration-thickness: 1.5px;
+  background: #fff5f5; border-radius: 4px; padding: 5px 8px; margin: 5px 10px 0;
+  word-break: break-all; white-space: pre-wrap;
+}
+.diff-divider {
+  display: flex; align-items: center; margin: 5px 10px; gap: 6px; color: #fca5a5; font-size: 10px;
+}
+.diff-divider::before, .diff-divider::after {
+  content: ''; flex: 1; border-top: 1px dashed #fca5a5;
+}
+.diff-new-wrap { background: #f0fdf4; border-radius: 0 0 6px 6px; padding: 5px 10px 4px; }
+.diff-new-wrap .para-text-wrap { padding: 0; }
+.diff-new-wrap .para-editable { color: #166534; }
+.diff-new-wrap .para-footer { padding: 2px 0 3px; }
+
+/* ── Pane 4: Slide picker ── */
+.pane-slides {
+  width: 256px; flex-shrink: 0; background: #f8f9fa;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.slide-context {
+  padding: 8px 12px 6px; border-bottom: 1px solid #ececec; flex-shrink: 0; background: #fff;
+}
+.slide-context-label { font-size: 10px; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.slide-context-text { font-size: 11px; color: #555; line-height: 1.4; }
+.slide-tabs {
+  display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 6px;
+  overflow-x: auto; background: #fff; flex-shrink: 0; gap: 0;
+}
+.slide-tab {
+  padding: 6px 8px; font-size: 11px; color: #888; cursor: pointer; white-space: nowrap;
+  border: none; border-bottom: 2px solid transparent; background: none; transition: color .15s;
+}
+.slide-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 500; }
+.slide-tab:hover:not(.active) { color: #555; }
+.slide-grid { flex: 1; overflow-y: auto; padding: 10px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+.slide-item { display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+.slide-thumb {
+  background: #1a1a2e; border-radius: 6px; aspect-ratio: 16/10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 2px solid transparent; transition: border-color .15s; position: relative;
+  overflow: hidden;
+}
+.slide-thumb:hover { border-color: #60a5fa; }
+.slide-thumb.assigned { border-color: #22c55e; }
+.slide-assigned-badge {
+  position: absolute; top: 3px; right: 3px; width: 15px; height: 15px;
+  background: #22c55e; border-radius: 50%; display: none;
+  align-items: center; justify-content: center;
+}
+.slide-thumb.assigned .slide-assigned-badge { display: flex; }
+.slide-thumb-icon { font-size: 16px; opacity: .55; margin-bottom: 2px; }
+.slide-thumb-title { font-size: 9px; color: #6b7280; text-align: center; padding: 0 4px; }
+.slide-item-label { font-size: 10px; color: #888; text-align: center; }
+
+/* ── Modals ── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.overlay.show { opacity: 1; pointer-events: all; }
+.modal {
+  background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  transform: translateY(10px); transition: transform .2s; overflow: hidden;
+}
+.overlay.show .modal { transform: translateY(0); }
+.modal-head {
+  padding: 16px 18px 0; display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title { font-size: 15px; font-weight: 700; color: #111; }
+.modal-x { background: none; border: none; font-size: 20px; cursor: pointer; color: #aaa; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; line-height: 1; }
+.modal-x:hover { background: #f5f5f5; color: #555; }
+.modal-body { padding: 14px 18px; }
+.modal-foot { padding: 10px 18px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #f3f4f6; }
+.btn-cancel { padding: 6px 14px; background: none; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 13px; color: #555; }
+.btn-cancel:hover { background: #f5f5f5; }
+.btn-primary { padding: 6px 16px; background: #3b82f6; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn-primary:hover { background: #2563eb; }
+
+/* Author modal */
+.modal-author { width: 340px; }
+.field { margin-bottom: 12px; }
+.field-label { font-size: 12px; font-weight: 500; color: #444; margin-bottom: 5px; }
+.field-input { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; font-family: inherit; }
+.field-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
+.field-hint { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+
+/* Commit modal */
+.modal-commit { width: 460px; }
+.commit-stats { display: flex; gap: 16px; margin-bottom: 14px; padding: 10px 12px; background: #f8faff; border-radius: 7px; border: 1px solid #e0eaff; }
+.stat-item { display: flex; flex-direction: column; align-items: center; }
+.stat-num { font-size: 18px; font-weight: 700; line-height: 1.2; }
+.stat-num.green { color: #16a34a; }
+.stat-num.red { color: #dc2626; }
+.stat-num.gray { color: #9ca3af; }
+.stat-label { font-size: 10px; color: #9ca3af; }
+.ai-tag { display: inline-flex; align-items: center; gap: 3px; background: #eff6ff; color: #3b82f6; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-bottom: 5px; }
+.commit-summary-area { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; resize: none; outline: none; line-height: 1.6; font-family: inherit; margin-bottom: 12px; }
+.commit-summary-area:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
+.author-row { display: flex; align-items: center; gap: 8px; }
+.author-avatar { width: 28px; height: 28px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.author-info { font-size: 12px; color: #555; }
+.author-info strong { color: #222; font-size: 13px; }
+
+/* History modal */
+.modal-history { width: 520px; max-height: 80vh; display: flex; flex-direction: column; }
+.modal-history .modal-body { flex: 1; overflow-y: auto; padding-top: 10px; }
+.history-empty { text-align: center; color: #aaa; padding: 30px 0; font-size: 13px; }
+.history-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+.history-item:last-child { border-bottom: none; }
+.h-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.h-meta { flex: 1; min-width: 0; }
+.h-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+.h-author { font-size: 13px; font-weight: 600; color: #111; }
+.h-time { font-size: 11px; color: #aaa; }
+.h-summary { font-size: 12px; color: #444; line-height: 1.5; margin-bottom: 5px; }
+.h-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.h-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+.h-tag.mod { background: #fef3c7; color: #92400e; }
+.h-tag.add { background: #dcfce7; color: #166534; }
+.h-tag.del { background: #fee2e2; color: #991b1b; }
+.h-tag.init { background: #f3f4f6; color: #6b7280; }
+
+/* Preview modal */
+.modal-preview { width: 580px; max-height: 85vh; display: flex; flex-direction: column; }
+.modal-preview .modal-body { flex: 1; overflow-y: auto; }
+.preview-sec { margin-bottom: 18px; }
+.preview-sec-title { font-size: 10px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f0f0f0; }
+.preview-para { margin-bottom: 8px; display: flex; gap: 8px; }
+.preview-pnum { font-size: 10px; color: #94a3b8; font-family: monospace; padding-top: 3px; flex-shrink: 0; width: 20px; }
+.preview-ptext { font-size: 13px; line-height: 1.7; color: #333; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 20px; right: 20px; background: #1a1a2e; color: #fff;
+  padding: 10px 16px; border-radius: 8px; font-size: 12px; z-index: 200;
+  transform: translateY(60px) scale(.95); opacity: 0; transition: all .25s;
+  display: flex; align-items: center; gap: 8px; max-width: 300px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.3);
+}
+.toast.show { transform: translateY(0) scale(1); opacity: 1; }
+.toast-icon { font-size: 14px; flex-shrink: 0; }
+
+/* Guide bar */
+.guide-bar {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+  background: rgba(26,26,46,.82); backdrop-filter: blur(8px);
+  color: #ccc; font-size: 11px; padding: 7px 16px;
+  border-radius: 20px; display: flex; gap: 14px; z-index: 50;
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+}
+.guide-item { display: flex; align-items: center; gap: 5px; }
+kbd { background: rgba(255,255,255,.18); border-radius: 4px; padding: 1px 6px; font-size: 10px; color: #fff; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-logo">Episode Studio</span>
+    <span class="topbar-sep">›</span>
+    <span class="topbar-episode" id="topbar-ep">Windowsの付箋とOneNote同期</span>
+  </div>
+
+  <div class="panes">
+    <!-- P1: Episode list -->
+    <div class="pane-episodes">
+      <div class="pane-header">エピソード一覧</div>
+      <button class="add-btn" id="add-ep-btn">＋ 追加</button>
+      <div class="ep-list" id="ep-list"></div>
+    </div>
+
+    <!-- P2: Section nav -->
+    <div class="pane-sections">
+      <div class="pane-header-row">
+        <span class="pane-title">セクション構成</span>
+        <button class="icon-btn" onclick="openModal('overlay-preview')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          全体を確認
+        </button>
+      </div>
+      <div class="section-list" id="section-list"></div>
+      <button class="section-add" id="add-sec-btn">＋ セクション追加</button>
+    </div>
+
+    <!-- P3: Editor -->
+    <div class="pane-editor">
+      <div class="editor-toolbar">
+        <span class="breadcrumb" id="breadcrumb">—</span>
+        <div class="toolbar-right">
+          <div class="toggle-wrap">
+            <span class="toggle-label">前回との比較</span>
+            <button class="toggle" id="diff-toggle" onclick="toggleDiff()"></button>
+          </div>
+          <button class="btn-record" onclick="openCommitModal()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+            記録
+          </button>
+          <button class="btn-secondary" onclick="openModal('overlay-history')">履歴</button>
+        </div>
+      </div>
+      <div class="editor-body" id="editor-body"></div>
+    </div>
+
+    <!-- P4: Slide picker -->
+    <div class="pane-slides">
+      <div class="slide-context">
+        <div class="slide-context-label">選択中の段落</div>
+        <div class="slide-context-text" id="slide-ctx">段落を選択してください</div>
+      </div>
+      <div class="slide-tabs">
+        <button class="slide-tab active" data-cat="all">すべて</button>
+        <button class="slide-tab" data-cat="title">表紙</button>
+        <button class="slide-tab" data-cat="diagram">図解</button>
+        <button class="slide-tab" data-cat="content">コンテンツ</button>
+        <button class="slide-tab" data-cat="claim">主張</button>
+      </div>
+      <div class="slide-grid" id="slide-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modals ── -->
+<!-- Author -->
+<div class="overlay" id="overlay-author">
+  <div class="modal modal-author">
+    <div class="modal-head"><span class="modal-title">あなたの名前を教えてください</span></div>
+    <div class="modal-body">
+      <div class="field">
+        <div class="field-label">表示名</div>
+        <input class="field-input" id="author-input" type="text" placeholder="例: 荒木" />
+        <div class="field-hint">変更履歴に表示されます。後から変更できます。</div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn-primary" onclick="saveAuthor()">始める</button></div>
+  </div>
+</div>
+
+<!-- Commit -->
+<div class="overlay" id="overlay-commit">
+  <div class="modal modal-commit">
+    <div class="modal-head">
+      <span class="modal-title">変更を記録する</span>
+      <button class="modal-x" onclick="closeModal('overlay-commit')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="commit-stats" id="commit-stats"></div>
+      <div style="margin-bottom:6px;">
+        <span class="ai-tag">✦ AI 要約</span>
+        <span style="font-size:11px;color:#888;">（編集できます）</span>
+      </div>
+      <textarea class="commit-summary-area" id="commit-summary" rows="3" placeholder="変更の要約を入力…"></textarea>
+      <div class="author-row">
+        <div class="author-avatar" id="commit-avatar"></div>
+        <div class="author-info"><strong id="commit-author-name"></strong><br><span id="commit-time"></span></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('overlay-commit')">キャンセル</button>
+      <button class="btn-primary" onclick="doCommit()">記録を確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- History -->
+<div class="overlay" id="overlay-history">
+  <div class="modal modal-history">
+    <div class="modal-head">
+      <span class="modal-title">変更履歴</span>
+      <button class="modal-x" onclick="closeModal('overlay-history')">×</button>
+    </div>
+    <div class="modal-body" id="history-body"></div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal('overlay-history')">閉じる</button></div>
+  </div>
+</div>
+
+<!-- Preview -->
+<div class="overlay" id="overlay-preview">
+  <div class="modal modal-preview">
+    <div class="modal-head">
+      <span class="modal-title">全体プレビュー（読み取り専用）</span>
+      <button class="modal-x" onclick="closeModal('overlay-preview')">×</button>
+    </div>
+    <div class="modal-body" id="preview-body"></div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal('overlay-preview')">閉じる</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span class="toast-icon" id="toast-icon">✓</span><span id="toast-text"></span></div>
+
+<div class="guide-bar">
+  <div class="guide-item"><kbd>Enter</kbd> 段落追加</div>
+  <div class="guide-item"><kbd>記録</kbd> スナップショット保存</div>
+  <div class="guide-item"><kbd>前回との比較</kbd> 差分表示</div>
+  <div class="guide-item"><kbd>👁 全体確認</kbd> 全文プレビュー</div>
+</div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONSTANTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981'];
+const TEMPLATE_DEFS = [
+  { id:'t1', icon:'T', label:'タイトル', title:'Title', cat:'title' },
+  { id:'t2', icon:'⊞', label:'3カラム', title:'3col', cat:'content' },
+  { id:'t3', icon:'☰', label:'箇条書き', title:'List', cat:'content' },
+  { id:'t4', icon:'⇒', label:'フロー図', title:'Flow', cat:'diagram' },
+  { id:'t5', icon:'◫', label:'2分割', title:'Split', cat:'content' },
+  { id:'t6', icon:'①', label:'ステップ図', title:'Step', cat:'diagram' },
+  { id:'t7', icon:'!', label:'主張スライド', title:'Claim', cat:'claim' },
+  { id:'t8', icon:'📊', label:'グラフ', title:'Graph', cat:'diagram' },
+];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let authorName = '荒木';
+let authorColor = AVATAR_COLORS[0];
+let currentEpIdx = 0;
+let currentSecIdx = 0;
+let selectedParaId = null;
+let diffMode = false;
+let slideTabCat = 'all';
+
+const episodes = [
+  { id:'ep1', name:'#54 Windowsの付箋とOneNote同期' },
+  { id:'ep2', name:'#57 Geminiでダイエットコーチ' },
+  { id:'ep3', name:'#56 スマホを軽くする' },
+];
+
+const sections = [
+  [
+    { id:'s1', name:'導入', paras:[
+      { id:'p1', text:'「楽」を極めて最大の結果を出す、効率化オタクのあらきりです。', memo:'', templateId:null },
+      { id:'p2', text:'Windowsのパソコンで書いた付箋を、外出中のスマホでも確認したいと思ったことはありませんか？\nPCとスマホで同じMicrosoftアカウントを使えば、その悩みは解決できます。', memo:'', templateId:'t3' },
+      { id:'p3', text:'今回は「同期の土台を整える」に絞って進めます。細かいメモ術ではなく、まずつながるところまで一緒にやりましょう。', memo:'', templateId:null },
+      { id:'p4', text:'同期には Microsoft アカウントが必要です。なければ、あらかじめ一つ用意しておいてください。', memo:'概要欄にリンクを貼る', templateId:null },
+      { id:'p5', text:'それでは、パソコンとスマホを手元に置いた状態で、進めていきましょう。', memo:'', templateId:null },
+    ]},
+    { id:'s2', name:'今日のゴール', paras:[
+      { id:'p6', text:'ゴールははっきり一つです。Windowsで付箋として書いた内容が、AndroidとiPhoneのOneNoteから確認できる状態にすること。', memo:'', templateId:'t1' },
+      { id:'p7', text:'Androidだけで「Sticky Notesと書かれた単体アプリを一つ入れればそれだけ」と公式が言い切っているわけではありません。', memo:'', templateId:null },
+    ]},
+    { id:'s3', name:'Windows側', paras:[
+      { id:'p8', text:'まずPCです。Windowsの付箋は、正式にはSticky Notesというアプリです。スタートメニューや検索から、普段通りのやり方で開いてください。', memo:'Sticky Notes起動画面を映す', templateId:'t4' },
+      { id:'p9', text:'開けたら、次を確認します。一つ目、問題なく起動できていること。', memo:'', templateId:'t3' },
+      { id:'p10', text:'二つ目、Microsoftアカウントでサインインできていること。右上に歯車アイコンがある構成なら、そこからアカウントまわりを見られることが多いです。', memo:'', templateId:null },
+    ]},
+    { id:'s4', name:'Android側', paras:[
+      { id:'p11', text:'続いてAndroidです。Google PlayからMicrosoftの公式OneNoteをインストールしてください。', memo:'', templateId:null },
+      { id:'p12', text:'起動したら、PCの付箋と同じMicrosoftアカウントでサインインします。', memo:'', templateId:null },
+    ]},
+    { id:'s5', name:'iPhone側', paras:[
+      { id:'p13', text:'iPhoneも、大方の流れはAndroidと同じです。App Storeで「OneNote」を検索し、Microsoftの公式アプリを入れてください。', memo:'', templateId:null },
+    ]},
+    { id:'s6', name:'同期の確認', paras:[
+      { id:'p14', text:'一覧まで来たら、PCのテスト付箋が見えているかを見ます。見えていれば、この時点で目的の大半はクリアです。', memo:'', templateId:null },
+    ]},
+    { id:'s7', name:'トラブル対応', paras:[
+      { id:'p15', text:'環境によっては、同期に時間がかかることがあります。', memo:'', templateId:null },
+      { id:'p16', text:'それでもダメなら、次の三つだけ順に見ます。一つ目、三台すべてが同じMicrosoftアカウントか確認します。', memo:'', templateId:'t6' },
+    ]},
+    { id:'s8', name:'まとめ', paras:[
+      { id:'p17', text:'OneNoteとMicrosoftアカウントさえそろえば、Windowsの付箋で書いたメモを、AndroidでもiPhoneでも一覧として追いかけやすくなります。', memo:'', templateId:null },
+    ]},
+  ]
+];
+
+// スナップショット履歴（デモ用：児玉さんの過去記録を初期値として入れる）
+let snapshots = [
+  {
+    id: Date.now() - 86400000,
+    authorName: '児玉',
+    authorColor: '#8b5cf6',
+    summary: 'Windows側セクションに「テスト用付箋の書き方」の段落を追加。収録前の確認手順を明確にした。',
+    timestamp: Date.now() - 86400000,
+    data: null, // デモ用なのでデータ本体はnull
+  },
+  {
+    id: Date.now() - 172800000,
+    authorName: '荒木',
+    authorColor: '#3b82f6',
+    summary: '初稿を記録。8セクション・17段落で構成。',
+    timestamp: Date.now() - 172800000,
+    data: null,
+  },
+];
+// 最後のスナップショット（差分比較用）
+let lastSnapshot = null;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let pidCounter = 100;
+function newId() { return 'p' + (++pidCounter); }
+
+function getCurrentSec() { return sections[0][currentSecIdx]; }
+function getParaById(id) {
+  for (const secArr of sections) {
+    for (const sec of secArr) {
+      const p = sec.paras.find(p => p.id === id);
+      if (p) return p;
+    }
+  }
+  return null;
+}
+function getTemplate(id) { return TEMPLATE_DEFS.find(t => t.id === id) || null; }
+
+function deepCloneSections() {
+  return sections[0].map(sec => ({
+    ...sec,
+    paras: sec.paras.map(p => ({ ...p }))
+  }));
+}
+
+function charCount(str) { return [...str.replace(/\n/g,'')].length; }
+
+function avatarChar(name) { return name ? [...name][0] : '?'; }
+function avatarColor(name) {
+  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('ja-JP') + ' ' + d.toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DIFF HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function getOldText(paraId) {
+  if (!lastSnapshot) return null;
+  for (const sec of lastSnapshot) {
+    const p = sec.paras.find(p => p.id === paraId);
+    if (p) return p.text;
+  }
+  return null; // paragraph is new (not in snapshot)
+}
+
+function isParaChanged(para) {
+  if (!lastSnapshot) return false;
+  const oldText = getOldText(para.id);
+  if (oldText === null) return true; // new paragraph
+  return oldText !== para.text;
+}
+
+function isSectionChanged(sec) {
+  if (!lastSnapshot) return false;
+  return sec.paras.some(p => isParaChanged(p));
+}
+
+// Generate AI-like summary based on actual diff
+function generateSummary() {
+  const changes = [];
+  let modCount = 0, addCount = 0;
+  const sec = getCurrentSec();
+
+  for (const para of sec.paras) {
+    const old = getOldText(para.id);
+    if (old === null) { addCount++; changes.push(`${sec.name}に段落を追加`); }
+    else if (old !== para.text) { modCount++; }
+  }
+
+  // Check deleted
+  if (lastSnapshot) {
+    const snap = lastSnapshot.find(s => s.id === sec.id);
+    if (snap) {
+      const currentIds = new Set(sec.paras.map(p => p.id));
+      const delCount = snap.paras.filter(p => !currentIds.has(p.id)).length;
+      if (delCount > 0) changes.push(`段落を${delCount}件削除`);
+    }
+  }
+
+  const parts = [];
+  if (modCount > 0) parts.push(`${sec.name}セクションの${modCount}段落を修正`);
+  if (addCount > 0) parts.push(`${addCount}段落を新規追加`);
+  changes.forEach(c => { if (!parts.includes(c)) parts.push(c); });
+
+  if (parts.length === 0) return '変更なし';
+  return parts.join('。') + '。推敲によって表現を改善した。';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER: EPISODE LIST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderEpList() {
+  const list = document.getElementById('ep-list');
+  list.innerHTML = '';
+  episodes.forEach((ep, i) => {
+    const el = document.createElement('div');
+    el.className = 'ep-item' + (i === currentEpIdx ? ' active' : '');
+    el.innerHTML = `<span class="ep-icon">📄</span><span class="ep-name">${ep.name}</span>`;
+    el.onclick = () => { currentEpIdx = i; renderEpList(); toast('✓', ep.name + ' を開きました'); };
+    list.appendChild(el);
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER: SECTION LIST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderSectionList() {
+  const list = document.getElementById('section-list');
+  list.innerHTML = '';
+  sections[0].forEach((sec, i) => {
+    const changed = isSectionChanged(sec);
+    const el = document.createElement('div');
+    el.className = 'section-item' + (i === currentSecIdx ? ' active' : '') + (changed ? ' has-change' : '');
+    el.dataset.idx = i;
+    el.onclick = (e) => { if (e.target.classList.contains('sec-name')) return; selectSection(i); };
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'sec-num';
+    numSpan.textContent = i + 1;
+
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'sec-name-wrap';
+
+    const nameInput = document.createElement('input');
+    nameInput.className = 'sec-name';
+    nameInput.value = sec.name;
+    nameInput.title = 'クリックで名前を変更';
+    nameInput.onclick = (e) => { e.stopPropagation(); if (i === currentSecIdx) nameInput.focus(); else selectSection(i); };
+    nameInput.onblur = () => { sec.name = nameInput.value || sec.name; renderSectionList(); renderBreadcrumb(); };
+    nameInput.onkeydown = (e) => { if (e.key === 'Enter') nameInput.blur(); e.stopPropagation(); };
+    nameWrap.appendChild(nameInput);
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'sec-time';
+    const mins = Math.ceil(sec.paras.length * 0.4);
+    timeSpan.textContent = mins + ':00';
+
+    el.append(numSpan, nameWrap, timeSpan);
+    list.appendChild(el);
+  });
+}
+
+function selectSection(i) {
+  currentSecIdx = i;
+  selectedParaId = null;
+  renderSectionList();
+  renderBreadcrumb();
+  renderEditor();
+  updateSlideCtx();
+}
+
+function renderBreadcrumb() {
+  const sec = getCurrentSec();
+  document.getElementById('breadcrumb').innerHTML =
+    episodes[currentEpIdx].name.replace(/^#\d+ /, '') +
+    ' <span>›</span> ' + (sec ? sec.name : '');
+  document.getElementById('topbar-ep').textContent = episodes[currentEpIdx].name.replace(/^#\d+ /, '');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER: EDITOR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderEditor() {
+  const body = document.getElementById('editor-body');
+  const sec = getCurrentSec();
+  if (!sec) { body.innerHTML = '<div style="color:#ccc;padding:20px;">セクションがありません</div>'; return; }
+  body.innerHTML = '';
+
+  sec.paras.forEach((para, pidx) => {
+    const changed = isParaChanged(para);
+    const oldText = changed ? getOldText(para.id) : null;
+    const isNew = (oldText === null && changed); // brand-new paragraph
+    const isSelected = para.id === selectedParaId;
+    const tpl = getTemplate(para.templateId);
+
+    const block = document.createElement('div');
+    block.className = 'para-block' + (changed ? ' changed' : '') + (isSelected ? ' selected' : '');
+    block.dataset.pid = para.id;
+
+    // Gutter
+    const gutter = document.createElement('div');
+    gutter.className = 'para-gutter';
+    const num = document.createElement('span');
+    num.className = 'para-num';
+    num.textContent = '¶' + (pidx + 1);
+    gutter.appendChild(num);
+
+    // Card
+    const card = document.createElement('div');
+    card.className = 'para-card';
+    card.onclick = (e) => {
+      if (e.target.closest('.slide-memo-row') || e.target.closest('.para-editable')) {
+        selectedParaId = para.id;
+        renderEditor();
+        updateSlideCtx(para);
+      }
+    };
+
+    // Slide memo row
+    const memoRow = document.createElement('div');
+    memoRow.className = 'slide-memo-row';
+
+    const memoIcon = document.createElement('span');
+    memoIcon.className = 'slide-memo-icon';
+    memoIcon.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`;
+
+    if (tpl) {
+      const thumbMini = document.createElement('div');
+      thumbMini.className = 'slide-thumb-mini';
+      thumbMini.textContent = tpl.icon;
+      const assignedLabel = document.createElement('span');
+      assignedLabel.className = 'slide-assigned-label';
+      assignedLabel.textContent = tpl.label;
+      memoRow.append(memoIcon, thumbMini, assignedLabel);
+    }
+
+    const memoInput = document.createElement('input');
+    memoInput.className = 'slide-memo-input';
+    memoInput.type = 'text';
+    memoInput.value = para.memo;
+    memoInput.placeholder = 'スライドメモを追加…';
+    memoInput.onclick = (e) => { e.stopPropagation(); selectedParaId = para.id; renderEditor(); updateSlideCtx(para); };
+    memoInput.oninput = () => { para.memo = memoInput.value; };
+    memoRow.appendChild(memoInput);
+    card.appendChild(memoRow);
+
+    // Diff vs normal content
+    if (diffMode && changed && !isNew && oldText !== null) {
+      // Old text
+      const oldDiv = document.createElement('div');
+      oldDiv.className = 'diff-old-text';
+      oldDiv.textContent = oldText;
+      card.appendChild(oldDiv);
+      // Divider
+      const divider = document.createElement('div');
+      divider.className = 'diff-divider';
+      divider.textContent = '↓ 修正後';
+      card.appendChild(divider);
+      // New text (green bg wrap, read-only in diff mode)
+      const newWrap = document.createElement('div');
+      newWrap.className = 'diff-new-wrap';
+      const textWrap = document.createElement('div');
+      textWrap.className = 'para-text-wrap';
+      const newText = document.createElement('div');
+      newText.className = 'para-editable';
+      newText.contentEditable = 'false';
+      newText.textContent = para.text;
+      textWrap.appendChild(newText);
+      newWrap.appendChild(textWrap);
+      const foot = document.createElement('div');
+      foot.className = 'para-footer';
+      const cc = document.createElement('span');
+      cc.className = 'para-char';
+      cc.textContent = charCount(para.text) + '字';
+      foot.appendChild(cc);
+      newWrap.appendChild(foot);
+      card.appendChild(newWrap);
+    } else if (diffMode && isNew) {
+      // New paragraph added after snapshot
+      const newBadge = document.createElement('div');
+      newBadge.style.cssText = 'font-size:10px;color:#16a34a;background:#dcfce7;display:inline-block;padding:2px 7px;border-radius:10px;margin:6px 10px 0;';
+      newBadge.textContent = '✦ 新規追加';
+      card.appendChild(newBadge);
+      appendEditableText(card, para, true);
+    } else {
+      appendEditableText(card, para, false);
+    }
+
+    block.append(gutter, card);
+    body.appendChild(block);
+  });
+
+  // Show deleted paragraphs (in snapshot but not in current section)
+  if (diffMode && lastSnapshot) {
+    const snapSec = lastSnapshot.find(s => s.id === getCurrentSec().id);
+    if (snapSec) {
+      const currentIds = new Set(getCurrentSec().paras.map(p => p.id));
+      snapSec.paras.forEach((sp, pidx) => {
+        if (!currentIds.has(sp.id)) {
+          // Render ghost deleted paragraph
+          const block = document.createElement('div');
+          block.className = 'para-block';
+          block.style.opacity = '0.5';
+          const gutter = document.createElement('div');
+          gutter.className = 'para-gutter';
+          const num = document.createElement('span');
+          num.className = 'para-num';
+          num.style.borderLeftColor = '#dc2626';
+          num.style.color = '#dc2626';
+          num.textContent = '¶ 削除';
+          gutter.appendChild(num);
+          const card = document.createElement('div');
+          card.className = 'para-card';
+          card.style.background = '#fff5f5';
+          card.style.borderColor = '#fca5a5';
+          const delText = document.createElement('div');
+          delText.className = 'diff-old-text';
+          delText.style.margin = '8px 10px';
+          delText.textContent = sp.text;
+          card.appendChild(delText);
+          block.append(gutter, card);
+          body.appendChild(block);
+        }
+      });
+    }
+  }
+}
+
+function appendEditableText(card, para, readOnly) {
+  const wrap = document.createElement('div');
+  wrap.className = 'para-text-wrap';
+  const editable = document.createElement('div');
+  editable.className = 'para-editable';
+  editable.contentEditable = readOnly ? 'false' : 'true';
+  editable.dataset.placeholder = 'テキストを入力…';
+  editable.textContent = para.text;
+
+  const footer = document.createElement('div');
+  footer.className = 'para-footer';
+  const cc = document.createElement('span');
+  cc.className = 'para-char';
+  cc.textContent = charCount(para.text) + '字';
+  footer.appendChild(cc);
+
+  editable.oninput = () => {
+    para.text = editable.textContent;
+    cc.textContent = charCount(para.text) + '字';
+    if (lastSnapshot) renderSectionList(); // update green indicators
+  };
+
+  editable.onkeydown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const sec = getCurrentSec();
+      const idx = sec.paras.findIndex(p => p.id === para.id);
+      const newPara = { id: newId(), text: '', memo: '', templateId: null };
+      sec.paras.splice(idx + 1, 0, newPara);
+      selectedParaId = newPara.id;
+      renderEditor();
+      renderSectionList();
+      // Focus the new block
+      setTimeout(() => {
+        const newBlock = document.querySelector(`[data-pid="${newPara.id}"] .para-editable`);
+        if (newBlock) { newBlock.focus(); placeCaretAtEnd(newBlock); }
+      }, 30);
+      return;
+    }
+    if (e.key === 'Backspace') {
+      const sec = getCurrentSec();
+      const idx = sec.paras.findIndex(p => p.id === para.id);
+      if (idx > 0 && (para.text === '' || isCaretAtStart(editable))) {
+        e.preventDefault();
+        const prevPara = sec.paras[idx - 1];
+        const prevText = prevPara.text;
+        const paraText = para.text;
+        prevPara.text = prevText + paraText;
+        sec.paras.splice(idx, 1);
+        selectedParaId = prevPara.id;
+        renderEditor();
+        renderSectionList();
+        setTimeout(() => {
+          const prevBlock = document.querySelector(`[data-pid="${prevPara.id}"] .para-editable`);
+          if (prevBlock) {
+            prevBlock.focus();
+            // place caret at the join point
+            if (prevText.length > 0) placeCaretAtOffset(prevBlock, prevText.length);
+            else placeCaretAtEnd(prevBlock);
+          }
+        }, 30);
+        return;
+      }
+    }
+  };
+
+  editable.onfocus = () => {
+    selectedParaId = para.id;
+    document.querySelectorAll('.para-block').forEach(b => b.classList.remove('selected'));
+    const blk = editable.closest('.para-block');
+    if (blk) blk.classList.add('selected');
+    updateSlideCtx(para);
+    renderSlideGrid();
+  };
+
+  wrap.append(editable, footer);
+  card.appendChild(wrap);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SLIDE GRID
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderSlideGrid() {
+  const grid = document.getElementById('slide-grid');
+  const para = selectedParaId ? getParaById(selectedParaId) : null;
+  const templates = slideTabCat === 'all'
+    ? TEMPLATE_DEFS
+    : TEMPLATE_DEFS.filter(t => t.cat === slideTabCat);
+
+  grid.innerHTML = '';
+  templates.forEach(tpl => {
+    const isAssigned = para && para.templateId === tpl.id;
+    const item = document.createElement('div');
+    item.className = 'slide-item';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'slide-thumb' + (isAssigned ? ' assigned' : '');
+    thumb.title = tpl.label;
+    thumb.innerHTML = `
+      <div class="slide-assigned-badge">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="slide-thumb-icon">${tpl.icon}</div>
+      <div class="slide-thumb-title">${tpl.title}</div>
+    `;
+    thumb.onclick = () => {
+      if (!para) { toast('⚠', '先に段落を選択してください'); return; }
+      para.templateId = isAssigned ? null : tpl.id;
+      renderEditor();
+      renderSlideGrid();
+      if (!isAssigned) toast('✓', `¶ に「${tpl.label}」を設定しました`);
+      else toast('✓', 'スライド割り当てを解除しました');
+    };
+
+    const lbl = document.createElement('div');
+    lbl.className = 'slide-item-label';
+    lbl.textContent = tpl.label;
+
+    item.append(thumb, lbl);
+    grid.appendChild(item);
+  });
+}
+
+function updateSlideCtx(para) {
+  const el = document.getElementById('slide-ctx');
+  if (!para) { el.textContent = '段落を選択してください'; return; }
+  const sec = getCurrentSec();
+  const idx = sec ? sec.paras.findIndex(p => p.id === para.id) : -1;
+  const preview = para.text.substring(0, 28) + (para.text.length > 28 ? '…' : '');
+  el.textContent = '¶' + (idx + 1) + '　' + (preview || '（空の段落）');
+}
+
+// Tab clicks
+document.querySelectorAll('.slide-tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.slide-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    slideTabCat = btn.dataset.cat;
+    renderSlideGrid();
+  };
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DIFF MODE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function toggleDiff() {
+  if (!lastSnapshot && !diffMode) {
+    toast('⚠', '先に「記録」を押してスナップショットを作成してください');
+    return;
+  }
+  diffMode = !diffMode;
+  document.getElementById('diff-toggle').classList.toggle('on', diffMode);
+  renderEditor();
+  renderSectionList();
+  toast(diffMode ? '👁' : '✓', diffMode ? '差分表示モードをONにしました' : '差分表示モードをOFFにしました');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SNAPSHOT / COMMIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function openCommitModal() {
+  // Calculate stats across all sections
+  let modCount = 0, addCount = 0, delCount = 0;
+  sections[0].forEach(sec => {
+    const snapSec = lastSnapshot ? lastSnapshot.find(s => s.id === sec.id) : null;
+    sec.paras.forEach(p => {
+      if (!lastSnapshot) return;
+      const old = getOldText(p.id);
+      if (old === null) addCount++;
+      else if (old !== p.text) modCount++;
+    });
+    if (snapSec) {
+      const currentIds = new Set(sec.paras.map(p => p.id));
+      delCount += snapSec.paras.filter(p => !currentIds.has(p.id)).length;
+    }
+  });
+
+  // Stats
+  const statsEl = document.getElementById('commit-stats');
+  statsEl.innerHTML = `
+    <div class="stat-item"><div class="stat-num green">${lastSnapshot ? modCount : '—'}</div><div class="stat-label">修正</div></div>
+    <div class="stat-item"><div class="stat-num green">${lastSnapshot ? addCount : '—'}</div><div class="stat-label">追加</div></div>
+    <div class="stat-item"><div class="stat-num red">${lastSnapshot ? delCount : '—'}</div><div class="stat-label">削除</div></div>
+    <div class="stat-item"><div class="stat-num gray">${sections[0].reduce((s,sec)=>s+sec.paras.length,0)}</div><div class="stat-label">総段落</div></div>
+  `;
+
+  // Summary
+  const summary = lastSnapshot ? generateSummary() : '初回記録。' + sections[0].length + 'セクション・' + sections[0].reduce((s,sec)=>s+sec.paras.length,0) + '段落で構成。';
+  document.getElementById('commit-summary').value = summary;
+
+  // Author
+  const color = avatarColor(authorName);
+  const avatarEl = document.getElementById('commit-avatar');
+  avatarEl.textContent = avatarChar(authorName);
+  avatarEl.style.background = color;
+  document.getElementById('commit-author-name').textContent = authorName;
+  document.getElementById('commit-time').textContent = fmtTime(Date.now());
+
+  openModal('overlay-commit');
+}
+
+function doCommit() {
+  const summary = document.getElementById('commit-summary').value;
+  const snap = {
+    id: Date.now(),
+    authorName,
+    authorColor: avatarColor(authorName),
+    summary,
+    timestamp: Date.now(),
+    data: deepCloneSections(),
+  };
+  snapshots.unshift(snap);
+  lastSnapshot = deepCloneSections();
+  closeModal('overlay-commit');
+  diffMode = false;
+  document.getElementById('diff-toggle').classList.remove('on');
+  renderSectionList();
+  renderEditor();
+  toast('✓', '記録しました — 履歴に保存されました');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HISTORY MODAL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function openModal(id) {
+  if (id === 'overlay-history') renderHistoryModal();
+  if (id === 'overlay-preview') renderPreviewModal();
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function renderHistoryModal() {
+  const body = document.getElementById('history-body');
+  if (snapshots.length === 0) {
+    body.innerHTML = '<div class="history-empty">まだ記録がありません。<br>「記録」ボタンを押してスナップショットを作成してください。</div>';
+    return;
+  }
+  body.innerHTML = '';
+  snapshots.forEach(snap => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'h-avatar';
+    avatar.style.background = snap.authorColor;
+    avatar.textContent = avatarChar(snap.authorName);
+
+    const meta = document.createElement('div');
+    meta.className = 'h-meta';
+
+    // Compare this snapshot with previous one (or initial)
+    const snapIdx = snapshots.indexOf(snap);
+    const prevSnap = snapshots[snapIdx + 1];
+    let modC = 0, addC = 0, delC = 0;
+    if (snap.data) {
+      snap.data.forEach(sec => {
+        const prevSec = (prevSnap && prevSnap.data) ? prevSnap.data.find(s => s.id === sec.id) : null;
+        sec.paras.forEach(p => {
+          if (!prevSnap || !prevSnap.data) { addC++; return; }
+          const old = prevSec ? prevSec.paras.find(pp => pp.id === p.id) : null;
+          if (!old) addC++;
+          else if (old.text !== p.text) modC++;
+        });
+        if (prevSec) {
+          const currIds = new Set(sec.paras.map(p => p.id));
+          delC += prevSec.paras.filter(p => !currIds.has(p.id)).length;
+        }
+      });
+    }
+
+    const tags = [];
+    const isOldest = snapIdx === snapshots.length - 1;
+    if (isOldest || !snap.data) tags.push('<span class="h-tag init">初回記録</span>');
+    if (modC > 0) tags.push(`<span class="h-tag mod">${modC}段落 修正</span>`);
+    if (addC > 0 && !isOldest && snap.data) tags.push(`<span class="h-tag add">${addC}段落 追加</span>`);
+    if (delC > 0) tags.push(`<span class="h-tag del">${delC}段落 削除</span>`);
+
+    meta.innerHTML = `
+      <div class="h-top">
+        <span class="h-author">${snap.authorName}</span>
+        <span class="h-time">${fmtTime(snap.timestamp)}</span>
+      </div>
+      <div class="h-summary">${snap.summary}</div>
+      <div class="h-tags">${tags.join('')}</div>
+    `;
+
+    item.append(avatar, meta);
+    body.appendChild(item);
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PREVIEW MODAL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderPreviewModal() {
+  const body = document.getElementById('preview-body');
+  body.innerHTML = '';
+  sections[0].forEach((sec, si) => {
+    const secDiv = document.createElement('div');
+    secDiv.className = 'preview-sec';
+    const title = document.createElement('div');
+    title.className = 'preview-sec-title';
+    title.textContent = (si + 1) + '  ' + sec.name;
+    secDiv.appendChild(title);
+    sec.paras.forEach((p, pi) => {
+      const row = document.createElement('div');
+      row.className = 'preview-para';
+      row.innerHTML = `<div class="preview-pnum">¶${pi+1}</div><div class="preview-ptext">${p.text || '（空）'}</div>`;
+      secDiv.appendChild(row);
+    });
+    body.appendChild(secDiv);
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AUTHOR SETUP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function saveAuthor() {
+  const val = document.getElementById('author-input').value.trim();
+  authorName = val || 'ユーザー';
+  localStorage.setItem('ep-author', authorName);
+  closeModal('overlay-author');
+  toast('✓', `ようこそ、${authorName} さん！`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADD EPISODE / SECTION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+document.getElementById('add-ep-btn').onclick = () => {
+  const name = prompt('エピソード名を入力してください:', '');
+  if (!name) return;
+  const num = episodes.length + 1;
+  episodes.push({ id: 'ep' + num, name: '#' + (60 + num) + ' ' + name });
+  renderEpList();
+  toast('✓', 'エピソードを追加しました');
+};
+
+document.getElementById('add-sec-btn').onclick = () => {
+  const name = prompt('セクション名を入力してください:', '新しいセクション');
+  if (!name) return;
+  sections[0].push({ id: 'sec' + Date.now(), name, paras: [
+    { id: newId(), text: '', memo: '', templateId: null }
+  ]});
+  renderSectionList();
+  selectSection(sections[0].length - 1);
+  toast('✓', 'セクション「' + name + '」を追加しました');
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TOAST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let toastTimer;
+function toast(icon, msg) {
+  clearTimeout(toastTimer);
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-text').textContent = msg;
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CARET HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function placeCaretAtEnd(el) {
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+function placeCaretAtOffset(el, offset) {
+  el.focus();
+  const textNode = el.firstChild;
+  if (!textNode) return;
+  const range = document.createRange();
+  const safeOffset = Math.min(offset, textNode.length || 0);
+  range.setStart(textNode, safeOffset);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+function isCaretAtStart(el) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return false;
+  const range = sel.getRangeAt(0);
+  return range.startOffset === 0 && (range.startContainer === el || range.startContainer === el.firstChild);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// OVERLAY CLOSE ON BG CLICK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', (e) => {
+    if (e.target === ov && ov.id !== 'overlay-author') closeModal(ov.id);
+  });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DEMO SNAPSHOT（初期表示用：打ち消し線を最初から見せる）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildDemoSnapshot() {
+  // 現在の sections をディープコピーして「前回」データを作る
+  const snap = deepCloneSections();
+  // 導入セクション p2・p3 を「前回の文章」に差し替える
+  const intro = snap.find(s => s.id === 's1');
+  if (intro) {
+    const p2 = intro.paras.find(p => p.id === 'p2');
+    if (p2) p2.text = 'Windowsのパソコンでちょこちょこメモするんだけれど、外出先にはスマホだけ、という方いますよね。実は、PCとスマホ側で公式の流れに沿ってセットアップすれば、同じ付箋の一覧にたどり着けます。';
+    const p3 = intro.paras.find(p => p.id === 'p3');
+    if (p3) p3.text = '今回は、Microsoftアカウントを共通にして、Windowsの付箋で書いた内容が、AndroidとiPhoneでもOneNoteの「付箋」まわりから確認できる状態にするところまで、一緒に整理します。細かいメモ術の講座ではなく、「同期の土台がそろうところ」に絞ります。';
+  }
+  // 今日のゴール p6 も差し替え
+  const goalSec = snap.find(s => s.id === 's2');
+  if (goalSec) {
+    const p6 = goalSec.paras.find(p => p.id === 'p6');
+    if (p6) p6.text = 'ゴールははっきり一つです。Windowsで付箋として書いた内容が、AndroidとiPhoneのOneNoteから、同じMicrosoftアカウントの付箋一覧としてたどれる状態になっていること。';
+  }
+  return snap;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('ep-author');
+  if (saved) {
+    authorName = saved;
+  }
+  document.getElementById('author-input').value = authorName;
+
+  // デモ用スナップショットをセットして最初から差分が見えるようにする
+  lastSnapshot = buildDemoSnapshot();
+  diffMode = true;
+  document.getElementById('diff-toggle').classList.add('on');
+
+  renderEpList();
+  renderSectionList();
+  renderBreadcrumb();
+  renderEditor();
+  renderSlideGrid();
+
+  // Show author modal if no saved name
+  if (!saved) {
+    setTimeout(() => openModal('overlay-author'), 400);
+  } else {
+    toast('👁', '差分表示モードで起動しました（' + authorName + ' さん）');
+  }
+});
+</script>
+</body>
+</html>

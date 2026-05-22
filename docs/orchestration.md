@@ -72,10 +72,10 @@
 3. http://127.0.0.1:3847/（[tools/title-studio/README.md](../tools/title-studio/README.md)）
 
 ```bash
-npm run script-doc -- outputs/03-script.md
+npm run script-doc -- outputs/{NN}-{slug}/01-script-draft.md
 ```
 
-（`tools/script-to-doc/export-doc.mjs`）
+（`tools/script-to-doc/export-doc.mjs` — 入力と同じフォルダに `.html` を出力）
 
 ---
 
@@ -100,9 +100,21 @@ npm run script-doc -- outputs/03-script.md
 
 ## outputs
 
-`outputs/` 直下に `00-discovery.md` … `03-script.md` 等を置く。
+1案件 = 1フォルダ。詳細は [`.cursor/rules/outputs-layout.mdc`](../.cursor/rules/outputs-layout.mdc)。
 
-台本 Markdown では `**` 太字を使わない（`config/quality.md` と `.cursor/rules/` 参照）。
+```
+outputs/
+├── 00-discovery.md          # テーマ調査のみ（直下・案件横断）
+├── {NN}-{slug}/
+│   ├── manifest.json        # 4ペインUI 用メタデータ
+│   ├── 00-plan-and-structure.md
+│   ├── 01-script-draft.md
+│   ├── 02-line-template.md  （任意）
+│   └── 03-article.md        （任意）
+└── 没/{NN}-{slug}/          # 没案件も同じ構造
+```
+
+台本の印刷 HTML は `npm run script-doc -- outputs/{NN}-{slug}/01-script-draft.md` で同フォルダに出力。台本 Markdown では `**` 太字を使わない（`config/quality.md` と `.cursor/rules/` 参照）。
 
 ---
 
@@ -123,7 +135,19 @@ npm run script-doc -- outputs/03-script.md
 ├── agents/                 （reviewer-rubric 含む）
 ├── templates/
 └── outputs/
+    ├── 00-discovery.md     （テーマ調査・案件横断）
+    └── {NN}-{slug}/        （1案件1フォルダ）
+        ├── manifest.json
+        └── 00〜 役割別 .md
 ```
+
+---
+
+## ContentStudio（台本編集 UI）について
+
+台本の段落編集・スライドテンプレート割り当て・共同推敲を行う Web アプリは、兄弟リポジトリ `../ContentStudio` で Next.js アプリとして開発中。
+
+当面 `outputs/` の Markdown ファイルが台本の SSOT。各案件フォルダの `manifest.json` は将来 ContentStudio が import するためのメタデータとして保持する。
 
 ---
 
@@ -131,4 +155,6 @@ npm run script-doc -- outputs/03-script.md
 
 | 日付 | 内容 |
 |------|------|
+| 2026-05-22 | ContentStudio を兄弟リポジトリとして分離。episode-studio を YT 側から削除 |
+| 2026-05-19 | outputs フォルダ単位管理へ移行（1案件1フォルダ + manifest.json）、outputs-layout.mdc 追加 |
 | 2026-05-09 以降 | CLAUDE 入口の薄型化、`docs/orchestration.md`、品質チェックリストの reviewer-rubric 分離 |

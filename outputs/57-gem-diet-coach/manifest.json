@@ -1,0 +1,12 @@
+{
+  "id": "57",
+  "slug": "gem-diet-coach",
+  "title": "3か月で5キロ減｜Geminiでパーソナルコーチを作る",
+  "status": "draft",
+  "panes": [
+    { "id": "pane1", "label": "企画・構成", "path": "00-plan-and-structure.md" },
+    { "id": "pane2", "label": "台本", "path": "01-script-draft.md" },
+    { "id": "pane3", "label": "配布", "path": "02-line-template.md" },
+    { "id": "pane4", "label": "記事", "path": "03-article.md" }
+  ]
+}

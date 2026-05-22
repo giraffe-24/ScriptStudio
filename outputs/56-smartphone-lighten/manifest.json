@@ -1,0 +1,12 @@
+{
+  "id": "56",
+  "slug": "smartphone-lighten",
+  "title": "スマホを軽くする",
+  "status": "draft",
+  "panes": [
+    { "id": "pane1", "label": "企画・構成", "path": null },
+    { "id": "pane2", "label": "台本", "path": "01-script-draft.md" },
+    { "id": "pane3", "label": "配布", "path": null },
+    { "id": "pane4", "label": "記事", "path": null }
+  ]
+}

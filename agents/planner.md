@@ -167,6 +167,12 @@
 
 ---
 
+## 保存先
+
+企画書は `outputs/{NN}-{slug}/00-plan-and-structure.md` に保存する（詳細: [`.cursor/rules/outputs-layout.mdc`](../.cursor/rules/outputs-layout.mdc)）。
+
+---
+
 ## 参照ドキュメント
 
 - [config/brand.md](../config/brand.md) - ブランド定義
