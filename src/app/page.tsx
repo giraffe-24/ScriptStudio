@@ -30,9 +30,12 @@ export default function Home() {
   const [inferringPlan, setInferringPlan] = useState(false);
   const [titleOverride, setTitleOverride] = useState<{ id: string; title: string } | undefined>(undefined);
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scriptGenerateKey, setScriptGenerateKey] = useState(0);
 
   async function handlePlanReady(plan: Plan, title: string) {
-    if (!selectedEpisode && !creatingEpisode) {
+    let episode = selectedEpisode;
+
+    if (!episode && !creatingEpisode) {
       setCreatingEpisode(true);
       const listRes = await fetch("/api/files?action=list");
       const listData = await listRes.json();
@@ -62,23 +65,28 @@ export default function Home() {
         }),
       });
       const data = await res.json();
-      setSelectedEpisode(data.episode);
+      episode = data.episode;
+      setSelectedEpisode(episode);
       setEpisodeRefreshKey((k) => k + 1);
       setCreatingEpisode(false);
-      // plan.json を保存
+    }
+
+    if (episode) {
       await fetch("/api/files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "write-plan",
-          number: data.episode.number,
-          slug: data.episode.slug,
+          number: episode.number,
+          slug: episode.slug,
           plan,
         }),
       });
     }
+
     setCurrentPlan(plan);
     setNewEpisodeMode(false);
+    setScriptGenerateKey((k) => k + 1);
   }
 
   function handleNewEpisode() {
@@ -301,6 +309,7 @@ export default function Home() {
               plan={currentPlan}
               episodeNumber={selectedEpisode?.number ?? null}
               episodeSlug={selectedEpisode?.slug ?? ""}
+              generateKey={scriptGenerateKey}
               onScriptSaved={handleScriptSaved}
               onRegister={handleRegister}
             />

@@ -241,7 +241,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
               台本を作成する →
             </button>
             <p className="text-center text-[10px] text-gray-400 mt-1.5">
-              企画書の内容が決まったら押してください
+              押すと台本の生成を開始します（登録済みのファイルは上書きしません）
             </p>
           </div>
         </div>

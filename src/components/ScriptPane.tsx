@@ -24,6 +24,7 @@ interface Props {
   plan: Plan | null;
   episodeNumber: number | null;
   episodeSlug: string;
+  generateKey?: number;
   onScriptSaved: () => void;
   onRegister: (content: string) => Promise<void>;
 }
@@ -54,7 +55,14 @@ function cleanScript(text: string): string {
   return result.join("\n").trim();
 }
 
-export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, onRegister }: Props) {
+export function ScriptPane({
+  plan,
+  episodeNumber,
+  episodeSlug,
+  generateKey = 0,
+  onScriptSaved,
+  onRegister,
+}: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -65,9 +73,16 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
   const latestScriptRef = useRef<string>("");
   const prevOutlineRef = useRef<string[] | null>(null);
   const alertedOutlineRef = useRef<string>("");
+  const lastGenerateKeyRef = useRef(0);
+  const loadedEpisodeKeyRef = useRef("");
 
+  // エピソード選択時のみディスクから読み込み（登録済みファイルは保持）
   useEffect(() => {
-    if (!episodeNumber || !episodeSlug) return;
+    const episodeKey = episodeNumber && episodeSlug ? `${episodeNumber}-${episodeSlug}` : "";
+    if (!episodeKey) return;
+    if (loadedEpisodeKeyRef.current === episodeKey) return;
+
+    loadedEpisodeKeyRef.current = episodeKey;
     fetch(`/api/files?action=read&number=${episodeNumber}&slug=${episodeSlug}&filename=01-script-draft.md`)
       .then((r) => r.json())
       .then((d) => {
@@ -76,14 +91,33 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
           setScript(cleaned);
           latestScriptRef.current = cleaned;
           setGenerated(true);
+          setRegistered(true);
+        } else {
+          setScript("");
+          latestScriptRef.current = "";
+          setGenerated(false);
+          setRegistered(false);
         }
       });
   }, [episodeNumber, episodeSlug]);
+
+  // 企画書「台本を作成する」→ 状態に関係なく新規生成開始（ディスクは上書きしない）
+  useEffect(() => {
+    if (!generateKey || generateKey === lastGenerateKeyRef.current || !plan) return;
+    lastGenerateKeyRef.current = generateKey;
+    if (episodeNumber && episodeSlug) {
+      loadedEpisodeKeyRef.current = `${episodeNumber}-${episodeSlug}`;
+    }
+    void handleGenerate({ fromPlan: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generateKey, plan]);
 
   useEffect(() => {
     prevOutlineRef.current = null;
     alertedOutlineRef.current = "";
     setOutOfSync(false);
+    lastGenerateKeyRef.current = 0;
+    loadedEpisodeKeyRef.current = "";
   }, [episodeNumber, episodeSlug]);
 
   // 目次案のリネームのみ自動同期（件数が同じ場合）
@@ -136,11 +170,16 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
     }
   }, [plan?.outline, script, generated, loading]);
 
-  async function handleGenerate() {
-    if (!plan) return;
+  async function handleGenerate(options?: { fromPlan?: boolean }) {
+    if (!plan || loading) return;
 
+    const fromPlan = options?.fromPlan ?? false;
     const needsReconcile =
-      generated && !!script && !!plan.outline && !isScriptOutlineInSync(script, plan.outline);
+      !fromPlan &&
+      generated &&
+      !!script &&
+      !!plan.outline &&
+      !isScriptOutlineInSync(script, plan.outline);
 
     setLoading(true);
     setScript("");
@@ -240,7 +279,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
             </button>
           )}
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={loading}
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors ${
               loading
