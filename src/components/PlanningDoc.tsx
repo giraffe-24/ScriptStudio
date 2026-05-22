@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { ThemeCandidate, ChatMessage } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
 
+/* ── 編集フィールド共通スタイル ── */
+const EDITABLE =
+  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none overflow-hidden focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 leading-relaxed placeholder:text-gray-300 transition-colors";
+
+const EDITABLE_INPUT =
+  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 placeholder:text-gray-300 transition-colors";
+
 interface Plan {
   episodeTitle: string;
   targetViewer: string;
@@ -117,7 +124,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
                 update("episodeTitle", e.target.value);
                 onTitleChange?.(e.target.value);
               }}
-              className="w-full text-sm text-gray-900 bg-transparent border-0 focus:outline-none"
+              className={EDITABLE_INPUT}
               placeholder="動画タイトルを入力…"
             />
           </DocSection>
@@ -215,7 +222,8 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
             <input
               value={plan.estimatedLength}
               onChange={(e) => update("estimatedLength", e.target.value)}
-              className="text-sm text-gray-700 bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-400 w-40"
+              className={`${EDITABLE_INPUT} w-40`}
+              placeholder="例：10〜15分"
             />
           </DocSection>
 
@@ -249,7 +257,6 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
   );
 }
 
-/* ── ドキュメントセクション ── */
 function DocSection({
   label,
   children,
@@ -305,8 +312,8 @@ function KeyPointList({
   return (
     <ul className="space-y-2">
       {items.map((point, i) => (
-        <li key={i} className="flex items-center gap-2.5">
-          <span className="text-gray-500 text-[10px] shrink-0">●</span>
+        <li key={i} className="flex items-start gap-2.5">
+          <span className="text-gray-500 text-[10px] shrink-0 mt-3">●</span>
           <input
             ref={(el) => { refs.current[i] = el; }}
             value={point}
@@ -316,7 +323,7 @@ function KeyPointList({
               onChange(next);
             }}
             onKeyDown={(e) => handleKeyDown(e, i)}
-            className="flex-1 text-sm text-gray-700 bg-transparent border-b border-gray-200 focus:outline-none focus:border-blue-300 py-0.5"
+            className={`${EDITABLE_INPUT} flex-1`}
             placeholder="ポイントを入力（Enter で追加）"
           />
         </li>
@@ -342,7 +349,7 @@ function OutlineEditor({
             <span className="text-xs text-gray-400 leading-relaxed">{item.section}</span>
           </div>
           {/* 右：内容 */}
-          <div className="flex-1 border-b border-gray-200 pb-1">
+          <div className="flex-1">
             <AutoResizeTextarea
               value={item.content}
               onChange={(v) => {
@@ -383,7 +390,7 @@ function AutoResizeTextarea({
       }}
       rows={2}
       placeholder={placeholder}
-      className="w-full text-sm text-gray-700 bg-transparent resize-none overflow-hidden border-0 focus:outline-none leading-relaxed placeholder:text-gray-300"
+      className={EDITABLE}
     />
   );
 }
