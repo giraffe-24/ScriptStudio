@@ -35,13 +35,24 @@ export function ThemeInput({ pattern, onSelect }: Props) {
   const [candidates, setCandidates] = useState<ThemeCandidate[]>([]);
   const [hasYouTubeData, setHasYouTubeData] = useState(false);
 
-  // 「選択中」の候補（まだ確定していない）
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+  // アコーディオンで開いている候補のインデックス（複数可）
+  const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set());
+
+  function toggleOpen(i: number) {
+    setOpenIndexes((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
 
   async function handleResearch() {
     setLoading(true);
     setCandidates([]);
     setPickedIndex(null);
+    setOpenIndexes(new Set());
     try {
       if (pattern === "market") {
         const res = await fetch("/api/market-research", {
@@ -144,21 +155,27 @@ export function ThemeInput({ pattern, onSelect }: Props) {
 
           {candidates.map((c, i) => {
             const isPicked = pickedIndex === i;
+            const isOpen = openIndexes.has(i);
             return (
               <div
                 key={i}
-                onClick={() => setPickedIndex(i)}
-                className={`border-2 rounded-xl p-3 cursor-pointer transition-all ${
+                className={`border-2 rounded-xl overflow-hidden transition-all ${
                   isPicked
                     ? `${SCORE_BORDER[c.score]} ${SCORE_BG[c.score]} shadow-sm`
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <h4 className="text-sm font-semibold text-gray-800 leading-tight flex-1">
-                    {c.title}
-                  </h4>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                {/* タイトル行：選択 + アコーディオン開閉 */}
+                <div className="flex items-start gap-2 p-3">
+                  <button
+                    onClick={() => setPickedIndex(i)}
+                    className="flex-1 text-left"
+                  >
+                    <span className="text-sm font-semibold text-gray-800 leading-snug">
+                      {c.title}
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
                         SCORE_BADGE[c.score]
@@ -166,17 +183,54 @@ export function ThemeInput({ pattern, onSelect }: Props) {
                     >
                       {SCORE_LABEL[c.score]}
                     </span>
-                    {isPicked && (
-                      <span className="text-blue-500 text-sm">✓</span>
-                    )}
+                    {isPicked && <span className="text-blue-500 text-sm leading-none">✓</span>}
+                    {/* アコーディオントグル */}
+                    <button
+                      onClick={() => toggleOpen(i)}
+                      className="text-gray-400 hover:text-gray-600 text-xs leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
+                      aria-label="詳細を表示"
+                    >
+                      <span className={`inline-block transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                        ▾
+                      </span>
+                    </button>
                   </div>
                 </div>
-                <p className="text-xs text-blue-600 italic leading-relaxed mb-1">
-                  「{c.hook}」
-                </p>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  {c.targetPain}
-                </p>
+
+                {/* アコーディオン本体 */}
+                {isOpen && (
+                  <div className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-2.5 bg-white bg-opacity-60">
+                    {/* フック（青） */}
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">
+                        フック
+                      </p>
+                      <p className="text-xs text-blue-600 italic leading-relaxed">
+                        「{c.hook}」
+                      </p>
+                    </div>
+                    {/* 視聴者の悩み（黒） */}
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        視聴者の悩み
+                      </p>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        {c.targetPain}
+                      </p>
+                    </div>
+                    {/* 選定理由 */}
+                    {c.reason && (
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                          選定理由
+                        </p>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          {c.reason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
