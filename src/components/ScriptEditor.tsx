@@ -166,68 +166,65 @@ export function ScriptEditor({ script, onSave }: Props) {
           </div>
         )}
 
-        {/* 右：台本 + 推敲比較 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* 台本テキストエリア */}
-          <div className="flex-1 overflow-hidden">
+        {/* 右：台本テキストエリア */}
+        <div className="flex-1 overflow-hidden">
+          <textarea
+            value={content}
+            onChange={(e) => handleChange(e.target.value)}
+            className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
+            placeholder="台本をここに入力…"
+            spellCheck={false}
+          />
+        </div>
+      </div>
+
+      {/* 推敲比較セクション（全幅） */}
+      <div className="border-t-2 border-dashed border-amber-200 shrink-0">
+        {/* ヘッダー */}
+        <button
+          onClick={() => setCalibOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-amber-700">推敲比較</span>
+            <span className="text-[10px] text-amber-500">
+              手直し後の確定稿をここに貼り付けて /推敲比較 で使用
+            </span>
+          </div>
+          <span className={`text-amber-500 text-xs transition-transform duration-200 ${calibOpen ? "rotate-180" : ""}`}>
+            ▾
+          </span>
+        </button>
+
+        {/* 貼り付けエリア */}
+        {calibOpen && (
+          <div className="bg-amber-50 border-t border-amber-100">
             <textarea
-              value={content}
-              onChange={(e) => handleChange(e.target.value)}
-              className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
-              placeholder="台本をここに入力…"
+              value={calibText}
+              onChange={(e) => {
+                setCalibText(e.target.value);
+                setSaved(false);
+              }}
+              rows={8}
+              placeholder="手直し後の台本をここに全文貼り付けてください…"
+              className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus:outline-none placeholder:text-amber-300"
               spellCheck={false}
             />
-          </div>
-
-          {/* 推敲比較セクション */}
-          <div className="border-t-2 border-dashed border-amber-200 shrink-0">
-            {/* ヘッダー */}
-            <button
-              onClick={() => setCalibOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-amber-700">推敲比較</span>
+            {calibText && (
+              <div className="px-4 pb-2 flex items-center justify-between">
                 <span className="text-[10px] text-amber-500">
-                  手直し後の確定稿をここに貼り付けて /推敲比較 で使用
+                  {calibText.replace(/\s/g, "").length.toLocaleString()} 字
                 </span>
-              </div>
-              <span className={`text-amber-500 text-xs transition-transform duration-200 ${calibOpen ? "rotate-180" : ""}`}>
-                ▾
-              </span>
-            </button>
-
-            {/* 貼り付けエリア */}
-            {calibOpen && (
-              <div className="bg-amber-50 border-t border-amber-100">
-                <textarea
-                  value={calibText}
-                  onChange={(e) => {
-                    setCalibText(e.target.value);
-                    setSaved(false);
-                  }}
-                  rows={8}
-                  placeholder="手直し後の台本をここに全文貼り付けてください…"
-                  className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus:outline-none placeholder:text-amber-300"
-                  spellCheck={false}
-                />
-                {calibText && (
-                  <div className="px-4 pb-2 flex items-center justify-between">
-                    <span className="text-[10px] text-amber-500">
-                      {calibText.replace(/\s/g, "").length.toLocaleString()} 字
-                    </span>
-                    <button
-                      onClick={() => { setCalibText(""); setSaved(false); }}
-                      className="text-[10px] text-amber-400 hover:text-amber-600 transition-colors"
-                    >
-                      クリア
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => { setCalibText(""); setSaved(false); }}
+                  className="text-[10px] text-amber-400 hover:text-amber-600 transition-colors"
+                >
+                  クリア
+                </button>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
