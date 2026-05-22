@@ -8,6 +8,7 @@ interface Props {
   script: string;
   onSave: (content: string) => void;
   episodeTitle: string;
+  outline?: { section: string; content: string }[];
 }
 
 interface Section {
@@ -16,8 +17,9 @@ interface Section {
   charOffset: number; // textarea 内の開始文字位置
 }
 
-function parseSections(text: string): Section[] {
-  if (!text.trim()) return [];
+function parseSections(text: string, outline?: { section: string; content: string }[]): Section[] {
+  if (!text.trim()) return outline?.map((item) => ({ label: item.section, content: "", charOffset: 0 })) ?? [];
+
   const lines = text.split("\n");
   const sections: Section[] = [];
   let current: Section | null = null;
@@ -36,7 +38,19 @@ function parseSections(text: string): Section[] {
     charPos += line.length + 1;
   }
   if (current) sections.push(current);
-  return sections.filter((s) => s.content.trim());
+
+  const parsed = sections.filter((s) => s.content.trim() || outline?.length);
+
+  if (!outline?.length) return parsed.filter((s) => s.content.trim());
+
+  // 企画書の目次案をラベルに優先（台本 ## 見出しとインデックスで対応）
+  return outline.map((item, i) => {
+    const fromScript = parsed[i];
+    if (fromScript) {
+      return { ...fromScript, label: item.section };
+    }
+    return { label: item.section, content: "", charOffset: text.length };
+  });
 }
 
 function splitCalib(raw: string): { main: string; calib: string } {
@@ -66,7 +80,7 @@ function toHtml(text: string): string {
   return htmlLines.join("");
 }
 
-export function ScriptEditor({ script, onSave }: Props) {
+export function ScriptEditor({ script, onSave, outline }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
@@ -146,7 +160,7 @@ export function ScriptEditor({ script, onSave }: Props) {
     setTimeout(() => setCopied(null), 1500);
   }
 
-  const sections = parseSections(content);
+  const sections = parseSections(content, outline);
   const targetMin = 4000;
   const targetMax = 6000;
   const progress = Math.min((charCount / targetMax) * 100, 100);

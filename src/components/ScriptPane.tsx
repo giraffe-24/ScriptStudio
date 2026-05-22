@@ -283,6 +283,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
           <ScriptEditor
             script={script}
             episodeTitle={plan.episodeTitle}
+            outline={plan.outline}
             onSave={(content) => {
               latestScriptRef.current = content;
               handleSave(content);
