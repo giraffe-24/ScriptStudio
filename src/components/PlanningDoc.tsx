@@ -87,38 +87,32 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
   return (
     <div className="flex h-full overflow-hidden">
       {/* 企画書本体 */}
-      <div className="flex-1 overflow-y-auto">
-        {/* フックバナー */}
-        {candidate.hook && (
-          <div className="mx-4 mt-4 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
-            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">
-              フック（冒頭 30 秒）
-            </p>
-            <p className="text-sm text-blue-700 italic leading-relaxed">
-              「{candidate.hook}」
-            </p>
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto bg-white">
+        <div className="max-w-2xl mx-auto px-8 py-6 space-y-6">
 
-        <div className="px-4 py-3 space-y-3">
           {/* タイトル */}
-          <Field
-            label="動画タイトル"
-            icon="🎬"
-            onChat={() => setChatSection({ label: "動画タイトル", content: plan.episodeTitle })}
-          >
+          <div>
             <input
               value={plan.episodeTitle}
               onChange={(e) => update("episodeTitle", e.target.value)}
-              className="w-full text-sm font-semibold text-gray-800 bg-transparent border-b border-gray-200 pb-1 focus:outline-none focus:border-blue-400"
+              className="w-full text-base font-bold text-gray-900 bg-transparent border-0 focus:outline-none"
               placeholder="動画タイトルを入力…"
             />
-          </Field>
+            <div className="border-b-2 border-gray-800 mt-1" />
+          </div>
+
+          {/* フック */}
+          {candidate.hook && (
+            <DocSection label="フック（冒頭 30 秒）">
+              <p className="text-sm text-blue-600 italic leading-relaxed">
+                「{candidate.hook}」
+              </p>
+            </DocSection>
+          )}
 
           {/* 想定視聴者 */}
-          <Field
+          <DocSection
             label="想定視聴者"
-            icon="👤"
             onChat={() => setChatSection({ label: "想定視聴者", content: plan.targetViewer })}
           >
             <AutoResizeTextarea
@@ -126,12 +120,11 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
               onChange={(v) => update("targetViewer", v)}
               placeholder="想定視聴者を記述…"
             />
-          </Field>
+          </DocSection>
 
           {/* 視聴者の悩み */}
-          <Field
+          <DocSection
             label="視聴者の悩み"
-            icon="😰"
             onChat={() => setChatSection({ label: "視聴者の悩み", content: plan.pain })}
           >
             <AutoResizeTextarea
@@ -139,12 +132,11 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
               onChange={(v) => update("pain", v)}
               placeholder="悩みを記述…"
             />
-          </Field>
+          </DocSection>
 
-          {/* 動画の約束 */}
-          <Field
+          {/* 動画で提供する価値 */}
+          <DocSection
             label="動画で提供する価値"
-            icon="✅"
             onChat={() => setChatSection({ label: "動画の約束", content: plan.promise })}
           >
             <AutoResizeTextarea
@@ -152,24 +144,24 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
               onChange={(v) => update("promise", v)}
               placeholder="視聴者が得る価値を記述…"
             />
-          </Field>
+          </DocSection>
 
-          {/* コンテンツの核（Enter で追加・Backspace で削除） */}
-          <Field
+          {/* コンテンツの核 */}
+          <DocSection
             label="コンテンツの核"
-            icon="💡"
-            onChat={() => setChatSection({ label: "コンテンツの核", content: plan.keyPoints.join("\n") })}
+            onChat={() =>
+              setChatSection({ label: "コンテンツの核", content: plan.keyPoints.join("\n") })
+            }
           >
             <KeyPointList
               items={plan.keyPoints}
               onChange={(items) => update("keyPoints", items)}
             />
-          </Field>
+          </DocSection>
 
-          {/* 構成（縦積みレイアウト） */}
-          <Field
+          {/* 構成 */}
+          <DocSection
             label="構成"
-            icon="📐"
             onChat={() =>
               setChatSection({
                 label: "構成",
@@ -181,34 +173,33 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
               items={plan.outline}
               onChange={(items) => update("outline", items)}
             />
-          </Field>
+          </DocSection>
 
           {/* 競合との差別化 */}
-          <Field
+          <DocSection
             label="競合との差別化"
-            icon="⚡"
-            onChat={() => setChatSection({ label: "差別化", content: plan.competitorAnalysis })}
+            onChat={() =>
+              setChatSection({ label: "差別化", content: plan.competitorAnalysis })
+            }
           >
             <AutoResizeTextarea
               value={plan.competitorAnalysis}
               onChange={(v) => update("competitorAnalysis", v)}
               placeholder="差別化ポイントを記述…"
             />
-          </Field>
+          </DocSection>
 
           {/* 想定尺 */}
-          <div className="flex items-center gap-2 text-xs text-gray-400 px-1">
-            <span>⏱</span>
-            <span>想定尺：</span>
+          <DocSection label="想定尺">
             <input
               value={plan.estimatedLength}
               onChange={(e) => update("estimatedLength", e.target.value)}
-              className="text-xs text-gray-500 bg-transparent border-b border-gray-200 focus:outline-none focus:border-blue-300 w-24"
+              className="text-sm text-gray-700 bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-400 w-40"
             />
-          </div>
+          </DocSection>
 
           {/* 台本作成ボタン */}
-          <div className="pt-4 pb-2">
+          <div className="pt-2 pb-6">
             <button
               onClick={() => onPlanReady(plan, plan.episodeTitle)}
               className="w-full bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm py-3 rounded-xl transition-all shadow-sm"
@@ -237,6 +228,34 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
   );
 }
 
+/* ── ドキュメントセクション ── */
+function DocSection({
+  label,
+  children,
+  onChat,
+}: {
+  label: string;
+  children: React.ReactNode;
+  onChat?: () => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between pb-1 border-b border-gray-300 mb-3">
+        <h3 className="text-sm font-semibold text-gray-800">{label}</h3>
+        {onChat && (
+          <button
+            onClick={onChat}
+            className="text-[10px] text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-0.5 rounded-full transition-colors shrink-0 ml-2"
+          >
+            AI と深掘り
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /* ── キーポイントリストエディタ ── */
 function KeyPointList({
   items,
@@ -253,7 +272,6 @@ function KeyPointList({
       const next = [...items];
       next.splice(index + 1, 0, "");
       onChange(next);
-      // 次のフレームでフォーカス
       setTimeout(() => refs.current[index + 1]?.focus(), 0);
     } else if (e.key === "Backspace" && items[index] === "" && items.length > 1) {
       e.preventDefault();
@@ -264,10 +282,10 @@ function KeyPointList({
   }
 
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-2">
       {items.map((point, i) => (
-        <li key={i} className="flex items-center gap-2">
-          <span className="text-blue-300 text-xs shrink-0">●</span>
+        <li key={i} className="flex items-center gap-2.5">
+          <span className="text-gray-500 text-[10px] shrink-0">●</span>
           <input
             ref={(el) => { refs.current[i] = el; }}
             value={point}
@@ -277,7 +295,7 @@ function KeyPointList({
               onChange(next);
             }}
             onKeyDown={(e) => handleKeyDown(e, i)}
-            className="flex-1 text-sm text-gray-700 bg-transparent border-b border-gray-100 focus:outline-none focus:border-blue-300 py-0.5"
+            className="flex-1 text-sm text-gray-700 bg-transparent border-b border-gray-200 focus:outline-none focus:border-blue-300 py-0.5"
             placeholder="ポイントを入力（Enter で追加）"
           />
         </li>
@@ -286,7 +304,7 @@ function KeyPointList({
   );
 }
 
-/* ── 構成エディタ（縦積みレイアウト） ── */
+/* ── 構成エディタ ── */
 function OutlineEditor({
   items,
   onChange,
@@ -297,58 +315,30 @@ function OutlineEditor({
   return (
     <div className="space-y-3">
       {items.map((item, i) => (
-        <div key={i} className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
-          {/* セクション名（上段・小さく） */}
-          <p className="text-[11px] font-semibold text-gray-400 mb-1">{item.section}</p>
-          {/* 内容（下段・フル幅） */}
-          <AutoResizeTextarea
-            value={item.content}
-            onChange={(v) => {
-              const next = [...items];
-              next[i] = { ...next[i], content: v };
-              onChange(next);
-            }}
-            placeholder="内容を記述…"
-          />
+        <div key={i} className="flex gap-3">
+          {/* 左：番号＋セクション名 */}
+          <div className="w-36 shrink-0 pt-0.5">
+            <span className="text-xs text-gray-400 leading-relaxed">{item.section}</span>
+          </div>
+          {/* 右：内容 */}
+          <div className="flex-1 border-b border-gray-200 pb-1">
+            <AutoResizeTextarea
+              value={item.content}
+              onChange={(v) => {
+                const next = [...items];
+                next[i] = { ...next[i], content: v };
+                onChange(next);
+              }}
+              placeholder="内容を記述…"
+            />
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-/* ── 共通部品 ── */
-function Field({
-  label,
-  icon,
-  children,
-  onChat,
-}: {
-  label: string;
-  icon: string;
-  children: React.ReactNode;
-  onChat?: () => void;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-          <span>{icon}</span>
-          {label}
-        </span>
-        {onChat && (
-          <button
-            onClick={onChat}
-            className="text-[10px] text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-0.5 rounded-full transition-colors"
-          >
-            AI と深掘り
-          </button>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
-
+/* ── 共通：自動リサイズ textarea ── */
 function AutoResizeTextarea({
   value,
   onChange,
