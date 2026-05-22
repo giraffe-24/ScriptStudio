@@ -8,10 +8,39 @@ interface Props {
   episodeTitle: string;
 }
 
-export function ScriptEditor({ script, onSave, episodeTitle }: Props) {
+interface Section {
+  label: string;
+  content: string;
+}
+
+function parseSections(text: string): Section[] {
+  if (!text.trim()) return [];
+  const lines = text.split("\n");
+  const sections: Section[] = [];
+  let current: Section | null = null;
+
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      if (current) sections.push(current);
+      current = { label: line.replace(/^##\s+/, "").trim(), content: "" };
+    } else {
+      if (!current) {
+        // ## より前のテキストは「導入」扱い
+        current = { label: "導入", content: "" };
+      }
+      current.content += line + "\n";
+    }
+  }
+  if (current) sections.push(current);
+
+  return sections.filter((s) => s.content.trim());
+}
+
+export function ScriptEditor({ script, onSave }: Props) {
   const [content, setContent] = useState(script);
   const [charCount, setCharCount] = useState(0);
   const [saved, setSaved] = useState(true);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     setContent(script);
@@ -29,6 +58,19 @@ export function ScriptEditor({ script, onSave, episodeTitle }: Props) {
     setSaved(true);
   }
 
+  async function handleCopy(label: string, text: string) {
+    await navigator.clipboard.writeText(text.trim());
+    setCopied(label);
+    setTimeout(() => setCopied(null), 1500);
+  }
+
+  async function handleCopyAll() {
+    await navigator.clipboard.writeText(content);
+    setCopied("__all__");
+    setTimeout(() => setCopied(null), 1500);
+  }
+
+  const sections = parseSections(content);
   const targetMin = 4000;
   const targetMax = 6000;
   const progress = Math.min((charCount / targetMax) * 100, 100);
@@ -39,7 +81,8 @@ export function ScriptEditor({ script, onSave, episodeTitle }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between bg-white">
+      {/* ツールバー */}
+      <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
         <div className="flex items-center gap-4">
           <span className={`text-xs font-bold font-mono tabular-nums ${countColor}`}>
             {charCount.toLocaleString()} 字
@@ -50,9 +93,17 @@ export function ScriptEditor({ script, onSave, episodeTitle }: Props) {
           <span className="text-[10px] text-gray-400">目標 4,000〜6,000 字</span>
         </div>
         <div className="flex items-center gap-2">
-          {!saved && (
-            <span className="text-[10px] text-orange-400">未保存</span>
-          )}
+          <button
+            onClick={handleCopyAll}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
+              copied === "__all__"
+                ? "bg-green-50 text-green-600 border-green-300"
+                : "border-gray-200 text-gray-600 hover:border-gray-300"
+            }`}
+          >
+            {copied === "__all__" ? "コピー済み ✓" : "全体をコピー"}
+          </button>
+          {!saved && <span className="text-[10px] text-orange-400">未保存</span>}
           <button
             onClick={handleSave}
             className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors font-medium"
@@ -62,14 +113,54 @@ export function ScriptEditor({ script, onSave, episodeTitle }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <textarea
-          value={content}
-          onChange={(e) => handleChange(e.target.value)}
-          className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
-          placeholder="台本をここに入力…"
-          spellCheck={false}
-        />
+      {/* 本体：左＝セクションコピー、右＝テキストエリア */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* 左：セクション一覧＋コピーボタン */}
+        {sections.length > 0 && (
+          <div className="w-44 shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50 py-3 px-2 space-y-1">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
+              セクション
+            </p>
+            {sections.map((sec) => (
+              <button
+                key={sec.label}
+                onClick={() => handleCopy(sec.label, sec.content)}
+                title={`「${sec.label}」をコピー`}
+                className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
+                  copied === sec.label
+                    ? "bg-green-100 text-green-700"
+                    : "hover:bg-white hover:shadow-sm text-gray-600"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs leading-snug line-clamp-2 flex-1">
+                    {sec.label}
+                  </span>
+                  <span
+                    className={`shrink-0 text-[10px] transition-opacity ${
+                      copied === sec.label
+                        ? "opacity-100 text-green-600"
+                        : "opacity-0 group-hover:opacity-100 text-gray-400"
+                    }`}
+                  >
+                    {copied === sec.label ? "✓" : "⎘"}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 右：テキストエリア */}
+        <div className="flex-1 overflow-hidden">
+          <textarea
+            value={content}
+            onChange={(e) => handleChange(e.target.value)}
+            className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
+            placeholder="台本をここに入力…"
+            spellCheck={false}
+          />
+        </div>
       </div>
     </div>
   );
