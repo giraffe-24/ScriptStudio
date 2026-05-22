@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState } from "react";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
@@ -227,7 +228,14 @@ export default function Home() {
         /* ウェルカム画面 */
         <div className="flex-1 flex items-center justify-center bg-white">
           <div className="text-center max-w-sm">
-            <div className="text-6xl mb-6">🎬</div>
+            <Image
+              src="/Image/YouTubeIcon.svg"
+              alt="YT_TalkScript Studio"
+              width={80}
+              height={68}
+              className="mx-auto mb-6"
+              priority
+            />
             <h2 className="text-xl font-bold text-gray-700 mb-2">YT_TalkScript Studio</h2>
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
               企画からトークスクリプトまでを
