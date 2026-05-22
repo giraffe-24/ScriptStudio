@@ -27,6 +27,7 @@ export default function Home() {
   const [episodeRefreshKey, setEpisodeRefreshKey] = useState(0);
   const [newEpisodeMode, setNewEpisodeMode] = useState(false);
   const [creatingEpisode, setCreatingEpisode] = useState(false);
+  const [inferringPlan, setInferringPlan] = useState(false);
 
   async function handlePlanReady(plan: Plan, title: string) {
     if (!selectedEpisode && !creatingEpisode) {
@@ -62,6 +63,17 @@ export default function Home() {
       setSelectedEpisode(data.episode);
       setEpisodeRefreshKey((k) => k + 1);
       setCreatingEpisode(false);
+      // plan.json を保存
+      await fetch("/api/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "write-plan",
+          number: data.episode.number,
+          slug: data.episode.slug,
+          plan,
+        }),
+      });
     }
     setCurrentPlan(plan);
     setNewEpisodeMode(false);
@@ -74,11 +86,52 @@ export default function Home() {
     setNewEpisodeMode(true);
   }
 
-  function handleEpisodeSelect(ep: Episode) {
+  async function handleEpisodeSelect(ep: Episode) {
     setSelectedEpisode(ep);
     setNewEpisodeMode(false);
     setSelectedCandidate(null);
     setCurrentPlan(null);
+
+    // plan.json を読み込む。なければ台本から推論して保存
+    const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
+    const planData = await planRes.json();
+    if (planData.plan) {
+      setCurrentPlan(planData.plan as Plan);
+      return;
+    }
+
+    // plan.json が存在しない場合、台本から推論
+    const scriptRes = await fetch(
+      `/api/files?action=read&number=${ep.number}&slug=${ep.slug}&filename=01-script-draft.md`
+    );
+    const scriptData = await scriptRes.json();
+    if (!scriptData.content) return;
+
+    setInferringPlan(true);
+    try {
+      const inferRes = await fetch("/api/infer-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: scriptData.content, title: ep.title }),
+      });
+      const inferData = await inferRes.json();
+      if (inferData.plan) {
+        setCurrentPlan(inferData.plan as Plan);
+        // 次回以降のためにキャッシュ保存
+        await fetch("/api/files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "write-plan",
+            number: ep.number,
+            slug: ep.slug,
+            plan: inferData.plan,
+          }),
+        });
+      }
+    } finally {
+      setInferringPlan(false);
+    }
   }
 
   function handleScriptSaved() {
@@ -177,15 +230,29 @@ export default function Home() {
           <div className="flex-1 border-r border-gray-200 bg-gray-50 overflow-hidden flex flex-col">
             <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-semibold text-gray-700 shrink-0">企画書</h2>
-              {selectedCandidate && (
+              {(selectedCandidate || currentPlan) && (
                 <>
                   <span className="text-gray-300 text-sm shrink-0">/</span>
-                  <p className="text-xs text-gray-400 truncate">{selectedCandidate.title}</p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {selectedCandidate?.title ?? currentPlan?.episodeTitle ?? ""}
+                  </p>
                 </>
+              )}
+              {inferringPlan && (
+                <span className="ml-auto text-xs text-blue-400 animate-pulse shrink-0">台本から企画書を復元中…</span>
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <PlanningDoc candidate={selectedCandidate} onPlanReady={handlePlanReady} />
+              {inferringPlan ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <div className="text-3xl mb-3 animate-pulse">📋</div>
+                    <p className="text-sm">台本から企画書を復元しています…</p>
+                  </div>
+                </div>
+              ) : (
+                <PlanningDoc candidate={selectedCandidate} plan={currentPlan} onPlanReady={handlePlanReady} />
+              )}
             </div>
           </div>
 

@@ -17,14 +17,23 @@ interface Plan {
 
 interface Props {
   candidate: ThemeCandidate | null;
+  plan?: Plan | null;
   onPlanReady: (plan: Plan, title: string) => void;
 }
 
-export function PlanningDoc({ candidate, onPlanReady }: Props) {
-  const [plan, setPlan] = useState<Plan | null>(null);
+export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady }: Props) {
+  const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+
+  useEffect(() => {
+    if (initialPlan) {
+      setPlan(initialPlan);
+      setChatSection(null);
+      setChatHistory([]);
+    }
+  }, [initialPlan]);
 
   useEffect(() => {
     if (!candidate) return;
@@ -68,7 +77,7 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
     setPlan({ ...plan, [key]: value });
   }
 
-  if (!candidate) {
+  if (!candidate && !plan) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center text-gray-300">

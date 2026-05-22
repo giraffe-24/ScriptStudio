@@ -1,12 +1,11 @@
 {
   "id": "54",
   "slug": "sticky-windows-android",
-  "title": "Androidのウィンドウを固定する",
-  "status": "draft",
-  "panes": [
-    { "id": "pane1", "label": "企画・構成", "path": null },
-    { "id": "pane2", "label": "台本", "path": "01-script-draft.md" },
-    { "id": "pane3", "label": "配布", "path": null },
-    { "id": "pane4", "label": "記事", "path": null }
-  ]
+  "title": "Googleフォト自動バックアップ完全設定ガイド",
+  "status": "done",
+  "theme_pattern": "user-input",
+  "created_at": "2026-05-22",
+  "hook": "スマホを落として写真が全部消えた…そんな悲劇を防ぐ無料バックアップ設定を今日5分で完了しましょう",
+  "target_pain": "大切な写真がスマホの中だけにある・バックアップの設定方法が分からない",
+  "reason": "写真消失の恐怖は40〜60代に共通する悩み。一度設定すれば完全自動で解決できる点がチャンネルブランドと一致"
 }

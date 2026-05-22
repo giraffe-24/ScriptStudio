@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile } from "@/lib/file-manager";
+import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan } from "@/lib/file-manager";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -18,6 +18,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ content });
   }
 
+  if (action === "read-plan") {
+    const number = Number(searchParams.get("number"));
+    const slug = searchParams.get("slug") ?? "";
+    const plan = await readPlan(number, slug);
+    return NextResponse.json({ plan });
+  }
+
   return NextResponse.json({ error: "unknown action" }, { status: 400 });
 }
 
@@ -31,6 +38,11 @@ export async function POST(req: NextRequest) {
 
   if (body.action === "write") {
     await writeEpisodeFile(body.number, body.slug, body.filename, body.content);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "write-plan") {
+    await writePlan(body.number, body.slug, body.plan);
     return NextResponse.json({ ok: true });
   }
 

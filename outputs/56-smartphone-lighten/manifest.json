@@ -1,12 +1,11 @@
 {
   "id": "56",
   "slug": "smartphone-lighten",
-  "title": "スマホを軽くする",
-  "status": "draft",
-  "panes": [
-    { "id": "pane1", "label": "企画・構成", "path": null },
-    { "id": "pane2", "label": "台本", "path": "01-script-draft.md" },
-    { "id": "pane3", "label": "配布", "path": null },
-    { "id": "pane4", "label": "記事", "path": null }
-  ]
+  "title": "スマホの動きが重い人必見！再起動・キャッシュ・更新で体感を取り戻す方法",
+  "status": "done",
+  "theme_pattern": "user-input",
+  "created_at": "2026-05-22",
+  "hook": "最近スマホが「一拍遅れる」感じ、ありませんか？今日紹介する手順で体感のもたつきを減らせます",
+  "target_pain": "スマホの動きが重くなってきた・何をすれば改善するか分からない",
+  "reason": "スマホの動作改善は40〜60代の定番悩み。再起動・キャッシュ・更新という具体的な手順で再現性が高い"
 }

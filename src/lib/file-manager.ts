@@ -74,6 +74,16 @@ export async function writeEpisodeFile(number: number, slug: string, filename: s
   await fs.writeFile(path.join(dirPath, filename), content, "utf-8");
 }
 
+export async function writePlan(number: number, slug: string, plan: Record<string, unknown>): Promise<void> {
+  await writeEpisodeFile(number, slug, "plan.json", JSON.stringify(plan, null, 2));
+}
+
+export async function readPlan(number: number, slug: string): Promise<Record<string, unknown> | null> {
+  const content = await readEpisodeFile(number, slug, "plan.json");
+  if (!content) return null;
+  try { return JSON.parse(content); } catch { return null; }
+}
+
 export async function updateManifestStatus(number: number, slug: string, status: string): Promise<void> {
   const dirName = `${String(number).padStart(2, "0")}-${slug}`;
   const manifestPath = path.join(OUTPUTS_DIR, dirName, "manifest.json");
