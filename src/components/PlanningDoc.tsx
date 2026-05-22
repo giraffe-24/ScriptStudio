@@ -120,7 +120,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady }: Props
           </div>
 
           {/* フック */}
-          {candidate.hook && (
+          {candidate?.hook && (
             <DocSection label="フック（冒頭 30 秒）">
               <p className="text-sm text-blue-600 italic leading-relaxed">
                 「{candidate.hook}」
@@ -234,7 +234,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady }: Props
       {/* チャットパネル */}
       {chatSection && (
         <ChatPane
-          theme={candidate.title}
+          theme={candidate?.title ?? plan?.episodeTitle ?? ""}
           sectionLabel={chatSection.label}
           sectionContent={chatSection.content}
           history={chatHistory}
