@@ -22,6 +22,18 @@ interface Props {
   onScriptSaved: () => void;
 }
 
+function cleanScript(text: string): string {
+  const lines = text.split("\n");
+  let start = 0;
+  // H1 見出し行（# ...）をスキップ
+  while (start < lines.length && /^#\s/.test(lines[start])) start++;
+  // ブロッククォート行（> ...）をスキップ
+  while (start < lines.length && /^>/.test(lines[start])) start++;
+  // 空行をスキップ
+  while (start < lines.length && lines[start].trim() === "") start++;
+  return lines.slice(start).join("\n");
+}
+
 export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +45,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
       .then((r) => r.json())
       .then((d) => {
         if (d.content) {
-          setScript(d.content);
+          setScript(cleanScript(d.content));
           setGenerated(true);
         }
       });
@@ -60,6 +72,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
       full += decoder.decode(value, { stream: true });
       setScript(full);
     }
+    setScript(cleanScript(full));
     setGenerated(true);
     setLoading(false);
   }
