@@ -141,23 +141,22 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="font-bold text-sm text-gray-700">台本</h2>
-          <p className="text-xs text-gray-400 line-clamp-1">{plan.episodeTitle}</p>
-        </div>
+      <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
+        <h2 className="text-sm font-semibold text-gray-700 shrink-0">台本</h2>
+        <span className="text-gray-300 text-sm shrink-0">/</span>
+        <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{plan.episodeTitle}</p>
         <div className="flex items-center gap-2 shrink-0">
           {/* 登録ボタン */}
           {generated && (
             <button
               onClick={handleRegister}
               disabled={registering || registered}
-              className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition-all ${
+              className={`text-xs font-medium px-3 py-1 rounded-md border transition-all ${
                 registered
-                  ? "bg-green-100 text-green-700 border border-green-300"
+                  ? "border-green-300 bg-green-50 text-green-700 cursor-default"
                   : registering
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-900 text-white hover:bg-gray-700 active:scale-[0.97]"
+                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                  : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:text-gray-800 active:scale-[0.97]"
               }`}
             >
               {registered ? "✓ 登録済み" : registering ? "登録中…" : "登録"}
@@ -167,15 +166,15 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${
+            className={`text-xs font-medium px-3 py-1 rounded-md transition-colors ${
               loading
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : generated
                 ? "bg-orange-500 text-white hover:bg-orange-600"
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {loading ? "生成中…" : generated ? "✨ 再生成" : "✨ 台本を生成"}
+            {loading ? "生成中…" : generated ? "再生成" : "台本を生成"}
           </button>
         </div>
       </div>

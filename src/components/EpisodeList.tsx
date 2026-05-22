@@ -42,10 +42,8 @@ export function EpisodeList({ selectedId, onSelect, refreshKey }: Props) {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      <div className="px-3 py-3 border-b border-gray-200">
-        <h1 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-          Episodes
-        </h1>
+      <div className="h-[52px] px-4 border-b border-gray-200 flex items-center">
+        <h1 className="text-sm font-semibold text-gray-700">エピソード</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">

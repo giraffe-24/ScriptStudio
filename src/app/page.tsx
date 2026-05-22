@@ -152,11 +152,11 @@ export default function Home() {
         <div className="flex flex-1 overflow-hidden">
           {/* Pane 2: テーマ選定 */}
           <div className="w-80 shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="font-bold text-sm text-gray-700">テーマ選定</h2>
+            <div className="h-[52px] px-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">テーマ選定</h2>
               <button
                 onClick={handleNewEpisode}
-                className="text-[11px] text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-0.5 rounded-full transition-colors"
+                className="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-md transition-colors"
               >
                 ＋ 新規
               </button>
@@ -175,10 +175,13 @@ export default function Home() {
 
           {/* Pane 3: 企画書 */}
           <div className="flex-1 border-r border-gray-200 bg-gray-50 overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-200 bg-white">
-              <h2 className="font-bold text-sm text-gray-700">企画書</h2>
+            <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-semibold text-gray-700 shrink-0">企画書</h2>
               {selectedCandidate && (
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{selectedCandidate.title}</p>
+                <>
+                  <span className="text-gray-300 text-sm shrink-0">/</span>
+                  <p className="text-xs text-gray-400 truncate">{selectedCandidate.title}</p>
+                </>
               )}
             </div>
             <div className="flex-1 overflow-hidden">
