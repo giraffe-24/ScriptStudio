@@ -184,7 +184,6 @@ export function ThemeInput({ pattern, onSelect }: Props) {
                     >
                       {SCORE_LABEL[c.score]}
                     </span>
-                    {isPicked && <span className="text-blue-500 text-sm leading-none">✓</span>}
                     {/* アコーディオントグル */}
                     <button
                       onClick={() => toggleOpen(i)}
