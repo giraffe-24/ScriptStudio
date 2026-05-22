@@ -172,7 +172,7 @@ export function ThemeInput({ pattern, onSelect }: Props) {
                     onClick={() => setPickedIndex(i)}
                     className="flex-1 text-left"
                   >
-                    <span className="text-xs font-semibold text-gray-800 leading-snug">
+                    <span className="text-xs text-gray-700 leading-snug">
                       {c.title}
                     </span>
                   </button>
