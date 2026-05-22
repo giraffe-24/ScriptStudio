@@ -27,9 +27,10 @@ interface Props {
   plan?: Plan | null;
   onPlanReady: (plan: Plan, title: string) => void;
   onTitleChange?: (title: string) => void;
+  onPlanChange?: (plan: Plan) => void;
 }
 
-export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitleChange }: Props) {
+export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitleChange, onPlanChange }: Props) {
   const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
@@ -82,7 +83,9 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
 
   function update<K extends keyof Plan>(key: K, value: Plan[K]) {
     if (!plan) return;
-    setPlan({ ...plan, [key]: value });
+    const next = { ...plan, [key]: value };
+    setPlan(next);
+    onPlanChange?.(next);
   }
 
   if (!candidate && !plan) {

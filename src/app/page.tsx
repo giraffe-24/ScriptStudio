@@ -141,6 +141,10 @@ export default function Home() {
     setEpisodeRefreshKey((k) => k + 1);
   }
 
+  function handlePlanChange(plan: Plan) {
+    setCurrentPlan(plan);
+  }
+
   function handleTitleChange(title: string) {
     // 企画書・台本ヘッダーを即時更新
     if (currentPlan) setCurrentPlan({ ...currentPlan, episodeTitle: title });
@@ -285,6 +289,7 @@ export default function Home() {
                   plan={currentPlan}
                   onPlanReady={handlePlanReady}
                   onTitleChange={handleTitleChange}
+                  onPlanChange={handlePlanChange}
                 />
               )}
             </div>

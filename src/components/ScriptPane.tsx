@@ -49,6 +49,26 @@ function cleanScript(text: string): string {
   return result.join("\n").trim();
 }
 
+function syncScriptHeadersByIndex(
+  script: string,
+  outline: { section: string }[]
+): string {
+  let idx = 0;
+  return script
+    .split("\n")
+    .map((line) => {
+      if (!/^##\s/.test(line)) return line;
+      if (idx < outline.length) {
+        const updated = `## ${outline[idx].section}`;
+        idx++;
+        return updated;
+      }
+      idx++;
+      return line;
+    })
+    .join("\n");
+}
+
 export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, onRegister }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,6 +76,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
   const [registering, setRegistering] = useState(false);
   const [registered, setRegistered] = useState(false);
   const latestScriptRef = useRef<string>("");
+  const prevOutlineRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     if (!episodeNumber || !episodeSlug) return;
@@ -70,6 +91,33 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
         }
       });
   }, [episodeNumber, episodeSlug]);
+
+  useEffect(() => {
+    prevOutlineRef.current = null;
+  }, [episodeNumber, episodeSlug]);
+
+  useEffect(() => {
+    if (!plan?.outline || loading) return;
+    const sections = plan.outline.map((o) => o.section);
+
+    if (prevOutlineRef.current === null) {
+      prevOutlineRef.current = sections;
+      return;
+    }
+
+    if (sections.join("\0") === prevOutlineRef.current.join("\0")) return;
+    if (!script) {
+      prevOutlineRef.current = sections;
+      return;
+    }
+
+    const updated = syncScriptHeadersByIndex(script, plan.outline);
+    if (updated !== script) {
+      setScript(updated);
+      latestScriptRef.current = updated;
+    }
+    prevOutlineRef.current = sections;
+  }, [plan?.outline, script, loading]);
 
   async function handleGenerate() {
     if (!plan) return;
@@ -97,6 +145,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
     setScript(cleaned);
     latestScriptRef.current = cleaned;
     setGenerated(true);
+    prevOutlineRef.current = plan.outline?.map((o) => o.section) ?? [];
     setLoading(false);
   }
 
