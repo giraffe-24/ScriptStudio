@@ -342,6 +342,16 @@ function OutlineEditor({
 }) {
   return (
     <div className="space-y-3">
+      {/* 列見出し */}
+      <div className="flex items-start gap-3">
+        <div className="w-40 shrink-0">
+          <span className="text-xs font-medium text-gray-500">目次案</span>
+        </div>
+        <div className="flex-1">
+          <span className="text-xs font-medium text-gray-500">詳細</span>
+        </div>
+      </div>
+
       {items.map((item, i) => (
         <div key={i} className="flex items-start gap-3">
           {/* 左：セクション名 */}
