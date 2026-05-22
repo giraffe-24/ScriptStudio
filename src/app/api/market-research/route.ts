@@ -49,6 +49,7 @@ async function fetchYouTubeVideos(query: string): Promise<YouTubeVideo[]> {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const { category } = await req.json();
 
   const config = await loadChannelConfig();
@@ -107,4 +108,9 @@ ${videoSummary}
   }
 
   return NextResponse.json({ candidates, hasYouTubeData });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[market-research]", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

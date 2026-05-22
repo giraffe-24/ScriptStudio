@@ -4,6 +4,7 @@ import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import type { ThemeCandidate } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
+  try {
   const { theme } = await req.json();
   if (!theme) return NextResponse.json({ error: "theme required" }, { status: 400 });
 
@@ -51,4 +52,9 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ candidates });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[adapt-theme]", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

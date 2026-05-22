@@ -49,6 +49,15 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
         reason: candidate.reason,
       }),
     });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      console.error("[PlanningDoc] generate-plan error:", err);
+      alert(`企画書の生成に失敗しました。\n${err.error ?? res.statusText}`);
+      setLoading(false);
+      return;
+    }
+
     const data = await res.json();
     setPlan(data.plan ?? null);
     setLoading(false);
