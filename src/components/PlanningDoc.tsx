@@ -203,6 +203,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitle
             <OutlineEditor
               items={plan.outline}
               onChange={(items) => update("outline", items)}
+              historyResetKey={initialPlan?.episodeTitle ?? "plan"}
             />
           </DocSection>
 
@@ -336,40 +337,138 @@ function KeyPointList({
 }
 
 /* ── 構成エディタ ── */
+type OutlineItem = { section: string; content: string };
+
+function cloneOutline(items: OutlineItem[]): OutlineItem[] {
+  return items.map((item) => ({ ...item }));
+}
+
 function OutlineEditor({
   items,
   onChange,
+  historyResetKey,
 }: {
-  items: { section: string; content: string }[];
-  onChange: (items: { section: string; content: string }[]) => void;
+  items: OutlineItem[];
+  onChange: (items: OutlineItem[]) => void;
+  historyResetKey?: string;
 }) {
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  const pastRef = useRef<OutlineItem[][]>([]);
+  const futureRef = useRef<OutlineItem[][]>([]);
+  const skipHistoryRef = useRef(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  useEffect(() => {
+    pastRef.current = [];
+    futureRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+  }, [historyResetKey]);
+
+  function syncHistoryFlags() {
+    setCanUndo(pastRef.current.length > 0);
+    setCanRedo(futureRef.current.length > 0);
+  }
+
+  function applyChange(next: OutlineItem[], recordHistory = true) {
+    if (recordHistory && !skipHistoryRef.current) {
+      pastRef.current.push(cloneOutline(itemsRef.current));
+      futureRef.current = [];
+    }
+    skipHistoryRef.current = false;
+    onChange(next);
+    syncHistoryFlags();
+  }
+
+  const focusSnapshotRef = useRef<OutlineItem[] | null>(null);
+
+  function handleFieldFocus() {
+    focusSnapshotRef.current = cloneOutline(itemsRef.current);
+  }
+
+  function handleFieldBlur() {
+    if (!focusSnapshotRef.current) return;
+    if (JSON.stringify(focusSnapshotRef.current) !== JSON.stringify(itemsRef.current)) {
+      pastRef.current.push(focusSnapshotRef.current);
+      futureRef.current = [];
+      syncHistoryFlags();
+    }
+    focusSnapshotRef.current = null;
+  }
+
+  function updateField(index: number, field: "section" | "content", value: string) {
+    const next = cloneOutline(items);
+    next[index] = { ...next[index], [field]: value };
+    skipHistoryRef.current = true;
+    onChange(next);
+  }
+
+  function undo() {
+    const prev = pastRef.current.pop();
+    if (!prev) return;
+    futureRef.current.push(cloneOutline(itemsRef.current));
+    skipHistoryRef.current = true;
+    onChange(prev);
+    syncHistoryFlags();
+  }
+
+  function redo() {
+    const next = futureRef.current.pop();
+    if (!next) return;
+    pastRef.current.push(cloneOutline(itemsRef.current));
+    skipHistoryRef.current = true;
+    onChange(next);
+    syncHistoryFlags();
+  }
+
   function moveItem(from: number, to: number) {
     if (to < 0 || to >= items.length) return;
-    const next = [...items];
+    const next = cloneOutline(items);
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
-    onChange(next);
+    applyChange(next);
   }
 
   function removeItem(index: number) {
     if (items.length <= 1) return;
-    onChange(items.filter((_, i) => i !== index));
+    applyChange(items.filter((_, i) => i !== index));
   }
 
   function addItem() {
-    onChange([...items, { section: "", content: "" }]);
+    applyChange([...items, { section: "", content: "" }]);
   }
 
   return (
     <div className="space-y-3">
-      {/* 列見出し */}
+      {/* 列見出し + 戻す/進む */}
       <div className="flex items-start gap-2">
         <div className="w-7 shrink-0" />
         <div className="w-40 shrink-0">
           <span className="text-xs font-medium text-gray-500">目次案</span>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
           <span className="text-xs font-medium text-gray-500">詳細</span>
+          <div className="flex gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={undo}
+              disabled={!canUndo}
+              className="text-[10px] px-2 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ↩ 戻す
+            </button>
+            <button
+              type="button"
+              onClick={redo}
+              disabled={!canRedo}
+              className="text-[10px] px-2 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ↪ 進む
+            </button>
+          </div>
         </div>
       </div>
 
@@ -409,11 +508,9 @@ function OutlineEditor({
           <div className="w-40 shrink-0">
             <AutoResizeTextarea
               value={item.section}
-              onChange={(v) => {
-                const next = [...items];
-                next[i] = { ...next[i], section: v };
-                onChange(next);
-              }}
+              onChange={(v) => updateField(i, "section", v)}
+              onFocus={handleFieldFocus}
+              onBlur={handleFieldBlur}
               placeholder="セクション名…"
               className="text-xs text-gray-600"
             />
@@ -422,11 +519,9 @@ function OutlineEditor({
           <div className="flex-1">
             <AutoResizeTextarea
               value={item.content}
-              onChange={(v) => {
-                const next = [...items];
-                next[i] = { ...next[i], content: v };
-                onChange(next);
-              }}
+              onChange={(v) => updateField(i, "content", v)}
+              onFocus={handleFieldFocus}
+              onBlur={handleFieldBlur}
               placeholder="内容を記述…"
             />
           </div>
@@ -452,11 +547,15 @@ function AutoResizeTextarea({
   onChange,
   placeholder,
   className,
+  onFocus,
+  onBlur,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   return (
     <textarea
@@ -467,9 +566,11 @@ function AutoResizeTextarea({
         e.target.style.height = `${e.target.scrollHeight}px`;
       }}
       onFocus={(e) => {
+        onFocus?.();
         e.target.style.height = "auto";
         e.target.style.height = `${e.target.scrollHeight}px`;
       }}
+      onBlur={() => onBlur?.()}
       rows={2}
       placeholder={placeholder}
       className={`${EDITABLE}${className ? ` ${className}` : ""}`}
