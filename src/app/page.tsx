@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
 import { ThemeInput } from "@/components/ThemeInput";
@@ -28,6 +28,8 @@ export default function Home() {
   const [newEpisodeMode, setNewEpisodeMode] = useState(false);
   const [creatingEpisode, setCreatingEpisode] = useState(false);
   const [inferringPlan, setInferringPlan] = useState(false);
+  const [titleOverride, setTitleOverride] = useState<{ id: string; title: string } | undefined>(undefined);
+  const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handlePlanReady(plan: Plan, title: string) {
     if (!selectedEpisode && !creatingEpisode) {
@@ -91,6 +93,7 @@ export default function Home() {
     setNewEpisodeMode(false);
     setSelectedCandidate(null);
     setCurrentPlan(null);
+    setTitleOverride(undefined);
 
     // plan.json を読み込む。なければ台本から推論して保存
     const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
@@ -138,6 +141,31 @@ export default function Home() {
     setEpisodeRefreshKey((k) => k + 1);
   }
 
+  function handleTitleChange(title: string) {
+    // 企画書・台本ヘッダーを即時更新
+    if (currentPlan) setCurrentPlan({ ...currentPlan, episodeTitle: title });
+
+    // エピソード一覧をリアルタイム更新
+    if (selectedEpisode) {
+      setTitleOverride({ id: selectedEpisode.id, title });
+
+      // manifest への書き込みは 800ms デバウンス
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+      titleSaveTimer.current = setTimeout(async () => {
+        await fetch("/api/files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update-title",
+            number: selectedEpisode.number,
+            slug: selectedEpisode.slug,
+            title,
+          }),
+        });
+      }, 800);
+    }
+  }
+
   async function handleRegister() {
     // エピソードがまだ存在しない場合は新規作成
     if (!selectedEpisode) {
@@ -177,6 +205,7 @@ export default function Home() {
       <div className="w-52 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
         <EpisodeList
           selectedId={selectedEpisode?.id ?? null}
+          titleOverride={titleOverride}
           onSelect={handleEpisodeSelect}
           refreshKey={episodeRefreshKey}
         />
@@ -251,7 +280,12 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <PlanningDoc candidate={selectedCandidate} plan={currentPlan} onPlanReady={handlePlanReady} />
+                <PlanningDoc
+                  candidate={selectedCandidate}
+                  plan={currentPlan}
+                  onPlanReady={handlePlanReady}
+                  onTitleChange={handleTitleChange}
+                />
               )}
             </div>
           </div>

@@ -92,3 +92,12 @@ export async function updateManifestStatus(number: number, slug: string, status:
   m.status = status;
   await fs.writeFile(manifestPath, JSON.stringify(m, null, 2));
 }
+
+export async function updateManifestTitle(number: number, slug: string, title: string): Promise<void> {
+  const dirName = `${String(number).padStart(2, "0")}-${slug}`;
+  const manifestPath = path.join(OUTPUTS_DIR, dirName, "manifest.json");
+  const raw = await fs.readFile(manifestPath, "utf-8").catch(() => "{}");
+  const m = JSON.parse(raw);
+  m.title = title;
+  await fs.writeFile(manifestPath, JSON.stringify(m, null, 2));
+}

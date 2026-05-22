@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan } from "@/lib/file-manager";
+import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle } from "@/lib/file-manager";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -43,6 +43,11 @@ export async function POST(req: NextRequest) {
 
   if (body.action === "write-plan") {
     await writePlan(body.number, body.slug, body.plan);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "update-title") {
+    await updateManifestTitle(body.number, body.slug, body.title);
     return NextResponse.json({ ok: true });
   }
 

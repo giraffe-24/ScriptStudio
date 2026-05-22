@@ -19,11 +19,12 @@ const STATUS_COLOR: Record<string, string> = {
 
 interface Props {
   selectedId: string | null;
+  titleOverride?: { id: string; title: string };
   onSelect: (episode: Episode) => void;
   refreshKey?: number;
 }
 
-export function EpisodeList({ selectedId, onSelect, refreshKey }: Props) {
+export function EpisodeList({ selectedId, titleOverride, onSelect, refreshKey }: Props) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,20 +53,27 @@ export function EpisodeList({ selectedId, onSelect, refreshKey }: Props) {
           episodes.map((ep) => {
             const isSelected = ep.id === selectedId;
 
+            const displayTitle =
+              titleOverride?.id === ep.id ? titleOverride.title : ep.title;
+
             return (
               <div
                 key={ep.id}
                 className={`border-l-2 transition-colors ${
-                  isSelected ? "border-blue-500 bg-white" : "border-transparent"
+                  isSelected
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-transparent hover:bg-white"
                 }`}
               >
                 {/* タイトル行 */}
                 <button
                   onClick={() => onSelect(ep)}
-                  className="w-full text-left px-3 py-2.5 hover:bg-white transition-colors"
+                  className="w-full text-left px-3 py-2.5 transition-colors"
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[10px] text-gray-400 font-mono shrink-0">#{ep.number}</span>
+                    <span className={`text-[10px] font-mono shrink-0 ${isSelected ? "text-blue-500" : "text-gray-400"}`}>
+                      #{ep.number}
+                    </span>
                     {ep.createdAt && (
                       <span className="text-[10px] text-gray-300 shrink-0">{ep.createdAt}</span>
                     )}
@@ -77,8 +85,8 @@ export function EpisodeList({ selectedId, onSelect, refreshKey }: Props) {
                       {STATUS_LABEL[ep.status] ?? ep.status}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-800 leading-snug line-clamp-2">
-                    {ep.title}
+                  <p className={`text-xs leading-snug line-clamp-2 ${isSelected ? "text-blue-700 font-medium" : "text-gray-800"}`}>
+                    {displayTitle}
                   </p>
                 </button>
               </div>

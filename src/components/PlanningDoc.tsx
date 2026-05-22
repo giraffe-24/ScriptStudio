@@ -19,9 +19,10 @@ interface Props {
   candidate: ThemeCandidate | null;
   plan?: Plan | null;
   onPlanReady: (plan: Plan, title: string) => void;
+  onTitleChange?: (title: string) => void;
 }
 
-export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady }: Props) {
+export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady, onTitleChange }: Props) {
   const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
@@ -109,15 +110,17 @@ export function PlanningDoc({ candidate, plan: initialPlan, onPlanReady }: Props
         <div className="max-w-2xl mx-auto px-8 py-6 space-y-6">
 
           {/* タイトル */}
-          <div>
+          <DocSection label="タイトル">
             <input
               value={plan.episodeTitle}
-              onChange={(e) => update("episodeTitle", e.target.value)}
-              className="w-full text-base font-bold text-gray-900 bg-transparent border-0 focus:outline-none"
+              onChange={(e) => {
+                update("episodeTitle", e.target.value);
+                onTitleChange?.(e.target.value);
+              }}
+              className="w-full text-sm text-gray-900 bg-transparent border-0 focus:outline-none"
               placeholder="動画タイトルを入力…"
             />
-            <div className="border-b-2 border-gray-800 mt-1" />
-          </div>
+          </DocSection>
 
           {/* フック */}
           {candidate?.hook && (
