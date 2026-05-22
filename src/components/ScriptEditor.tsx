@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+const CALIB_MARKER = "<<<YT_TALKSCRIPT_CALIB_SPLIT>>>";
+
 interface Props {
   script: string;
   onSave: (content: string) => void;
@@ -25,36 +27,51 @@ function parseSections(text: string): Section[] {
       current = { label: line.replace(/^##\s+/, "").trim(), content: "" };
     } else {
       if (!current) {
-        // ## より前のテキストは「導入」扱い
         current = { label: "導入", content: "" };
       }
       current.content += line + "\n";
     }
   }
   if (current) sections.push(current);
-
   return sections.filter((s) => s.content.trim());
 }
 
+function splitCalib(raw: string): { main: string; calib: string } {
+  const idx = raw.indexOf(CALIB_MARKER);
+  if (idx === -1) return { main: raw, calib: "" };
+  return {
+    main: raw.slice(0, idx).trim(),
+    calib: raw.slice(idx + CALIB_MARKER.length).trim(),
+  };
+}
+
 export function ScriptEditor({ script, onSave }: Props) {
-  const [content, setContent] = useState(script);
-  const [charCount, setCharCount] = useState(0);
+  const { main: initMain, calib: initCalib } = splitCalib(script);
+  const [content, setContent] = useState(initMain);
+  const [calibText, setCalibText] = useState(initCalib);
   const [saved, setSaved] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [calibOpen, setCalibOpen] = useState(!!initCalib);
 
   useEffect(() => {
-    setContent(script);
-    setCharCount(script.replace(/\s/g, "").length);
+    const { main, calib } = splitCalib(script);
+    setContent(main);
+    setCalibText(calib);
+    setCalibOpen(!!calib);
   }, [script]);
+
+  const charCount = content.replace(/\s/g, "").length;
 
   const handleChange = useCallback((value: string) => {
     setContent(value);
-    setCharCount(value.replace(/\s/g, "").length);
     setSaved(false);
   }, []);
 
   function handleSave() {
-    onSave(content);
+    const combined = calibText.trim()
+      ? `${content}\n\n${CALIB_MARKER}\n\n${calibText}`
+      : content;
+    onSave(combined);
     setSaved(true);
   }
 
@@ -113,9 +130,9 @@ export function ScriptEditor({ script, onSave }: Props) {
         </div>
       </div>
 
-      {/* 本体：左＝セクションコピー、右＝テキストエリア */}
+      {/* 本体 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 左：セクション一覧＋コピーボタン */}
+        {/* 左：セクション一覧 */}
         {sections.length > 0 && (
           <div className="w-44 shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50 py-3 px-2 space-y-1">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
@@ -133,9 +150,7 @@ export function ScriptEditor({ script, onSave }: Props) {
                 }`}
               >
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs leading-snug line-clamp-2 flex-1">
-                    {sec.label}
-                  </span>
+                  <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
                   <span
                     className={`shrink-0 text-[10px] transition-opacity ${
                       copied === sec.label
@@ -151,15 +166,67 @@ export function ScriptEditor({ script, onSave }: Props) {
           </div>
         )}
 
-        {/* 右：テキストエリア */}
-        <div className="flex-1 overflow-hidden">
-          <textarea
-            value={content}
-            onChange={(e) => handleChange(e.target.value)}
-            className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
-            placeholder="台本をここに入力…"
-            spellCheck={false}
-          />
+        {/* 右：台本 + 推敲比較 */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* 台本テキストエリア */}
+          <div className="flex-1 overflow-hidden">
+            <textarea
+              value={content}
+              onChange={(e) => handleChange(e.target.value)}
+              className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
+              placeholder="台本をここに入力…"
+              spellCheck={false}
+            />
+          </div>
+
+          {/* 推敲比較セクション */}
+          <div className="border-t-2 border-dashed border-amber-200 shrink-0">
+            {/* ヘッダー */}
+            <button
+              onClick={() => setCalibOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-700">推敲比較</span>
+                <span className="text-[10px] text-amber-500">
+                  手直し後の確定稿をここに貼り付けて /推敲比較 で使用
+                </span>
+              </div>
+              <span className={`text-amber-500 text-xs transition-transform duration-200 ${calibOpen ? "rotate-180" : ""}`}>
+                ▾
+              </span>
+            </button>
+
+            {/* 貼り付けエリア */}
+            {calibOpen && (
+              <div className="bg-amber-50 border-t border-amber-100">
+                <textarea
+                  value={calibText}
+                  onChange={(e) => {
+                    setCalibText(e.target.value);
+                    setSaved(false);
+                  }}
+                  rows={8}
+                  placeholder="手直し後の台本をここに全文貼り付けてください…"
+                  className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus:outline-none placeholder:text-amber-300"
+                  spellCheck={false}
+                />
+                {calibText && (
+                  <div className="px-4 pb-2 flex items-center justify-between">
+                    <span className="text-[10px] text-amber-500">
+                      {calibText.replace(/\s/g, "").length.toLocaleString()} 字
+                    </span>
+                    <button
+                      onClick={() => { setCalibText(""); setSaved(false); }}
+                      className="text-[10px] text-amber-400 hover:text-amber-600 transition-colors"
+                    >
+                      クリア
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
