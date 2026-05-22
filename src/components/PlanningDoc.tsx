@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ThemeCandidate, ChatMessage } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
 
 interface Plan {
   episodeTitle: string;
-  youtubeGoal: string;
   targetViewer: string;
   pain: string;
   promise: string;
@@ -26,7 +25,6 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [editingTitle, setEditingTitle] = useState("");
 
   useEffect(() => {
     if (!candidate) return;
@@ -53,33 +51,20 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
     });
     const data = await res.json();
     setPlan(data.plan ?? null);
-    setEditingTitle(data.plan?.episodeTitle ?? "");
     setLoading(false);
   }
 
-  function handleSectionChat(label: string, content: string) {
-    setChatSection({ label, content });
-    setChatHistory([]);
-  }
-
-  function updateSection(key: keyof Plan, value: string | string[]) {
+  function update<K extends keyof Plan>(key: K, value: Plan[K]) {
     if (!plan) return;
     setPlan({ ...plan, [key]: value });
-  }
-
-  function updateOutlineContent(index: number, value: string) {
-    if (!plan) return;
-    const newOutline = [...plan.outline];
-    newOutline[index] = { ...newOutline[index], content: value };
-    setPlan({ ...plan, outline: newOutline });
   }
 
   if (!candidate) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-400">
-          <div className="text-4xl mb-3">📋</div>
-          <p className="text-sm">テーマを選択すると企画書が生成されます</p>
+        <div className="text-center text-gray-300">
+          <div className="text-5xl mb-3">📋</div>
+          <p className="text-sm">テーマを選択すると企画書を生成します</p>
         </div>
       </div>
     );
@@ -91,7 +76,7 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
         <div className="text-center">
           <div className="text-4xl mb-3 animate-bounce">✍️</div>
           <p className="text-sm text-gray-500">企画書を生成中…</p>
-          <p className="text-xs text-gray-400 mt-1">通常 10〜20 秒かかります</p>
+          <p className="text-xs text-gray-400 mt-1">10〜20 秒かかります</p>
         </div>
       </div>
     );
@@ -101,95 +86,143 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-bold text-gray-700 text-sm">企画書</h2>
-          <button
-            onClick={() => onPlanReady(plan, editingTitle)}
-            className="bg-blue-500 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-blue-600 transition-colors font-medium"
-          >
-            台本を生成 →
-          </button>
-        </div>
-
-        {/* タイトル */}
-        <PlanField label="動画タイトル" icon="🎬">
-          <input
-            value={editingTitle}
-            onChange={(e) => {
-              setEditingTitle(e.target.value);
-              updateSection("episodeTitle", e.target.value);
-            }}
-            className="w-full text-sm font-semibold text-gray-800 border-b border-gray-200 pb-1 focus:outline-none focus:border-blue-400 bg-transparent"
-          />
-        </PlanField>
-
-        {/* YouTube ゴール */}
-        <PlanField label="YouTube ゴール" icon="🎯" onChat={() => handleSectionChat("YouTubeゴール", plan.youtubeGoal)}>
-          <EditableText value={plan.youtubeGoal} onChange={(v) => updateSection("youtubeGoal", v)} />
-        </PlanField>
-
-        {/* 想定視聴者 */}
-        <PlanField label="想定視聴者" icon="👤" onChat={() => handleSectionChat("想定視聴者", plan.targetViewer)}>
-          <EditableText value={plan.targetViewer} onChange={(v) => updateSection("targetViewer", v)} />
-        </PlanField>
-
-        {/* 視聴者の悩み */}
-        <PlanField label="視聴者の悩み" icon="😰" onChat={() => handleSectionChat("視聴者の悩み", plan.pain)}>
-          <EditableText value={plan.pain} onChange={(v) => updateSection("pain", v)} />
-        </PlanField>
-
-        {/* 動画の約束 */}
-        <PlanField label="動画の約束（視聴者が得る価値）" icon="✅" onChat={() => handleSectionChat("動画の約束", plan.promise)}>
-          <EditableText value={plan.promise} onChange={(v) => updateSection("promise", v)} />
-        </PlanField>
-
-        {/* コンテンツの核 */}
-        <PlanField label="コンテンツの核" icon="💡" onChat={() => handleSectionChat("コンテンツの核", plan.keyPoints.join("\n"))}>
-          <ul className="space-y-1">
-            {plan.keyPoints.map((point, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="text-blue-400 text-xs mt-1">●</span>
-                <input
-                  value={point}
-                  onChange={(e) => {
-                    const newPoints = [...plan.keyPoints];
-                    newPoints[i] = e.target.value;
-                    updateSection("keyPoints", newPoints);
-                  }}
-                  className="flex-1 text-sm text-gray-700 border-b border-gray-100 focus:outline-none focus:border-blue-300 bg-transparent"
-                />
-              </li>
-            ))}
-          </ul>
-        </PlanField>
-
-        {/* 構成 */}
-        <PlanField label="構成" icon="📐" onChat={() => handleSectionChat("構成", plan.outline.map(o => `${o.section}：${o.content}`).join("\n"))}>
-          <div className="space-y-2">
-            {plan.outline.map((item, i) => (
-              <div key={i} className="flex gap-2">
-                <span className="text-xs text-gray-400 font-mono whitespace-nowrap mt-1">{item.section}</span>
-                <input
-                  value={item.content}
-                  onChange={(e) => updateOutlineContent(i, e.target.value)}
-                  className="flex-1 text-sm text-gray-700 border-b border-gray-100 focus:outline-none focus:border-blue-300 bg-transparent"
-                />
-              </div>
-            ))}
+      {/* 企画書本体 */}
+      <div className="flex-1 overflow-y-auto">
+        {/* フックバナー */}
+        {candidate.hook && (
+          <div className="mx-4 mt-4 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">
+              フック（冒頭 30 秒）
+            </p>
+            <p className="text-sm text-blue-700 italic leading-relaxed">
+              「{candidate.hook}」
+            </p>
           </div>
-        </PlanField>
+        )}
 
-        {/* 差別化 */}
-        <PlanField label="競合との差別化" icon="⚡" onChat={() => handleSectionChat("差別化", plan.competitorAnalysis)}>
-          <EditableText value={plan.competitorAnalysis} onChange={(v) => updateSection("competitorAnalysis", v)} />
-        </PlanField>
+        <div className="px-4 py-3 space-y-3">
+          {/* タイトル */}
+          <Field
+            label="動画タイトル"
+            icon="🎬"
+            onChat={() => setChatSection({ label: "動画タイトル", content: plan.episodeTitle })}
+          >
+            <input
+              value={plan.episodeTitle}
+              onChange={(e) => update("episodeTitle", e.target.value)}
+              className="w-full text-sm font-semibold text-gray-800 bg-transparent border-b border-gray-200 pb-1 focus:outline-none focus:border-blue-400"
+              placeholder="動画タイトルを入力…"
+            />
+          </Field>
 
-        <div className="text-right text-xs text-gray-400 pt-2">
-          想定尺：{plan.estimatedLength}
+          {/* 想定視聴者 */}
+          <Field
+            label="想定視聴者"
+            icon="👤"
+            onChat={() => setChatSection({ label: "想定視聴者", content: plan.targetViewer })}
+          >
+            <AutoResizeTextarea
+              value={plan.targetViewer}
+              onChange={(v) => update("targetViewer", v)}
+              placeholder="想定視聴者を記述…"
+            />
+          </Field>
+
+          {/* 視聴者の悩み */}
+          <Field
+            label="視聴者の悩み"
+            icon="😰"
+            onChat={() => setChatSection({ label: "視聴者の悩み", content: plan.pain })}
+          >
+            <AutoResizeTextarea
+              value={plan.pain}
+              onChange={(v) => update("pain", v)}
+              placeholder="悩みを記述…"
+            />
+          </Field>
+
+          {/* 動画の約束 */}
+          <Field
+            label="動画で提供する価値"
+            icon="✅"
+            onChat={() => setChatSection({ label: "動画の約束", content: plan.promise })}
+          >
+            <AutoResizeTextarea
+              value={plan.promise}
+              onChange={(v) => update("promise", v)}
+              placeholder="視聴者が得る価値を記述…"
+            />
+          </Field>
+
+          {/* コンテンツの核（Enter で追加・Backspace で削除） */}
+          <Field
+            label="コンテンツの核"
+            icon="💡"
+            onChat={() => setChatSection({ label: "コンテンツの核", content: plan.keyPoints.join("\n") })}
+          >
+            <KeyPointList
+              items={plan.keyPoints}
+              onChange={(items) => update("keyPoints", items)}
+            />
+          </Field>
+
+          {/* 構成（縦積みレイアウト） */}
+          <Field
+            label="構成"
+            icon="📐"
+            onChat={() =>
+              setChatSection({
+                label: "構成",
+                content: plan.outline.map((o) => `${o.section}：${o.content}`).join("\n"),
+              })
+            }
+          >
+            <OutlineEditor
+              items={plan.outline}
+              onChange={(items) => update("outline", items)}
+            />
+          </Field>
+
+          {/* 競合との差別化 */}
+          <Field
+            label="競合との差別化"
+            icon="⚡"
+            onChat={() => setChatSection({ label: "差別化", content: plan.competitorAnalysis })}
+          >
+            <AutoResizeTextarea
+              value={plan.competitorAnalysis}
+              onChange={(v) => update("competitorAnalysis", v)}
+              placeholder="差別化ポイントを記述…"
+            />
+          </Field>
+
+          {/* 想定尺 */}
+          <div className="flex items-center gap-2 text-xs text-gray-400 px-1">
+            <span>⏱</span>
+            <span>想定尺：</span>
+            <input
+              value={plan.estimatedLength}
+              onChange={(e) => update("estimatedLength", e.target.value)}
+              className="text-xs text-gray-500 bg-transparent border-b border-gray-200 focus:outline-none focus:border-blue-300 w-24"
+            />
+          </div>
+
+          {/* 台本作成ボタン */}
+          <div className="pt-4 pb-2">
+            <button
+              onClick={() => onPlanReady(plan, plan.episodeTitle)}
+              className="w-full bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm py-3 rounded-xl transition-all shadow-sm"
+            >
+              台本を作成する →
+            </button>
+            <p className="text-center text-[10px] text-gray-400 mt-1.5">
+              企画書の内容が決まったら押してください
+            </p>
+          </div>
         </div>
       </div>
 
+      {/* チャットパネル */}
       {chatSection && (
         <ChatPane
           theme={candidate.title}
@@ -204,7 +237,87 @@ export function PlanningDoc({ candidate, onPlanReady }: Props) {
   );
 }
 
-function PlanField({
+/* ── キーポイントリストエディタ ── */
+function KeyPointList({
+  items,
+  onChange,
+}: {
+  items: string[];
+  onChange: (items: string[]) => void;
+}) {
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const next = [...items];
+      next.splice(index + 1, 0, "");
+      onChange(next);
+      // 次のフレームでフォーカス
+      setTimeout(() => refs.current[index + 1]?.focus(), 0);
+    } else if (e.key === "Backspace" && items[index] === "" && items.length > 1) {
+      e.preventDefault();
+      const next = items.filter((_, i) => i !== index);
+      onChange(next);
+      setTimeout(() => refs.current[Math.max(0, index - 1)]?.focus(), 0);
+    }
+  }
+
+  return (
+    <ul className="space-y-1.5">
+      {items.map((point, i) => (
+        <li key={i} className="flex items-center gap-2">
+          <span className="text-blue-300 text-xs shrink-0">●</span>
+          <input
+            ref={(el) => { refs.current[i] = el; }}
+            value={point}
+            onChange={(e) => {
+              const next = [...items];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+            onKeyDown={(e) => handleKeyDown(e, i)}
+            className="flex-1 text-sm text-gray-700 bg-transparent border-b border-gray-100 focus:outline-none focus:border-blue-300 py-0.5"
+            placeholder="ポイントを入力（Enter で追加）"
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ── 構成エディタ（縦積みレイアウト） ── */
+function OutlineEditor({
+  items,
+  onChange,
+}: {
+  items: { section: string; content: string }[];
+  onChange: (items: { section: string; content: string }[]) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {items.map((item, i) => (
+        <div key={i} className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+          {/* セクション名（上段・小さく） */}
+          <p className="text-[11px] font-semibold text-gray-400 mb-1">{item.section}</p>
+          {/* 内容（下段・フル幅） */}
+          <AutoResizeTextarea
+            value={item.content}
+            onChange={(v) => {
+              const next = [...items];
+              next[i] = { ...next[i], content: v };
+              onChange(next);
+            }}
+            placeholder="内容を記述…"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── 共通部品 ── */
+function Field({
   label,
   icon,
   children,
@@ -216,10 +329,11 @@ function PlanField({
   onChat?: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4">
+    <div className="rounded-xl border border-gray-100 bg-white px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-          <span>{icon}</span> {label}
+        <span className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+          <span>{icon}</span>
+          {label}
         </span>
         {onChat && (
           <button
@@ -235,13 +349,30 @@ function PlanField({
   );
 }
 
-function EditableText({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
   return (
     <textarea
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full text-sm text-gray-700 resize-none border-0 focus:outline-none bg-transparent leading-relaxed"
-      rows={3}
+      onChange={(e) => {
+        onChange(e.target.value);
+        e.target.style.height = "auto";
+        e.target.style.height = `${e.target.scrollHeight}px`;
+      }}
+      onFocus={(e) => {
+        e.target.style.height = "auto";
+        e.target.style.height = `${e.target.scrollHeight}px`;
+      }}
+      rows={2}
+      placeholder={placeholder}
+      className="w-full text-sm text-gray-700 bg-transparent resize-none overflow-hidden border-0 focus:outline-none leading-relaxed placeholder:text-gray-300"
     />
   );
 }

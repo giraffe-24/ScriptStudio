@@ -10,7 +10,6 @@ import type { Episode, ThemeCandidate, ThemePattern } from "@/lib/types";
 
 interface Plan {
   episodeTitle: string;
-  youtubeGoal?: string;
   targetViewer?: string;
   pain?: string;
   promise?: string;
@@ -32,7 +31,6 @@ export default function Home() {
   async function handlePlanReady(plan: Plan, title: string) {
     if (!selectedEpisode && !creatingEpisode) {
       setCreatingEpisode(true);
-      // 次のエピソード番号を取得して作成
       const listRes = await fetch("/api/files?action=list");
       const listData = await listRes.json();
       const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
@@ -45,10 +43,18 @@ export default function Home() {
           episode: {
             id: String(maxNumber + 1),
             number: maxNumber + 1,
-            slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 30) || `episode-${maxNumber + 1}`,
+            slug:
+              title
+                .toLowerCase()
+                .replace(/[^\w\s-]/g, "")
+                .replace(/\s+/g, "-")
+                .slice(0, 30) || `episode-${maxNumber + 1}`,
             title,
             status: "scripting",
             themePattern: pattern,
+            hook: selectedCandidate?.hook,
+            targetPain: selectedCandidate?.targetPain,
+            reason: selectedCandidate?.reason,
           },
         }),
       });
@@ -83,24 +89,25 @@ export default function Home() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
-      {/* Pane 1: エピソード一覧 (左サイドバー) */}
-      <div className="w-56 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
+      {/* Pane 1: エピソード一覧 */}
+      <div className="w-52 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
         <EpisodeList
           selectedId={selectedEpisode?.id ?? null}
           onSelect={handleEpisodeSelect}
-          onNew={handleNewEpisode}
           refreshKey={episodeRefreshKey}
         />
       </div>
 
       {!showWorkspace ? (
         /* ウェルカム画面 */
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center bg-white">
           <div className="text-center max-w-sm">
             <div className="text-6xl mb-6">🎬</div>
             <h2 className="text-xl font-bold text-gray-700 mb-2">YT_TalkScript Studio</h2>
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-              企画からトークスクリプトまでを<br />AI と一緒に作成できます
+              企画からトークスクリプトまでを
+              <br />
+              AI と一緒に作成できます
             </p>
             <button
               onClick={handleNewEpisode}
@@ -114,18 +121,24 @@ export default function Home() {
         <div className="flex flex-1 overflow-hidden">
           {/* Pane 2: テーマ選定 */}
           <div className="w-80 shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <h2 className="font-bold text-sm text-gray-700">テーマ選定</h2>
-              {selectedEpisode && !newEpisodeMode && (
-                <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{selectedEpisode.title}</p>
-              )}
+              <button
+                onClick={handleNewEpisode}
+                className="text-[11px] text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-0.5 rounded-full transition-colors"
+              >
+                ＋ 新規
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <PatternSelector pattern={pattern} onChange={(p) => { setPattern(p); setSelectedCandidate(null); }} />
-              <ThemeInput
+              <PatternSelector
                 pattern={pattern}
-                onSelect={(c) => setSelectedCandidate(c)}
+                onChange={(p) => {
+                  setPattern(p);
+                  setSelectedCandidate(null);
+                }}
               />
+              <ThemeInput pattern={pattern} onSelect={(c) => setSelectedCandidate(c)} />
             </div>
           </div>
 
@@ -138,10 +151,7 @@ export default function Home() {
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <PlanningDoc
-                candidate={selectedCandidate}
-                onPlanReady={handlePlanReady}
-              />
+              <PlanningDoc candidate={selectedCandidate} onPlanReady={handlePlanReady} />
             </div>
           </div>
 

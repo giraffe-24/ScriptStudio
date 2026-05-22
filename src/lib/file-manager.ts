@@ -23,6 +23,9 @@ export async function listEpisodes(): Promise<Episode[]> {
         status: m.status ?? "planning",
         themePattern: m.theme_pattern,
         createdAt: m.created_at ?? "",
+        hook: m.hook,
+        targetPain: m.target_pain,
+        reason: m.reason,
       });
     } catch {
       // manifest.json がないフォルダはスキップ
@@ -46,6 +49,9 @@ export async function createEpisode(episode: Omit<Episode, "createdAt">): Promis
     status: episode.status,
     theme_pattern: episode.themePattern,
     created_at: ep.createdAt,
+    hook: episode.hook,
+    target_pain: episode.targetPain,
+    reason: episode.reason,
     panes: [
       { id: "pane1", label: "企画", path: "00-plan-and-structure.md" },
       { id: "pane2", label: "台本", path: "01-script-draft.md" },

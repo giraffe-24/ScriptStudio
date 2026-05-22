@@ -8,6 +8,26 @@ interface Props {
   onSelect: (candidate: ThemeCandidate) => void;
 }
 
+const SCORE_BORDER = {
+  high: "border-green-300",
+  medium: "border-yellow-300",
+  low: "border-gray-200",
+};
+
+const SCORE_BG = {
+  high: "bg-green-50",
+  medium: "bg-yellow-50",
+  low: "bg-gray-50",
+};
+
+const SCORE_BADGE = {
+  high: "bg-green-100 text-green-700 border-green-200",
+  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  low: "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+const SCORE_LABEL = { high: "刺さる", medium: "普通", low: "弱め" };
+
 export function ThemeInput({ pattern, onSelect }: Props) {
   const [userTheme, setUserTheme] = useState("");
   const [category, setCategory] = useState("");
@@ -15,9 +35,13 @@ export function ThemeInput({ pattern, onSelect }: Props) {
   const [candidates, setCandidates] = useState<ThemeCandidate[]>([]);
   const [hasYouTubeData, setHasYouTubeData] = useState(false);
 
+  // 「選択中」の候補（まだ確定していない）
+  const [pickedIndex, setPickedIndex] = useState<number | null>(null);
+
   async function handleResearch() {
     setLoading(true);
     setCandidates([]);
+    setPickedIndex(null);
     try {
       if (pattern === "market") {
         const res = await fetch("/api/market-research", {
@@ -42,19 +66,17 @@ export function ThemeInput({ pattern, onSelect }: Props) {
     }
   }
 
-  const SCORE_COLOR = {
-    high: "bg-green-100 text-green-700 border-green-200",
-    medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    low: "bg-gray-100 text-gray-600 border-gray-200",
-  };
-
-  const SCORE_LABEL = { high: "刺さる", medium: "普通", low: "弱め" };
+  function handleConfirm() {
+    if (pickedIndex === null) return;
+    onSelect(candidates[pickedIndex]);
+  }
 
   return (
     <div className="space-y-4">
+      {/* 入力エリア */}
       {pattern === "market" ? (
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
             カテゴリ（空白でも OK）
           </label>
           <input
@@ -68,7 +90,7 @@ export function ThemeInput({ pattern, onSelect }: Props) {
         </div>
       ) : (
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
             テーマを入力
           </label>
           <input
@@ -93,44 +115,88 @@ export function ThemeInput({ pattern, onSelect }: Props) {
             : "bg-purple-500 text-white hover:bg-purple-600"
         }`}
       >
-        {loading ? "AI が分析中…" : pattern === "market" ? "📊 トレンド分析する" : "✨ テーマを改変する"}
+        {loading
+          ? "AI が分析中…"
+          : pattern === "market"
+          ? "📊 トレンド分析する"
+          : "✨ テーマを改変する"}
       </button>
 
+      {/* 候補リスト */}
       {candidates.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
               テーマ候補
             </h3>
             {pattern === "market" && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${hasYouTubeData ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"}`}>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full ${
+                  hasYouTubeData
+                    ? "bg-blue-100 text-blue-600"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
                 {hasYouTubeData ? "YouTube API" : "AI 知識ベース"}
               </span>
             )}
           </div>
-          {candidates.map((c, i) => (
-            <div
-              key={i}
-              className="border border-gray-200 rounded-xl p-4 bg-white hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer group"
-              onClick={() => onSelect(c)}
+
+          {candidates.map((c, i) => {
+            const isPicked = pickedIndex === i;
+            return (
+              <div
+                key={i}
+                onClick={() => setPickedIndex(i)}
+                className={`border-2 rounded-xl p-3 cursor-pointer transition-all ${
+                  isPicked
+                    ? `${SCORE_BORDER[c.score]} ${SCORE_BG[c.score]} shadow-sm`
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <h4 className="text-sm font-semibold text-gray-800 leading-tight flex-1">
+                    {c.title}
+                  </h4>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                        SCORE_BADGE[c.score]
+                      }`}
+                    >
+                      {SCORE_LABEL[c.score]}
+                    </span>
+                    {isPicked && (
+                      <span className="text-blue-500 text-sm">✓</span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 italic leading-relaxed mb-1">
+                  「{c.hook}」
+                </p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {c.targetPain}
+                </p>
+              </div>
+            );
+          })}
+
+          {/* 確定ボタン */}
+          <div className="pt-1">
+            <button
+              onClick={handleConfirm}
+              disabled={pickedIndex === null}
+              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                pickedIndex !== null
+                  ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm active:scale-[0.98]"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <h4 className="text-sm font-semibold text-gray-800 leading-tight flex-1">
-                  {c.title}
-                </h4>
-                <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border font-medium ${SCORE_COLOR[c.score]}`}>
-                  {SCORE_LABEL[c.score]}
-                </span>
-              </div>
-              <p className="text-xs text-blue-600 italic mb-1 leading-relaxed">「{c.hook}」</p>
-              <p className="text-xs text-gray-500 leading-relaxed">{c.targetPain}</p>
-              <div className="mt-3 flex justify-end">
-                <span className="text-xs text-blue-500 group-hover:text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                  このテーマで企画書を作成 →
-                </span>
-              </div>
-            </div>
-          ))}
+              {pickedIndex !== null
+                ? "企画書を作成する →"
+                : "候補を選んでください"}
+            </button>
+          </div>
         </div>
       )}
     </div>

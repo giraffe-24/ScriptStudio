@@ -15,6 +15,9 @@ export interface Episode {
   status: EpisodeStatus;
   themePattern?: ThemePattern;
   createdAt: string;
+  hook?: string;
+  targetPain?: string;
+  reason?: string;
 }
 
 export interface ThemeCandidate {
