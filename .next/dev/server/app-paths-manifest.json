@@ -1,8 +1,0 @@
-{
-  "/api/adapt-theme/route": "app/api/adapt-theme/route.js",
-  "/api/files/route": "app/api/files/route.js",
-  "/api/generate-plan/route": "app/api/generate-plan/route.js",
-  "/api/generate-script/route": "app/api/generate-script/route.js",
-  "/api/market-research/route": "app/api/market-research/route.js",
-  "/page": "app/page.js"
-}
