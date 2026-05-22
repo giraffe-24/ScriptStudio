@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { sanitizePlanOutline } from "@/lib/plan-outline";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,11 +31,13 @@ ${script.slice(0, 6000)}
   "promise": "この動画で視聴者が得られるもの（1〜2行）",
   "keyPoints": ["キーポイント1", "キーポイント2", "キーポイント3"],
   "outline": [
-    { "section": "セクション名（## 見出しから）", "content": "内容の要約（1行）" }
+    { "section": "セクション名（## 見出しから。時間表記は除く）", "content": "内容の要約（1行）" }
   ],
   "competitorAnalysis": "このテーマの競合・市場感（1〜2行）",
   "estimatedLength": "推定尺（台本の長さから）"
-}`,
+}
+
+outline.section には時間・タイムコード（0:00、5分など）を入れないこと。尺は estimatedLength のみ。`,
         },
       ],
     });
@@ -42,7 +45,7 @@ ${script.slice(0, 6000)}
     const raw = message.content[0].type === "text" ? message.content[0].text : "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return NextResponse.json({ error: "JSON parse failed" }, { status: 500 });
-    const plan = JSON.parse(jsonMatch[0]);
+    const plan = sanitizePlanOutline(JSON.parse(jsonMatch[0]));
     return NextResponse.json({ plan });
   } catch (e) {
     console.error("infer-plan error:", e);

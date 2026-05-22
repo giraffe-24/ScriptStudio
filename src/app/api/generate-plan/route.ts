@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
+import { sanitizePlanOutline } from "@/lib/plan-outline";
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,21 +38,26 @@ ${reason ? `選定理由：${reason}` : ""}
     "コンテンツの核となるポイント3"
   ],
   "outline": [
-    { "section": "オープニング（0:00〜）", "content": "内容の概要" },
-    { "section": "本題①（x:xx〜）", "content": "内容の概要" },
-    { "section": "本題②（x:xx〜）", "content": "内容の概要" },
-    { "section": "まとめ（x:xx〜）", "content": "内容の概要" }
+    { "section": "導入", "content": "内容の概要" },
+    { "section": "本題 - 〇〇の設定", "content": "内容の概要" },
+    { "section": "本題 - 〇〇の確認", "content": "内容の概要" },
+    { "section": "まとめ", "content": "内容の概要" }
   ],
   "competitorAnalysis": "競合動画との差別化ポイント（2〜3行）",
   "estimatedLength": "想定動画尺（例：8〜12分）"
-}`,
+}
+
+目次案（outline.section）のルール：
+- 時間・尺・タイムコードを入れない（「0:00」「5分」「（3:00〜）」等は禁止）
+- 尺の目安は estimatedLength にのみ書く
+- section には内容を表す見出し名だけを書く`,
         },
       ],
     });
 
     const text = message.content[0].type === "text" ? message.content[0].text : "{}";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const plan = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    const plan = jsonMatch ? sanitizePlanOutline(JSON.parse(jsonMatch[0])) : {};
     return NextResponse.json({ plan });
 
   } catch (err) {

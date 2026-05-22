@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ThemeCandidate, ChatMessage } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
+import { stripTimeFromSection } from "@/lib/plan-outline";
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
@@ -401,7 +402,10 @@ function OutlineEditor({
 
   function updateField(index: number, field: "section" | "content", value: string) {
     const next = cloneOutline(items);
-    next[index] = { ...next[index], [field]: value };
+    next[index] = {
+      ...next[index],
+      [field]: field === "section" ? stripTimeFromSection(value) : value,
+    };
     skipHistoryRef.current = true;
     onChange(next);
   }
