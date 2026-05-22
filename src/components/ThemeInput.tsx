@@ -9,24 +9,25 @@ interface Props {
 }
 
 const SCORE_BORDER = {
-  high: "border-green-300",
+  high: "border-blue-300",
   medium: "border-yellow-300",
   low: "border-gray-200",
 };
 
 const SCORE_BG = {
-  high: "bg-green-50",
+  high: "bg-blue-50",
   medium: "bg-yellow-50",
   low: "bg-gray-50",
 };
 
 const SCORE_BADGE = {
-  high: "bg-green-100 text-green-700 border-green-200",
+  high: "bg-blue-100 text-blue-700 border-blue-200",
   medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  low: "bg-gray-100 text-gray-600 border-gray-200",
+  low: "bg-gray-100 text-gray-500 border-gray-200",
 };
 
-const SCORE_LABEL = { high: "刺さる", medium: "普通", low: "弱め" };
+// high: 積極的に採用を推奨 / medium: 標準的な候補 / low: 参考程度・再検討余地あり
+const SCORE_LABEL = { high: "推奨", medium: "普通", low: "要検討" };
 
 export function ThemeInput({ pattern, onSelect }: Props) {
   const [userTheme, setUserTheme] = useState("");
@@ -171,7 +172,7 @@ export function ThemeInput({ pattern, onSelect }: Props) {
                     onClick={() => setPickedIndex(i)}
                     className="flex-1 text-left"
                   >
-                    <span className="text-sm font-semibold text-gray-800 leading-snug">
+                    <span className="text-xs font-semibold text-gray-800 leading-snug">
                       {c.title}
                     </span>
                   </button>
