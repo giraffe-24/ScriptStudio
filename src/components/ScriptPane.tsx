@@ -24,14 +24,34 @@ interface Props {
 
 function cleanScript(text: string): string {
   const lines = text.split("\n");
+
+  // 冒頭の H1 見出し・ブロッククォート・空行を除去
   let start = 0;
-  // H1 見出し行（# ...）をスキップ
   while (start < lines.length && /^#\s/.test(lines[start])) start++;
-  // ブロッククォート行（> ...）をスキップ
   while (start < lines.length && /^>/.test(lines[start])) start++;
-  // 空行をスキップ
   while (start < lines.length && lines[start].trim() === "") start++;
-  return lines.slice(start).join("\n");
+
+  const body = lines.slice(start);
+
+  // --- 区切り線を除去
+  // 【定型締め】系のセクション見出しを除去（本文はそのまままとめに続く）
+  const cleaned = body
+    .filter((line) => !/^---+$/.test(line.trim()))
+    .map((line) =>
+      /^##\s*【定型締め】/.test(line) ? "" : line
+    );
+
+  // 連続する空行を最大1行に圧縮
+  const result: string[] = [];
+  let prevBlank = false;
+  for (const line of cleaned) {
+    const isBlank = line.trim() === "";
+    if (isBlank && prevBlank) continue;
+    result.push(line);
+    prevBlank = isBlank;
+  }
+
+  return result.join("\n").trim();
 }
 
 export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: Props) {
