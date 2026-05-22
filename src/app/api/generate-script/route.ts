@@ -3,24 +3,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 
 export async function POST(req: NextRequest) {
-  const { plan, streaming } = await req.json();
+  const { plan, streaming, reconcile, existingScript } = await req.json();
   if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
 
   const config = await loadChannelConfig();
   const systemPrompt = buildSystemPrompt(config);
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const prompt = `以下の企画書に基づいて、YouTube動画のトークスクリプトを書いてください。
+  const outlineText = (plan.outline ?? [])
+    .map((s: { section: string; content: string }) => `・${s.section}：${s.content}`)
+    .join("\n");
+
+  const reconcileBlock = reconcile
+    ? `
+=== 重要：構成更新に伴う再生成 ===
+企画書の構成が更新され、既存台本と一致しなくなっています。
+以下の既存台本を参考にしつつ、最新の企画書構成（特に新規追加・変更された見出し）をすべて反映した完全な台本を書き直してください。
+
+手順：
+1. 最新構成のセクション数・順序・見出し名が企画書と完全一致しているか確認する
+2. 新規追加セクションには、詳細欄の内容に沿った台本本文を新たに執筆する
+3. 既存セクションは流用できる部分があれば活かし、全体のつながりが自然になるよう調整する
+4. 導入→本題→まとめの流れに破綻がないか全体を再チェックしてから出力する
+
+=== 既存台本（参考） ===
+${existingScript ?? "（なし）"}
+
+`
+    : "";
+
+  const prompt = `${reconcileBlock}以下の企画書に基づいて、YouTube動画のトークスクリプトを書いてください。
 
 === 企画書 ===
 タイトル：${plan.episodeTitle}
-YouTubeゴール：${plan.youtubeGoal}
 想定視聴者：${plan.targetViewer}
 視聴者の悩み：${plan.pain}
 動画の約束：${plan.promise}
 
 構成：
-${(plan.outline ?? []).map((s: { section: string; content: string }) => `・${s.section}：${s.content}`).join("\n")}
+${outlineText}
 
 === 執筆ルール ===
 1. 視聴者は40〜60代、ITリテラシー初〜中級を想定して親しみやすく

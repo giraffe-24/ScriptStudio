@@ -384,6 +384,30 @@ function OutlineEditor({
           </div>
         </div>
       ))}
+
+      {/* 行追加ボタン */}
+      <div className="flex items-start gap-3">
+        <div className="w-40 shrink-0">
+          <button
+            type="button"
+            onClick={() => onChange([...items, { section: "", content: "" }])}
+            className="w-full py-2 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 text-sm transition-colors"
+            aria-label="目次案を追加"
+          >
+            ＋
+          </button>
+        </div>
+        <div className="flex-1">
+          <button
+            type="button"
+            onClick={() => onChange([...items, { section: "", content: "" }])}
+            className="w-full py-2 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 text-sm transition-colors"
+            aria-label="詳細を追加"
+          >
+            ＋
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

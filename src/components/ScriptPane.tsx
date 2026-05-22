@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ScriptEditor } from "./ScriptEditor";
+import {
+  extractScriptHeaders,
+  isScriptOutlineInSync,
+  syncScriptHeadersByIndex,
+} from "@/lib/script-outline";
 
 interface Plan {
   episodeTitle: string;
@@ -49,34 +54,17 @@ function cleanScript(text: string): string {
   return result.join("\n").trim();
 }
 
-function syncScriptHeadersByIndex(
-  script: string,
-  outline: { section: string }[]
-): string {
-  let idx = 0;
-  return script
-    .split("\n")
-    .map((line) => {
-      if (!/^##\s/.test(line)) return line;
-      if (idx < outline.length) {
-        const updated = `## ${outline[idx].section}`;
-        idx++;
-        return updated;
-      }
-      idx++;
-      return line;
-    })
-    .join("\n");
-}
-
 export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, onRegister }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [outOfSync, setOutOfSync] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const latestScriptRef = useRef<string>("");
   const prevOutlineRef = useRef<string[] | null>(null);
+  const alertedOutlineRef = useRef<string>("");
 
   useEffect(() => {
     if (!episodeNumber || !episodeSlug) return;
@@ -94,8 +82,11 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
 
   useEffect(() => {
     prevOutlineRef.current = null;
+    alertedOutlineRef.current = "";
+    setOutOfSync(false);
   }, [episodeNumber, episodeSlug]);
 
+  // 目次案のリネームのみ自動同期（件数が同じ場合）
   useEffect(() => {
     if (!plan?.outline || loading) return;
     const sections = plan.outline.map((o) => o.section);
@@ -111,25 +102,63 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
       return;
     }
 
-    const updated = syncScriptHeadersByIndex(script, plan.outline);
-    if (updated !== script) {
-      setScript(updated);
-      latestScriptRef.current = updated;
+    const headers = extractScriptHeaders(script);
+    if (sections.length === headers.length) {
+      const updated = syncScriptHeadersByIndex(script, plan.outline);
+      if (updated !== script) {
+        setScript(updated);
+        latestScriptRef.current = updated;
+      }
     }
+
     prevOutlineRef.current = sections;
   }, [plan?.outline, script, loading]);
 
+  // 構成と台本の不一致を検知
+  useEffect(() => {
+    if (!plan?.outline || !generated || loading || !script) {
+      setOutOfSync(false);
+      return;
+    }
+
+    const inSync = isScriptOutlineInSync(script, plan.outline);
+    setOutOfSync(!inSync);
+
+    if (inSync) {
+      alertedOutlineRef.current = "";
+      return;
+    }
+
+    const alertKey = JSON.stringify(plan.outline.map((o) => ({ s: o.section, c: o.content })));
+    if (alertedOutlineRef.current !== alertKey) {
+      alertedOutlineRef.current = alertKey;
+      alert("更新されていません。再生成してください");
+    }
+  }, [plan?.outline, script, generated, loading]);
+
   async function handleGenerate() {
     if (!plan) return;
+
+    const needsReconcile =
+      generated && !!script && !!plan.outline && !isScriptOutlineInSync(script, plan.outline);
+
     setLoading(true);
     setScript("");
     setGenerated(false);
     setRegistered(false);
+    setOutOfSync(false);
+    alertedOutlineRef.current = "";
+    setReconciling(needsReconcile);
 
     const res = await fetch("/api/generate-script", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan, streaming: true }),
+      body: JSON.stringify({
+        plan,
+        streaming: true,
+        reconcile: needsReconcile,
+        existingScript: needsReconcile ? script : undefined,
+      }),
     });
 
     const reader = res.body?.getReader();
@@ -147,6 +176,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
     setGenerated(true);
     prevOutlineRef.current = plan.outline?.map((o) => o.section) ?? [];
     setLoading(false);
+    setReconciling(false);
   }
 
   async function handleSave(content: string) {
@@ -169,7 +199,6 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
   async function handleRegister() {
     if (!generated || registering) return;
     setRegistering(true);
-    // まず現在のスクリプトを保存してからエピソード登録
     await handleSave(latestScriptRef.current);
     await onRegister(latestScriptRef.current);
     setRegistered(true);
@@ -195,7 +224,6 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
         <span className="text-gray-300 text-sm shrink-0">/</span>
         <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{plan.episodeTitle}</p>
         <div className="flex items-center gap-2 shrink-0">
-          {/* 登録ボタン */}
           {generated && (
             <button
               onClick={handleRegister}
@@ -211,28 +239,41 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, on
               {registered ? "✓ 登録済み" : registering ? "登録中…" : "登録"}
             </button>
           )}
-          {/* 生成ボタン */}
           <button
             onClick={handleGenerate}
             disabled={loading}
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors ${
               loading
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : outOfSync
+                ? "bg-red-500 text-white hover:bg-red-600"
                 : generated
                 ? "bg-orange-500 text-white hover:bg-orange-600"
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {loading ? "生成中…" : generated ? "再生成" : "台本を生成"}
+            {loading ? "生成中…" : outOfSync ? "構成を反映して再生成" : generated ? "再生成" : "台本を生成"}
           </button>
         </div>
       </div>
+
+      {outOfSync && !loading && (
+        <div className="bg-red-50 border-b border-red-100 px-4 py-2">
+          <p className="text-xs text-red-600">
+            更新されていません。再生成してください（新しい構成を反映して全体を書き直します）
+          </p>
+        </div>
+      )}
 
       {loading && (
         <div className="bg-blue-50 border-b border-blue-100 px-4 py-2">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-            <span className="text-xs text-blue-600">AI が台本を執筆中…リアルタイムで表示されます</span>
+            <span className="text-xs text-blue-600">
+              {reconciling
+                ? "最新の構成を反映して台本を再チェック・再出力中…"
+                : "AI が台本を執筆中…リアルタイムで表示されます"}
+            </span>
           </div>
         </div>
       )}
