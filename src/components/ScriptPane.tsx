@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScriptEditor } from "./ScriptEditor";
 
 interface Plan {
@@ -20,12 +20,12 @@ interface Props {
   episodeNumber: number | null;
   episodeSlug: string;
   onScriptSaved: () => void;
+  onRegister: (content: string) => Promise<void>;
 }
 
 function cleanScript(text: string): string {
   const lines = text.split("\n");
 
-  // 冒頭の H1 見出し・ブロッククォート・空行を除去
   let start = 0;
   while (start < lines.length && /^#\s/.test(lines[start])) start++;
   while (start < lines.length && /^>/.test(lines[start])) start++;
@@ -33,15 +33,10 @@ function cleanScript(text: string): string {
 
   const body = lines.slice(start);
 
-  // --- 区切り線を除去
-  // 【定型締め】系のセクション見出しを除去（本文はそのまままとめに続く）
   const cleaned = body
     .filter((line) => !/^---+$/.test(line.trim()))
-    .map((line) =>
-      /^##\s*【定型締め】/.test(line) ? "" : line
-    );
+    .map((line) => (/^##\s*【定型締め】/.test(line) ? "" : line));
 
-  // 連続する空行を最大1行に圧縮
   const result: string[] = [];
   let prevBlank = false;
   for (const line of cleaned) {
@@ -54,10 +49,13 @@ function cleanScript(text: string): string {
   return result.join("\n").trim();
 }
 
-export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: Props) {
+export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved, onRegister }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const latestScriptRef = useRef<string>("");
 
   useEffect(() => {
     if (!episodeNumber || !episodeSlug) return;
@@ -65,7 +63,9 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
       .then((r) => r.json())
       .then((d) => {
         if (d.content) {
-          setScript(cleanScript(d.content));
+          const cleaned = cleanScript(d.content);
+          setScript(cleaned);
+          latestScriptRef.current = cleaned;
           setGenerated(true);
         }
       });
@@ -76,6 +76,7 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
     setLoading(true);
     setScript("");
     setGenerated(false);
+    setRegistered(false);
 
     const res = await fetch("/api/generate-script", {
       method: "POST",
@@ -92,13 +93,16 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
       full += decoder.decode(value, { stream: true });
       setScript(full);
     }
-    setScript(cleanScript(full));
+    const cleaned = cleanScript(full);
+    setScript(cleaned);
+    latestScriptRef.current = cleaned;
     setGenerated(true);
     setLoading(false);
   }
 
   async function handleSave(content: string) {
     if (!episodeNumber) return;
+    latestScriptRef.current = content;
     await fetch("/api/files", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -111,6 +115,16 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
       }),
     });
     onScriptSaved();
+  }
+
+  async function handleRegister() {
+    if (!generated || registering) return;
+    setRegistering(true);
+    // まず現在のスクリプトを保存してからエピソード登録
+    await handleSave(latestScriptRef.current);
+    await onRegister(latestScriptRef.current);
+    setRegistered(true);
+    setRegistering(false);
   }
 
   if (!plan) {
@@ -126,24 +140,44 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
-        <div>
+      {/* ヘッダー */}
+      <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h2 className="font-bold text-sm text-gray-700">台本</h2>
           <p className="text-xs text-gray-400 line-clamp-1">{plan.episodeTitle}</p>
         </div>
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${
-            loading
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-              : generated
-              ? "bg-orange-500 text-white hover:bg-orange-600"
-              : "bg-blue-500 text-white hover:bg-blue-600"
-          }`}
-        >
-          {loading ? "生成中…" : generated ? "✨ 台本を再生成" : "✨ 台本を生成"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* 登録ボタン */}
+          {generated && (
+            <button
+              onClick={handleRegister}
+              disabled={registering || registered}
+              className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition-all ${
+                registered
+                  ? "bg-green-100 text-green-700 border border-green-300"
+                  : registering
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-900 text-white hover:bg-gray-700 active:scale-[0.97]"
+              }`}
+            >
+              {registered ? "✓ 登録済み" : registering ? "登録中…" : "登録"}
+            </button>
+          )}
+          {/* 生成ボタン */}
+          <button
+            onClick={handleGenerate}
+            disabled={loading}
+            className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${
+              loading
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : generated
+                ? "bg-orange-500 text-white hover:bg-orange-600"
+                : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
+          >
+            {loading ? "生成中…" : generated ? "✨ 再生成" : "✨ 台本を生成"}
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -157,7 +191,14 @@ export function ScriptPane({ plan, episodeNumber, episodeSlug, onScriptSaved }: 
 
       <div className="flex-1 overflow-hidden">
         {script || loading ? (
-          <ScriptEditor script={script} onSave={handleSave} episodeTitle={plan.episodeTitle} />
+          <ScriptEditor
+            script={script}
+            episodeTitle={plan.episodeTitle}
+            onSave={(content) => {
+              latestScriptRef.current = content;
+              handleSave(content);
+            }}
+          />
         ) : (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">

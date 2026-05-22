@@ -85,6 +85,37 @@ export default function Home() {
     setEpisodeRefreshKey((k) => k + 1);
   }
 
+  async function handleRegister() {
+    // エピソードがまだ存在しない場合は新規作成
+    if (!selectedEpisode) {
+      const listRes = await fetch("/api/files?action=list");
+      const listData = await listRes.json();
+      const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
+      const title = currentPlan?.episodeTitle ?? "untitled";
+      const res = await fetch("/api/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          episode: {
+            id: String(maxNumber + 1),
+            number: maxNumber + 1,
+            slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 30) || `episode-${maxNumber + 1}`,
+            title,
+            status: "scripting",
+            themePattern: pattern,
+            hook: selectedCandidate?.hook,
+            targetPain: selectedCandidate?.targetPain,
+            reason: selectedCandidate?.reason,
+          },
+        }),
+      });
+      const data = await res.json();
+      setSelectedEpisode(data.episode);
+    }
+    setEpisodeRefreshKey((k) => k + 1);
+  }
+
   const showWorkspace = newEpisodeMode || selectedEpisode;
 
   return (
@@ -162,6 +193,7 @@ export default function Home() {
               episodeNumber={selectedEpisode?.number ?? null}
               episodeSlug={selectedEpisode?.slug ?? ""}
               onScriptSaved={handleScriptSaved}
+              onRegister={handleRegister}
             />
           </div>
         </div>
