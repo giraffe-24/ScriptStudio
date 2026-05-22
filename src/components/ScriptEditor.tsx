@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const CALIB_MARKER = "<<<YT_TALKSCRIPT_CALIB_SPLIT>>>";
 
@@ -13,6 +13,7 @@ interface Props {
 interface Section {
   label: string;
   content: string;
+  charOffset: number; // textarea 内の開始文字位置
 }
 
 function parseSections(text: string): Section[] {
@@ -20,17 +21,19 @@ function parseSections(text: string): Section[] {
   const lines = text.split("\n");
   const sections: Section[] = [];
   let current: Section | null = null;
+  let charPos = 0;
 
   for (const line of lines) {
     if (line.startsWith("## ")) {
       if (current) sections.push(current);
-      current = { label: line.replace(/^##\s+/, "").trim(), content: "" };
+      current = { label: line.replace(/^##\s+/, "").trim(), content: "", charOffset: charPos };
     } else {
       if (!current) {
-        current = { label: "導入", content: "" };
+        current = { label: "導入", content: "", charOffset: 0 };
       }
       current.content += line + "\n";
     }
+    charPos += line.length + 1;
   }
   if (current) sections.push(current);
   return sections.filter((s) => s.content.trim());
@@ -45,19 +48,40 @@ function splitCalib(raw: string): { main: string; calib: string } {
   };
 }
 
+/** Markdown → Google Docs に貼り付けたとき見出しになる HTML を生成 */
+function toHtml(text: string): string {
+  const lines = text.split("\n");
+  const htmlLines = lines.map((line) => {
+    if (/^##\s/.test(line)) {
+      const heading = line.replace(/^##\s+/, "");
+      return `<h2>${heading}</h2>`;
+    }
+    if (/^#\s/.test(line)) {
+      const heading = line.replace(/^#\s+/, "");
+      return `<h1>${heading}</h1>`;
+    }
+    if (line.trim() === "") return "<br>";
+    return `<p>${line}</p>`;
+  });
+  return htmlLines.join("");
+}
+
 export function ScriptEditor({ script, onSave }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
   const [saved, setSaved] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
-  const [calibOpen, setCalibOpen] = useState(!!initCalib);
+  // 推敲比較は常に閉じた状態で初期化
+  const [calibOpen, setCalibOpen] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const { main, calib } = splitCalib(script);
     setContent(main);
     setCalibText(calib);
-    setCalibOpen(!!calib);
+    setCalibOpen(false); // ファイル読み込み時も閉じた状態を維持
   }, [script]);
 
   const charCount = content.replace(/\s/g, "").length;
@@ -75,15 +99,50 @@ export function ScriptEditor({ script, onSave }: Props) {
     setSaved(true);
   }
 
-  async function handleCopy(label: string, text: string) {
-    await navigator.clipboard.writeText(text.trim());
-    setCopied(label);
+  /** セクションボタンクリック → textarea 内の該当見出しへスクロール */
+  function scrollToSection(sec: Section) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(sec.charOffset, sec.charOffset);
+
+    // 見出しが何行目かを計算してスクロール
+    const textBefore = content.slice(0, sec.charOffset);
+    const lineIndex = textBefore.split("\n").length - 1;
+    // lineHeight を測定（計算できないため固定値 + バッファ）
+    const approxLineHeight = ta.scrollHeight / (content.split("\n").length || 1);
+    ta.scrollTop = Math.max(0, (lineIndex - 1) * approxLineHeight);
+  }
+
+  /** 全体コピー：HTML 形式で Clipboard に書き込み（Google Docs 見出し対応） */
+  async function handleCopyAll() {
+    try {
+      const html = toHtml(content);
+      const htmlBlob = new Blob([html], { type: "text/html" });
+      const textBlob = new Blob([content], { type: "text/plain" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob }),
+      ]);
+    } catch {
+      // ClipboardItem 非対応ブラウザはプレーンテキストにフォールバック
+      await navigator.clipboard.writeText(content);
+    }
+    setCopied("__all__");
     setTimeout(() => setCopied(null), 1500);
   }
 
-  async function handleCopyAll() {
-    await navigator.clipboard.writeText(content);
-    setCopied("__all__");
+  async function handleCopySection(label: string, text: string) {
+    try {
+      const html = toHtml(text);
+      const htmlBlob = new Blob([html], { type: "text/html" });
+      const textBlob = new Blob([text], { type: "text/plain" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob }),
+      ]);
+    } catch {
+      await navigator.clipboard.writeText(text.trim());
+    }
+    setCopied(label);
     setTimeout(() => setCopied(null), 1500);
   }
 
@@ -141,8 +200,9 @@ export function ScriptEditor({ script, onSave }: Props) {
             {sections.map((sec) => (
               <button
                 key={sec.label}
-                onClick={() => handleCopy(sec.label, sec.content)}
-                title={`「${sec.label}」をコピー`}
+                onClick={() => scrollToSection(sec)}
+                onContextMenu={(e) => { e.preventDefault(); handleCopySection(sec.label, sec.content); }}
+                title={`クリック：ジャンプ　右クリック：コピー`}
                 className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
                   copied === sec.label
                     ? "bg-green-100 text-green-700"
@@ -151,14 +211,8 @@ export function ScriptEditor({ script, onSave }: Props) {
               >
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
-                  <span
-                    className={`shrink-0 text-[10px] transition-opacity ${
-                      copied === sec.label
-                        ? "opacity-100 text-green-600"
-                        : "opacity-0 group-hover:opacity-100 text-gray-400"
-                    }`}
-                  >
-                    {copied === sec.label ? "✓" : "⎘"}
+                  <span className="shrink-0 text-[10px] opacity-0 group-hover:opacity-100 text-gray-400 transition-opacity">
+                    {copied === sec.label ? "✓" : "↑"}
                   </span>
                 </div>
               </button>
@@ -169,6 +223,7 @@ export function ScriptEditor({ script, onSave }: Props) {
         {/* 右：台本テキストエリア */}
         <div className="flex-1 overflow-hidden">
           <textarea
+            ref={textareaRef}
             value={content}
             onChange={(e) => handleChange(e.target.value)}
             className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
@@ -178,9 +233,8 @@ export function ScriptEditor({ script, onSave }: Props) {
         </div>
       </div>
 
-      {/* 推敲比較セクション（全幅） */}
+      {/* 推敲比較セクション（全幅・初期状態：閉じ） */}
       <div className="border-t-2 border-dashed border-amber-200 shrink-0">
-        {/* ヘッダー */}
         <button
           onClick={() => setCalibOpen((v) => !v)}
           className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
@@ -196,15 +250,11 @@ export function ScriptEditor({ script, onSave }: Props) {
           </span>
         </button>
 
-        {/* 貼り付けエリア */}
         {calibOpen && (
           <div className="bg-amber-50 border-t border-amber-100">
             <textarea
               value={calibText}
-              onChange={(e) => {
-                setCalibText(e.target.value);
-                setSaved(false);
-              }}
+              onChange={(e) => { setCalibText(e.target.value); setSaved(false); }}
               rows={8}
               placeholder="手直し後の台本をここに全文貼り付けてください…"
               className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus:outline-none placeholder:text-amber-300"
