@@ -343,10 +343,19 @@ function OutlineEditor({
   return (
     <div className="space-y-3">
       {items.map((item, i) => (
-        <div key={i} className="flex gap-3">
-          {/* 左：番号＋セクション名 */}
-          <div className="w-36 shrink-0 pt-0.5">
-            <span className="text-xs text-gray-400 leading-relaxed">{item.section}</span>
+        <div key={i} className="flex items-start gap-3">
+          {/* 左：セクション名 */}
+          <div className="w-40 shrink-0">
+            <AutoResizeTextarea
+              value={item.section}
+              onChange={(v) => {
+                const next = [...items];
+                next[i] = { ...next[i], section: v };
+                onChange(next);
+              }}
+              placeholder="セクション名…"
+              className="text-xs text-gray-600"
+            />
           </div>
           {/* 右：内容 */}
           <div className="flex-1">
@@ -371,10 +380,12 @@ function AutoResizeTextarea({
   value,
   onChange,
   placeholder,
+  className,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  className?: string;
 }) {
   return (
     <textarea
@@ -390,7 +401,7 @@ function AutoResizeTextarea({
       }}
       rows={2}
       placeholder={placeholder}
-      className={EDITABLE}
+      className={`${EDITABLE}${className ? ` ${className}` : ""}`}
     />
   );
 }
