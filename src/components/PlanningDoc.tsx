@@ -343,10 +343,28 @@ function OutlineEditor({
   items: { section: string; content: string }[];
   onChange: (items: { section: string; content: string }[]) => void;
 }) {
+  function moveItem(from: number, to: number) {
+    if (to < 0 || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  }
+
+  function removeItem(index: number) {
+    if (items.length <= 1) return;
+    onChange(items.filter((_, i) => i !== index));
+  }
+
+  function addItem() {
+    onChange([...items, { section: "", content: "" }]);
+  }
+
   return (
     <div className="space-y-3">
       {/* 列見出し */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2">
+        <div className="w-7 shrink-0" />
         <div className="w-40 shrink-0">
           <span className="text-xs font-medium text-gray-500">目次案</span>
         </div>
@@ -356,7 +374,37 @@ function OutlineEditor({
       </div>
 
       {items.map((item, i) => (
-        <div key={i} className="flex items-start gap-3">
+        <div key={i} className="flex items-start gap-2">
+          {/* 操作ボタン */}
+          <div className="w-7 shrink-0 flex flex-col gap-0.5 pt-1">
+            <button
+              type="button"
+              onClick={() => moveItem(i, i - 1)}
+              disabled={i === 0}
+              className="w-7 h-6 rounded text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              aria-label="上へ移動"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => moveItem(i, i + 1)}
+              disabled={i === items.length - 1}
+              className="w-7 h-6 rounded text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              aria-label="下へ移動"
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => removeItem(i)}
+              disabled={items.length <= 1}
+              className="w-7 h-6 rounded text-[10px] text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              aria-label="削除"
+            >
+              ×
+            </button>
+          </div>
           {/* 左：セクション名 */}
           <div className="w-40 shrink-0">
             <AutoResizeTextarea
@@ -385,29 +433,15 @@ function OutlineEditor({
         </div>
       ))}
 
-      {/* 行追加ボタン */}
-      <div className="flex items-start gap-3">
-        <div className="w-40 shrink-0">
-          <button
-            type="button"
-            onClick={() => onChange([...items, { section: "", content: "" }])}
-            className="w-full py-2 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 text-sm transition-colors"
-            aria-label="目次案を追加"
-          >
-            ＋
-          </button>
-        </div>
-        <div className="flex-1">
-          <button
-            type="button"
-            onClick={() => onChange([...items, { section: "", content: "" }])}
-            className="w-full py-2 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 text-sm transition-colors"
-            aria-label="詳細を追加"
-          >
-            ＋
-          </button>
-        </div>
-      </div>
+      {/* 行追加（1ボタン） */}
+      <button
+        type="button"
+        onClick={addItem}
+        className="w-full py-2 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 text-sm transition-colors"
+        aria-label="構成を追加"
+      >
+        ＋
+      </button>
     </div>
   );
 }
