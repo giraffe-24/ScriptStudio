@@ -246,10 +246,15 @@ export function ScriptPane({
 
   if (!plan) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-400">
-          <div className="text-4xl mb-3">📝</div>
-          <p className="text-sm">企画書を作成すると台本を生成できます</p>
+      <div className="flex flex-col h-full">
+        <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
+          <h2 className="text-sm font-semibold text-gray-700 shrink-0">台本</h2>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <div className="text-4xl mb-3">📝</div>
+            <p className="text-sm">企画書を作成すると台本を生成できます</p>
+          </div>
         </div>
       </div>
     );
