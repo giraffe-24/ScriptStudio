@@ -14,6 +14,13 @@ export const STATUS_COLOR: Record<EpisodeStatus, string> = {
   done: "bg-green-100 text-green-700",
 };
 
+export const UNREVISED_BADGE = "bg-amber-100 text-amber-700";
+
+/** 執筆中かつ台本ドラフト未作成 */
+export function showUnrevisedBadge(status: EpisodeStatus, hasScriptDraft: boolean): boolean {
+  return status === "scripting" && !hasScriptDraft;
+}
+
 /** manifest の旧ステータスを現行3種に正規化 */
 export function normalizeEpisodeStatus(raw: string | undefined): EpisodeStatus {
   if (raw === "scripting" || raw === "done" || raw === "considering") return raw;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Episode, EpisodeStatus } from "@/lib/types";
-import { EPISODE_STATUSES, STATUS_COLOR, STATUS_LABEL } from "@/lib/episode-status";
+import { EPISODE_STATUSES, STATUS_COLOR, STATUS_LABEL, showUnrevisedBadge, UNREVISED_BADGE } from "@/lib/episode-status";
 import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
 
 interface Props {
@@ -76,6 +76,8 @@ export function EpisodeList({
             const displayStatus =
               statusOverride?.slug === ep.slug ? statusOverride.status : ep.status;
 
+            const showUnrevised = showUnrevisedBadge(displayStatus, ep.hasScriptDraft ?? false);
+
             return (
               <div
                 key={ep.slug}
@@ -113,6 +115,13 @@ export function EpisodeList({
                         </option>
                       ))}
                     </select>
+                    {showUnrevised && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${UNREVISED_BADGE}`}
+                      >
+                        未推敲
+                      </span>
+                    )}
                   </div>
                   <p className={`text-xs leading-snug line-clamp-2 ${isSelected ? "text-blue-700 font-medium" : "text-gray-800"}`}>
                     {displayTitle}

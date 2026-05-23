@@ -372,6 +372,48 @@ function cloneOutline(items: OutlineItem[]): OutlineItem[] {
   return items.map((item) => ({ ...item }));
 }
 
+function computeDropSlot(clientY: number, rows: HTMLElement[]): number {
+  const rects = rows.map((el) => el.getBoundingClientRect());
+  const n = rects.length;
+  if (n === 0) return 0;
+
+  if (clientY <= rects[0].top + 4) return 0;
+
+  for (let i = 0; i < n; i++) {
+    const r = rects[i];
+    if (clientY < r.top) return i;
+    if (clientY <= r.bottom) {
+      const mid = r.top + r.height / 2;
+      return clientY < mid ? i : i + 1;
+    }
+  }
+
+  return n;
+}
+
+function computeIndicatorTop(slot: number, rows: HTMLElement[], container: HTMLElement): number {
+  const containerRect = container.getBoundingClientRect();
+  if (rows.length === 0) return 0;
+
+  if (slot <= 0) {
+    return rows[0].getBoundingClientRect().top - containerRect.top - 2;
+  }
+  if (slot >= rows.length) {
+    return rows[rows.length - 1].getBoundingClientRect().bottom - containerRect.top + 2;
+  }
+
+  const above = rows[slot - 1].getBoundingClientRect();
+  const below = rows[slot].getBoundingClientRect();
+  return (above.bottom + below.top) / 2 - containerRect.top;
+}
+
+function slotToMoveIndex(from: number, slot: number): number | null {
+  let to = slot;
+  if (from < slot) to = slot - 1;
+  if (to === from) return null;
+  return to;
+}
+
 function OutlineEditor({
   items,
   onChange,
@@ -390,7 +432,16 @@ function OutlineEditor({
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [dropSlot, setDropSlot] = useState<number | null>(null);
+  const [indicatorTop, setIndicatorTop] = useState<number | null>(null);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const dragFromRef = useRef<number | null>(null);
+  const dropSlotRef = useRef<number | null>(null);
+
+  function getRowElements(): HTMLElement[] {
+    return Array.from(listRef.current?.querySelectorAll<HTMLElement>("[data-outline-row]") ?? []);
+  }
 
   useEffect(() => {
     pastRef.current = [];
@@ -461,35 +512,72 @@ function OutlineEditor({
     syncHistoryFlags();
   }
 
-  function moveItem(from: number, to: number) {
-    if (from === to || to < 0 || to >= items.length) return;
-    const next = cloneOutline(items);
+  function reorderItems(from: number, to: number) {
+    if (from === to || to < 0 || to >= itemsRef.current.length) return;
+    const next = cloneOutline(itemsRef.current);
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     applyChange(next);
   }
 
-  function handleDragStart(index: number) {
-    setDragIndex(index);
+  function clearDragState() {
+    dragFromRef.current = null;
+    dropSlotRef.current = null;
+    setDragIndex(null);
+    setDropSlot(null);
+    setIndicatorTop(null);
   }
 
-  function handleDragOver(e: React.DragEvent, index: number) {
+  function updateDropIndicator(clientY: number) {
+    if (!listRef.current || dragFromRef.current === null) return;
+    const rows = getRowElements();
+    const slot = computeDropSlot(clientY, rows);
+    dropSlotRef.current = slot;
+    setDropSlot(slot);
+    setIndicatorTop(computeIndicatorTop(slot, rows, listRef.current));
+  }
+
+  function handleGripPointerDown(e: React.PointerEvent<HTMLDivElement>, index: number) {
+    if (e.button !== 0) return;
     e.preventDefault();
-    if (dragIndex !== null && dragIndex !== index) {
-      setDropIndex(index);
-    }
+    e.stopPropagation();
+
+    const grip = e.currentTarget;
+    dragFromRef.current = index;
+    setDragIndex(index);
+    grip.setPointerCapture(e.pointerId);
+    updateDropIndicator(e.clientY);
+
+    const finish = (ev: PointerEvent) => {
+      const from = dragFromRef.current;
+      if (from !== null && listRef.current) {
+        const rows = getRowElements();
+        const slot = computeDropSlot(ev.clientY, rows);
+        const to = slotToMoveIndex(from, slot);
+        if (to !== null) reorderItems(from, to);
+      }
+      clearDragState();
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", finish);
+      grip.removeEventListener("pointercancel", finish);
+      if (grip.hasPointerCapture(ev.pointerId)) {
+        grip.releasePointerCapture(ev.pointerId);
+      }
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      updateDropIndicator(ev.clientY);
+    };
+
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", finish);
+    grip.addEventListener("pointercancel", finish);
   }
 
-  function handleDrop(index: number) {
-    if (dragIndex !== null) moveItem(dragIndex, index);
-    setDragIndex(null);
-    setDropIndex(null);
-  }
-
-  function handleDragEnd() {
-    setDragIndex(null);
-    setDropIndex(null);
-  }
+  const noopDrop =
+    dragIndex !== null &&
+    dropSlot !== null &&
+    (dropSlot === dragIndex || dropSlot === dragIndex + 1);
 
   function removeItem(index: number) {
     if (items.length <= 1) return;
@@ -530,65 +618,73 @@ function OutlineEditor({
             </button>
           </div>
         </div>
+        <div className="w-7 shrink-0" />
       </div>
 
-      {items.map((item, i) => (
-        <div
-          key={i}
-          onDragOver={(e) => handleDragOver(e, i)}
-          onDrop={() => handleDrop(i)}
-          className={`flex items-start gap-2 rounded-lg transition-colors ${
-            dragIndex === i ? "opacity-40" : ""
-          } ${dropIndex === i ? "bg-blue-50 ring-1 ring-blue-200" : ""}`}
-        >
-          <div className="w-7 shrink-0 flex flex-col gap-0.5 pt-1 items-center">
+      <div ref={listRef} className="relative space-y-0">
+        {indicatorTop !== null && !noopDrop && (
+          <div
+            className="absolute left-0 right-0 flex items-center gap-1 pointer-events-none z-10 -translate-y-1/2"
+            style={{ top: indicatorTop }}
+            aria-hidden
+          >
+            <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+            <div className="flex-1 h-0.5 bg-blue-500 rounded-full" />
+          </div>
+        )}
+        {items.map((item, i) => (
+          <div key={`outline-row-${i}`}>
             <div
-              draggable
-              onDragStart={(e) => {
-                handleDragStart(i);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragEnd={handleDragEnd}
-              className="w-7 h-7 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center"
-              aria-label="ドラッグして並べ替え"
-              role="button"
-              tabIndex={0}
+              data-outline-row
+              className={`flex items-start gap-2 rounded-lg py-1.5 transition-opacity ${
+                dragIndex === i ? "opacity-40" : ""
+              }`}
             >
-              <GripVertical className="w-3.5 h-3.5" />
+              <div className="w-7 shrink-0 flex pt-1 items-center justify-center">
+                <div
+                  onPointerDown={(e) => handleGripPointerDown(e, i)}
+                  className="w-7 h-7 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center touch-none select-none"
+                  aria-label="ドラッグして並べ替え"
+                  role="button"
+                  tabIndex={0}
+                >
+                  <GripVertical className="w-3.5 h-3.5 pointer-events-none" />
+                </div>
+              </div>
+              <div className="w-40 shrink-0">
+                <AutoResizeTextarea
+                  value={item.section}
+                  onChange={(v) => updateField(i, "section", v)}
+                  onFocus={handleFieldFocus}
+                  onBlur={handleFieldBlur}
+                  placeholder="セクション名…"
+                  className="text-xs text-gray-600"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <AutoResizeTextarea
+                  value={item.content}
+                  onChange={(v) => updateField(i, "content", v)}
+                  onFocus={handleFieldFocus}
+                  onBlur={handleFieldBlur}
+                  placeholder="内容を記述…"
+                />
+              </div>
+              <div className="w-7 shrink-0 flex pt-1 items-start justify-center">
+                <button
+                  type="button"
+                  onClick={() => removeItem(i)}
+                  disabled={items.length <= 1}
+                  className="w-7 h-7 rounded text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label="削除"
+                >
+                  ×
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => removeItem(i)}
-              disabled={items.length <= 1}
-              className="w-7 h-6 rounded text-[10px] text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              aria-label="削除"
-            >
-              ×
-            </button>
           </div>
-          {/* 左：セクション名 */}
-          <div className="w-40 shrink-0">
-            <AutoResizeTextarea
-              value={item.section}
-              onChange={(v) => updateField(i, "section", v)}
-              onFocus={handleFieldFocus}
-              onBlur={handleFieldBlur}
-              placeholder="セクション名…"
-              className="text-xs text-gray-600"
-            />
-          </div>
-          {/* 右：内容 */}
-          <div className="flex-1">
-            <AutoResizeTextarea
-              value={item.content}
-              onChange={(v) => updateField(i, "content", v)}
-              onFocus={handleFieldFocus}
-              onBlur={handleFieldBlur}
-              placeholder="内容を記述…"
-            />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {/* 行追加（1ボタン） */}
       <button

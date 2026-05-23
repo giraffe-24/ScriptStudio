@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-
-const CALIB_MARKER = "<<<YT_TALKSCRIPT_CALIB_SPLIT>>>";
+import {
+  combineScriptCalib,
+  splitScriptCalib,
+} from "@/lib/script-calib";
 
 interface Props {
   script: string;
   onSave: (content: string) => void;
   episodeTitle: string;
   outline?: { section: string; content: string }[];
+  onRevisionEntered?: () => void;
 }
 
 interface Section {
@@ -54,12 +57,7 @@ function parseSections(text: string, outline?: { section: string; content: strin
 }
 
 function splitCalib(raw: string): { main: string; calib: string } {
-  const idx = raw.indexOf(CALIB_MARKER);
-  if (idx === -1) return { main: raw, calib: "" };
-  return {
-    main: raw.slice(0, idx).trim(),
-    calib: raw.slice(idx + CALIB_MARKER.length).trim(),
-  };
+  return splitScriptCalib(raw);
 }
 
 /** Markdown → Google Docs に貼り付けたとき見出しになる HTML を生成 */
@@ -80,14 +78,14 @@ function toHtml(text: string): string {
   return htmlLines.join("");
 }
 
-export function ScriptEditor({ script, onSave, outline }: Props) {
+export function ScriptEditor({ script, onSave, outline, onRevisionEntered }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
   const [saved, setSaved] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
-  // 推敲比較は常に閉じた状態で初期化
   const [calibOpen, setCalibOpen] = useState(false);
+  const revisionDoneRef = useRef(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -95,8 +93,25 @@ export function ScriptEditor({ script, onSave, outline }: Props) {
     const { main, calib } = splitCalib(script);
     setContent(main);
     setCalibText(calib);
-    setCalibOpen(false); // ファイル読み込み時も閉じた状態を維持
+    setCalibOpen(false);
+    revisionDoneRef.current = calib.trim().length > 0;
   }, [script]);
+
+  useEffect(() => {
+    if (!calibText.trim()) return;
+
+    const timer = setTimeout(() => {
+      const combined = combineScriptCalib(content, calibText);
+      onSave(combined);
+      setSaved(true);
+      if (!revisionDoneRef.current) {
+        revisionDoneRef.current = true;
+        onRevisionEntered?.();
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [calibText, content, onSave, onRevisionEntered]);
 
   const charCount = content.replace(/\s/g, "").length;
 
@@ -106,9 +121,7 @@ export function ScriptEditor({ script, onSave, outline }: Props) {
   }, []);
 
   function handleSave() {
-    const combined = calibText.trim()
-      ? `${content}\n\n${CALIB_MARKER}\n\n${calibText}`
-      : content;
+    const combined = combineScriptCalib(content, calibText);
     onSave(combined);
     setSaved(true);
   }

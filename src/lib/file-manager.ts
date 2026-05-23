@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import type { Episode } from "./types";
 import { normalizeEpisodeStatus, type EpisodeStatus } from "./episode-status";
+import { hasRevision, hasScriptDraft } from "./script-calib";
 import { sortEpisodesByNumberDesc } from "./episode-sort";
 
 const ROOT = process.cwd();
@@ -17,10 +18,15 @@ export async function listEpisodes(): Promise<Episode[]> {
     try {
       const raw = await fs.readFile(manifestPath, "utf-8");
       const m = JSON.parse(raw);
+      const number = Number(m.id ?? 0);
+      const slug = m.slug ?? entry.name;
+      const scriptContent = await readEpisodeFile(number, slug, "01-script-draft.md").catch(
+        () => "",
+      );
       episodes.push({
         id: m.id ?? entry.name,
-        number: Number(m.id ?? 0),
-        slug: m.slug ?? entry.name,
+        number,
+        slug,
         title: m.title ?? entry.name,
         status: normalizeEpisodeStatus(m.status),
         themePattern: m.theme_pattern,
@@ -28,6 +34,8 @@ export async function listEpisodes(): Promise<Episode[]> {
         hook: m.hook,
         targetPain: m.target_pain,
         reason: m.reason,
+        hasScriptDraft: hasScriptDraft(scriptContent),
+        hasRevision: hasRevision(scriptContent),
       });
     } catch {
       // manifest.json がないフォルダはスキップ

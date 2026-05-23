@@ -26,6 +26,8 @@ interface Props {
   episodeSlug: string;
   generateKey?: number;
   onScriptSaved: () => void;
+  onScriptCreated?: () => void;
+  onRevisionEntered?: () => void;
   onRegister: (content: string) => Promise<void>;
 }
 
@@ -61,6 +63,8 @@ export function ScriptPane({
   episodeSlug,
   generateKey = 0,
   onScriptSaved,
+  onScriptCreated,
+  onRevisionEntered,
   onRegister,
 }: Props) {
   const [script, setScript] = useState("");
@@ -216,6 +220,11 @@ export function ScriptPane({
     prevOutlineRef.current = plan.outline?.map((o) => o.section) ?? [];
     setLoading(false);
     setReconciling(false);
+
+    if (episodeNumber && episodeSlug && cleaned.trim()) {
+      await handleSave(cleaned);
+      onScriptCreated?.();
+    }
   }
 
   async function handleSave(content: string) {
@@ -332,6 +341,7 @@ export function ScriptPane({
               latestScriptRef.current = content;
               handleSave(content);
             }}
+            onRevisionEntered={onRevisionEntered}
           />
         ) : (
           <div className="h-full flex items-center justify-center">

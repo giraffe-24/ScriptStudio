@@ -22,6 +22,8 @@ export interface Episode {
   hook?: string;
   targetPain?: string;
   reason?: string;
+  hasScriptDraft?: boolean;
+  hasRevision?: boolean;
 }
 
 export interface ThemeCandidate {

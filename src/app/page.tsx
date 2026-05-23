@@ -179,6 +179,16 @@ export default function Home() {
     setEpisodeRefreshKey((k) => k + 1);
   }
 
+  function handleScriptCreated() {
+    setEpisodeRefreshKey((k) => k + 1);
+  }
+
+  async function handleRevisionEntered() {
+    if (!selectedEpisode || selectedEpisode.status === "done") return;
+    await handleStatusChange(selectedEpisode, "done");
+    setEpisodeRefreshKey((k) => k + 1);
+  }
+
   function handlePlanChange(plan: Plan) {
     setCurrentPlan(plan);
   }
@@ -413,6 +423,8 @@ export default function Home() {
               episodeSlug={selectedEpisode?.slug ?? ""}
               generateKey={scriptGenerateKey}
               onScriptSaved={handleScriptSaved}
+              onScriptCreated={handleScriptCreated}
+              onRevisionEntered={handleRevisionEntered}
               onRegister={handleRegister}
             />
           </div>
