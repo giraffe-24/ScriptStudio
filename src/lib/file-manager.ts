@@ -4,9 +4,71 @@ import type { Episode } from "./types";
 import { normalizeEpisodeStatus, type EpisodeStatus } from "./episode-status";
 import { hasRevision, hasScriptDraft } from "./script-calib";
 import { sortEpisodesByNumberDesc } from "./episode-sort";
+import { getStudioUserName } from "./studio-user";
 
 const ROOT = process.cwd();
 const OUTPUTS_DIR = path.join(ROOT, "outputs");
+
+export interface ScriptMeta {
+  updatedAt: string;
+  updatedBy: string;
+  planFingerprint?: string;
+}
+
+function manifestPath(number: number, slug: string): string {
+  const dirName = `${String(number).padStart(2, "0")}-${slug}`;
+  return path.join(OUTPUTS_DIR, dirName, "manifest.json");
+}
+
+async function readManifestRaw(number: number, slug: string): Promise<Record<string, unknown>> {
+  const raw = await fs.readFile(manifestPath(number, slug), "utf-8").catch(() => "{}");
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+async function writeManifestRaw(number: number, slug: string, manifest: Record<string, unknown>): Promise<void> {
+  await fs.writeFile(manifestPath(number, slug), JSON.stringify(manifest, null, 2));
+}
+
+export async function readScriptMeta(number: number, slug: string): Promise<ScriptMeta | null> {
+  const m = await readManifestRaw(number, slug);
+  const updatedAt = m.script_updated_at;
+  const updatedBy = m.script_updated_by;
+  if (typeof updatedAt !== "string" || typeof updatedBy !== "string") return null;
+  return {
+    updatedAt,
+    updatedBy,
+    planFingerprint: typeof m.script_plan_fingerprint === "string" ? m.script_plan_fingerprint : undefined,
+  };
+}
+
+export async function updateScriptMeta(
+  number: number,
+  slug: string,
+  options: { source: "generation" | "manual"; planFingerprint?: string },
+): Promise<ScriptMeta> {
+  const m = await readManifestRaw(number, slug);
+  const meta: ScriptMeta = {
+    updatedAt: new Date().toISOString(),
+    updatedBy: getStudioUserName(),
+    planFingerprint:
+      options.source === "generation" && options.planFingerprint
+        ? options.planFingerprint
+        : typeof m.script_plan_fingerprint === "string"
+          ? m.script_plan_fingerprint
+          : undefined,
+  };
+  m.script_updated_at = meta.updatedAt;
+  m.script_updated_by = meta.updatedBy;
+  if (meta.planFingerprint) {
+    m.script_plan_fingerprint = meta.planFingerprint;
+  }
+  await writeManifestRaw(number, slug, m);
+  return meta;
+}
 
 export async function listEpisodes(): Promise<Episode[]> {
   const entries = await fs.readdir(OUTPUTS_DIR, { withFileTypes: true }).catch(() => []);
@@ -77,11 +139,21 @@ export async function readEpisodeFile(number: number, slug: string, filename: st
   return fs.readFile(filePath, "utf-8").catch(() => "");
 }
 
-export async function writeEpisodeFile(number: number, slug: string, filename: string, content: string): Promise<void> {
+export async function writeEpisodeFile(
+  number: number,
+  slug: string,
+  filename: string,
+  content: string,
+  scriptMeta?: { source: "generation" | "manual"; planFingerprint?: string },
+): Promise<ScriptMeta | null> {
   const dirName = `${String(number).padStart(2, "0")}-${slug}`;
   const dirPath = path.join(OUTPUTS_DIR, dirName);
   await fs.mkdir(dirPath, { recursive: true });
   await fs.writeFile(path.join(dirPath, filename), content, "utf-8");
+  if (filename === "01-script-draft.md" && scriptMeta) {
+    return updateScriptMeta(number, slug, scriptMeta);
+  }
+  return null;
 }
 
 export async function writePlan(number: number, slug: string, plan: Record<string, unknown>): Promise<void> {

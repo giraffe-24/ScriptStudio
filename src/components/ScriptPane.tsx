@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ScriptEditor } from "./ScriptEditor";
+import type { ScriptMeta } from "@/lib/file-manager";
+import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
 import {
   extractScriptHeaders,
   isScriptOutlineInSync,
@@ -28,7 +30,7 @@ interface Props {
   onScriptSaved: () => void;
   onScriptCreated?: () => void;
   onRevisionEntered?: () => void;
-  onRegister: (content: string) => Promise<void>;
+  onRevisionCleared?: () => void;
 }
 
 function cleanScript(text: string): string {
@@ -57,6 +59,20 @@ function cleanScript(text: string): string {
   return result.join("\n").trim();
 }
 
+function formatUpdatedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export function ScriptPane({
   plan,
   episodeNumber,
@@ -65,22 +81,33 @@ export function ScriptPane({
   onScriptSaved,
   onScriptCreated,
   onRevisionEntered,
-  onRegister,
+  onRevisionCleared,
 }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
-  const [registering, setRegistering] = useState(false);
-  const [registered, setRegistered] = useState(false);
   const [outOfSync, setOutOfSync] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const [scriptMeta, setScriptMeta] = useState<ScriptMeta | null>(null);
   const latestScriptRef = useRef<string>("");
   const prevOutlineRef = useRef<string[] | null>(null);
   const alertedOutlineRef = useRef<string>("");
   const lastGenerateKeyRef = useRef(0);
   const loadedEpisodeKeyRef = useRef("");
 
-  // エピソード選択時のみディスクから読み込み（登録済みファイルは保持）
+  async function loadScriptMeta() {
+    if (!episodeNumber || !episodeSlug) {
+      setScriptMeta(null);
+      return;
+    }
+    const res = await fetch(
+      `/api/files?action=read-script-meta&number=${episodeNumber}&slug=${episodeSlug}`,
+    );
+    const data = await res.json();
+    setScriptMeta(data.scriptMeta ?? null);
+  }
+
+  // エピソード選択時のみディスクから読み込み
   useEffect(() => {
     const episodeKey = episodeNumber && episodeSlug ? `${episodeNumber}-${episodeSlug}` : "";
     if (!episodeKey) return;
@@ -95,14 +122,13 @@ export function ScriptPane({
           setScript(cleaned);
           latestScriptRef.current = cleaned;
           setGenerated(true);
-          setRegistered(true);
         } else {
           setScript("");
           latestScriptRef.current = "";
           setGenerated(false);
-          setRegistered(false);
         }
       });
+    void loadScriptMeta();
   }, [episodeNumber, episodeSlug]);
 
   // 企画書「台本を作成する」→ 状態に関係なく新規生成開始（ディスクは上書きしない）
@@ -120,6 +146,7 @@ export function ScriptPane({
     prevOutlineRef.current = null;
     alertedOutlineRef.current = "";
     setOutOfSync(false);
+    setScriptMeta(null);
     lastGenerateKeyRef.current = 0;
     loadedEpisodeKeyRef.current = "";
   }, [episodeNumber, episodeSlug]);
@@ -168,10 +195,7 @@ export function ScriptPane({
     }
 
     const alertKey = JSON.stringify(plan.outline.map((o) => ({ s: o.section, c: o.content })));
-    if (alertedOutlineRef.current !== alertKey) {
-      alertedOutlineRef.current = alertKey;
-      alert("更新されていません。再生成してください");
-    }
+    alertedOutlineRef.current = alertKey;
   }, [plan?.outline, script, generated, loading]);
 
   async function handleGenerate(options?: { fromPlan?: boolean }) {
@@ -188,7 +212,6 @@ export function ScriptPane({
     setLoading(true);
     setScript("");
     setGenerated(false);
-    setRegistered(false);
     setOutOfSync(false);
     alertedOutlineRef.current = "";
     setReconciling(needsReconcile);
@@ -222,15 +245,15 @@ export function ScriptPane({
     setReconciling(false);
 
     if (episodeNumber && episodeSlug && cleaned.trim()) {
-      await handleSave(cleaned);
+      await handleSave(cleaned, "generation");
       onScriptCreated?.();
     }
   }
 
-  async function handleSave(content: string) {
+  async function handleSave(content: string, source: "generation" | "manual" = "manual") {
     if (!episodeNumber) return;
     latestScriptRef.current = content;
-    await fetch("/api/files", {
+    const res = await fetch("/api/files", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -239,18 +262,15 @@ export function ScriptPane({
         slug: episodeSlug,
         filename: "01-script-draft.md",
         content,
+        scriptSaveSource: source,
+        planFingerprint: source === "generation" && plan ? planGenerationFingerprint(plan) : undefined,
       }),
     });
+    const data = await res.json();
+    if (data.scriptMeta) {
+      setScriptMeta(data.scriptMeta);
+    }
     onScriptSaved();
-  }
-
-  async function handleRegister() {
-    if (!generated || registering) return;
-    setRegistering(true);
-    await handleSave(latestScriptRef.current);
-    await onRegister(latestScriptRef.current);
-    setRegistered(true);
-    setRegistering(false);
   }
 
   if (!plan) {
@@ -269,6 +289,12 @@ export function ScriptPane({
     );
   }
 
+  const currentPlanFingerprint = plan ? planGenerationFingerprint(plan) : "";
+  const planChanged =
+    !!scriptMeta?.planFingerprint && scriptMeta.planFingerprint !== currentPlanFingerprint;
+  const canRegenerate = !generated || outOfSync || planChanged;
+  const regenerateDisabled = loading || (generated && !canRegenerate);
+
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
@@ -277,26 +303,21 @@ export function ScriptPane({
         <span className="text-gray-300 text-sm shrink-0">/</span>
         <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{plan.episodeTitle}</p>
         <div className="flex items-center gap-2 shrink-0">
-          {generated && (
-            <button
-              onClick={handleRegister}
-              disabled={registering || registered}
-              className={`text-xs font-medium px-3 py-1 rounded-md border transition-all ${
-                registered
-                  ? "border-green-300 bg-green-50 text-green-700 cursor-default"
-                  : registering
-                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                  : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:text-gray-800 active:scale-[0.97]"
-              }`}
-            >
-              {registered ? "✓ 登録済み" : registering ? "登録中…" : "登録"}
-            </button>
+          {scriptMeta && generated && (
+            <span className="text-[10px] text-gray-400 whitespace-nowrap">
+              {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
+            </span>
           )}
           <button
             onClick={() => handleGenerate()}
-            disabled={loading}
+            disabled={regenerateDisabled}
+            title={
+              regenerateDisabled && generated && !loading
+                ? "企画書に変更がないため再生成できません"
+                : undefined
+            }
             className={`text-xs font-medium px-3 py-1 rounded-md transition-colors ${
-              loading
+              regenerateDisabled
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : outOfSync
                 ? "bg-red-500 text-white hover:bg-red-600"
@@ -342,6 +363,7 @@ export function ScriptPane({
               handleSave(content);
             }}
             onRevisionEntered={onRevisionEntered}
+            onRevisionCleared={onRevisionCleared}
           />
         ) : (
           <div className="h-full flex items-center justify-center">

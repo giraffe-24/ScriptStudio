@@ -12,6 +12,7 @@ interface Props {
   episodeTitle: string;
   outline?: { section: string; content: string }[];
   onRevisionEntered?: () => void;
+  onRevisionCleared?: () => void;
 }
 
 interface Section {
@@ -78,14 +79,14 @@ function toHtml(text: string): string {
   return htmlLines.join("");
 }
 
-export function ScriptEditor({ script, onSave, outline, onRevisionEntered }: Props) {
+export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRevisionCleared }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
   const [saved, setSaved] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [calibOpen, setCalibOpen] = useState(false);
-  const revisionDoneRef = useRef(false);
+  const hadRevisionRef = useRef(initCalib.trim().length > 0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -94,24 +95,27 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered }: Pro
     setContent(main);
     setCalibText(calib);
     setCalibOpen(false);
-    revisionDoneRef.current = calib.trim().length > 0;
+    hadRevisionRef.current = calib.trim().length > 0;
   }, [script]);
 
   useEffect(() => {
-    if (!calibText.trim()) return;
-
     const timer = setTimeout(() => {
       const combined = combineScriptCalib(content, calibText);
       onSave(combined);
       setSaved(true);
-      if (!revisionDoneRef.current) {
-        revisionDoneRef.current = true;
+
+      const hasCalib = calibText.trim().length > 0;
+      if (hasCalib) {
+        hadRevisionRef.current = true;
         onRevisionEntered?.();
+      } else if (hadRevisionRef.current) {
+        hadRevisionRef.current = false;
+        onRevisionCleared?.();
       }
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [calibText, content, onSave, onRevisionEntered]);
+  }, [calibText, content, onSave, onRevisionEntered, onRevisionCleared]);
 
   const charCount = content.replace(/\s/g, "").length;
 

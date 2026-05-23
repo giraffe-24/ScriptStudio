@@ -269,7 +269,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPla
               台本を作成する →
             </button>
             <p className="text-center text-[10px] text-gray-400 mt-1.5">
-              押すと台本の生成を開始します（登録済みのファイルは上書きしません）
+              押すとエピソードを作成し、台本の生成を開始します
             </p>
           </div>
         </div>

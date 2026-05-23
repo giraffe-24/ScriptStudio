@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus } from "@/lib/file-manager";
+import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta } from "@/lib/file-manager";
 import { normalizeEpisodeStatus, type EpisodeStatus } from "@/lib/episode-status";
 
 export async function GET(req: NextRequest) {
@@ -26,6 +26,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ plan });
   }
 
+  if (action === "read-script-meta") {
+    const number = Number(searchParams.get("number"));
+    const slug = searchParams.get("slug") ?? "";
+    const scriptMeta = await readScriptMeta(number, slug);
+    return NextResponse.json({ scriptMeta });
+  }
+
   return NextResponse.json({ error: "unknown action" }, { status: 400 });
 }
 
@@ -38,8 +45,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.action === "write") {
-    await writeEpisodeFile(body.number, body.slug, body.filename, body.content);
-    return NextResponse.json({ ok: true });
+    const scriptMeta =
+      body.filename === "01-script-draft.md"
+        ? await writeEpisodeFile(body.number, body.slug, body.filename, body.content, {
+            source: body.scriptSaveSource === "generation" ? "generation" : "manual",
+            planFingerprint: body.planFingerprint,
+          })
+        : await writeEpisodeFile(body.number, body.slug, body.filename, body.content);
+    return NextResponse.json({ ok: true, scriptMeta });
   }
 
   if (body.action === "write-plan") {

@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { Episode, EpisodeStatus } from "@/lib/types";
-import { EPISODE_STATUSES, STATUS_COLOR, STATUS_LABEL, showUnrevisedBadge, UNREVISED_BADGE } from "@/lib/episode-status";
+import {
+  EPISODE_STATUSES,
+  STATUS_COLOR,
+  STATUS_LABEL,
+  effectiveDisplayStatus,
+  showUnrevisedBadge,
+  UNREVISED_BADGE,
+} from "@/lib/episode-status";
 import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
 
 interface Props {
@@ -73,10 +80,11 @@ export function EpisodeList({
             const displayNumber =
               numberOverride?.slug === ep.slug ? numberOverride.number : ep.number;
 
-            const displayStatus =
+            const rawStatus =
               statusOverride?.slug === ep.slug ? statusOverride.status : ep.status;
-
-            const showUnrevised = showUnrevisedBadge(displayStatus, ep.hasScriptDraft ?? false);
+            const hasRevision = ep.hasRevision ?? false;
+            const displayStatus = effectiveDisplayStatus(rawStatus, hasRevision);
+            const showUnrevised = showUnrevisedBadge(rawStatus, hasRevision);
 
             return (
               <div

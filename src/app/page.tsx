@@ -37,6 +37,7 @@ export default function Home() {
   const [numberOverride, setNumberOverride] = useState<{ slug: string; number: number } | undefined>(undefined);
   const [statusOverride, setStatusOverride] = useState<{ slug: string; status: EpisodeStatus } | undefined>(undefined);
   const [workspaceResetKey, setWorkspaceResetKey] = useState(0);
+  const [planningScriptResetKey, setPlanningScriptResetKey] = useState(0);
 
   useEffect(() => {
     if (!newEpisodeMode || selectedEpisode) {
@@ -110,18 +111,28 @@ export default function Home() {
     setScriptGenerateKey((k) => k + 1);
   }
 
-  function handleNewEpisode() {
-    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
-    if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
-    setSelectedEpisode(null);
+  function resetPlanningAndScript() {
     setSelectedCandidate(null);
     setCurrentPlan(null);
+    setScriptGenerateKey(0);
+    setSelectedEpisode(null);
     setNewEpisodeMode(true);
     setInferringPlan(false);
     setTitleOverride(undefined);
     setNumberOverride(undefined);
     setStatusOverride(undefined);
+    setPlanningScriptResetKey((k) => k + 1);
+  }
+
+  function handleNewEpisode() {
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
+    resetPlanningAndScript();
     setWorkspaceResetKey((k) => k + 1);
+  }
+
+  function handleAnalysisStart() {
+    resetPlanningAndScript();
   }
 
   async function handleEpisodeSelect(ep: Episode) {
@@ -184,8 +195,16 @@ export default function Home() {
   }
 
   async function handleRevisionEntered() {
-    if (!selectedEpisode || selectedEpisode.status === "done") return;
+    if (!selectedEpisode) return;
+    if (selectedEpisode.status === "done") return;
     await handleStatusChange(selectedEpisode, "done");
+    setEpisodeRefreshKey((k) => k + 1);
+  }
+
+  async function handleRevisionCleared() {
+    if (!selectedEpisode) return;
+    if (selectedEpisode.status === "scripting") return;
+    await handleStatusChange(selectedEpisode, "scripting");
     setEpisodeRefreshKey((k) => k + 1);
   }
 
@@ -274,38 +293,6 @@ export default function Home() {
     });
   }
 
-  async function handleRegister() {
-    // エピソードがまだ存在しない場合は新規作成
-    if (!selectedEpisode) {
-      const listRes = await fetch("/api/files?action=list");
-      const listData = await listRes.json();
-      const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
-      const assignNumber = nextEpisodeNumber ?? maxNumber + 1;
-      const title = currentPlan?.episodeTitle ?? "untitled";
-      const res = await fetch("/api/files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          episode: {
-            id: String(assignNumber),
-            number: assignNumber,
-            slug: title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 30) || `episode-${assignNumber}`,
-            title,
-            status: "scripting",
-            themePattern: pattern,
-            hook: selectedCandidate?.hook,
-            targetPain: selectedCandidate?.targetPain,
-            reason: selectedCandidate?.reason,
-          },
-        }),
-      });
-      const data = await res.json();
-      setSelectedEpisode(data.episode);
-    }
-    setEpisodeRefreshKey((k) => k + 1);
-  }
-
   const showWorkspace = newEpisodeMode || selectedEpisode;
 
   return (
@@ -371,7 +358,12 @@ export default function Home() {
                   setSelectedCandidate(null);
                 }}
               />
-              <ThemeInput key={workspaceResetKey} pattern={pattern} onSelect={(c) => setSelectedCandidate(c)} />
+              <ThemeInput
+                key={workspaceResetKey}
+                pattern={pattern}
+                onSelect={(c) => setSelectedCandidate(c)}
+                onAnalysisStart={handleAnalysisStart}
+              />
             </div>
           </div>
 
@@ -401,7 +393,7 @@ export default function Home() {
                 </div>
               ) : (
                 <PlanningDoc
-                  key={workspaceResetKey}
+                  key={planningScriptResetKey}
                   candidate={selectedCandidate}
                   plan={currentPlan}
                   episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
@@ -417,7 +409,7 @@ export default function Home() {
           {/* Pane 4: 台本 */}
           <div className="flex-1 bg-white overflow-hidden flex flex-col">
             <ScriptPane
-              key={workspaceResetKey}
+              key={planningScriptResetKey}
               plan={currentPlan}
               episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
               episodeSlug={selectedEpisode?.slug ?? ""}
@@ -425,7 +417,7 @@ export default function Home() {
               onScriptSaved={handleScriptSaved}
               onScriptCreated={handleScriptCreated}
               onRevisionEntered={handleRevisionEntered}
-              onRegister={handleRegister}
+              onRevisionCleared={handleRevisionCleared}
             />
           </div>
         </div>

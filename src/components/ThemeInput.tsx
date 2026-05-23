@@ -13,6 +13,7 @@ import type { ThemeSearchSources } from "@/lib/theme-search";
 interface Props {
   pattern: ThemePattern;
   onSelect: (candidate: ThemeCandidate) => void;
+  onAnalysisStart?: () => void;
 }
 
 const SCORE_BORDER = {
@@ -84,7 +85,7 @@ const PROGRESS_LABELS = [
   "被り・シリーズ判定中",
 ];
 
-export function ThemeInput({ pattern, onSelect }: Props) {
+export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const [userTheme, setUserTheme] = useState("");
   const [category, setCategory] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>("C");
@@ -100,6 +101,7 @@ export function ThemeInput({ pattern, onSelect }: Props) {
 
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set());
+  const [themeModeLocked, setThemeModeLocked] = useState(false);
 
   function resetResults() {
     setCandidates([]);
@@ -113,8 +115,13 @@ export function ThemeInput({ pattern, onSelect }: Props) {
     setProgressIndex(0);
   }
 
-  useEffect(() => {
+  function resetMarketForm() {
     resetResults();
+    setThemeModeLocked(false);
+  }
+
+  useEffect(() => {
+    resetMarketForm();
   }, [pattern]);
 
   useEffect(() => {
@@ -135,10 +142,13 @@ export function ThemeInput({ pattern, onSelect }: Props) {
   }
 
   async function handleResearch() {
+    onAnalysisStart?.();
     setLoading(true);
     setProgressIndex(0);
     resetResults();
-    setLoading(true);
+    if (pattern === "market") {
+      setThemeModeLocked(true);
+    }
     try {
       const endpoint = pattern === "market" ? "/api/market-research" : "/api/adapt-theme";
       const body =
@@ -226,7 +236,7 @@ export function ThemeInput({ pattern, onSelect }: Props) {
               value={category}
               onChange={(e) => {
                 setCategory(e.target.value);
-                resetResults();
+                resetMarketForm();
               }}
               placeholder="例：Gmail, Android, Google フォト"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
@@ -237,22 +247,29 @@ export function ThemeInput({ pattern, onSelect }: Props) {
             <label className="block text-xs font-medium text-gray-700 mb-1">
               どんなネタを探しますか？
             </label>
-            <p className="text-[11px] text-gray-500 mb-2.5 leading-relaxed">
-              探したい動画のタイプを1つ選んでください。
-            </p>
+            {!themeModeLocked && (
+              <p className="text-[11px] text-gray-500 mb-2.5 leading-relaxed">
+                探したい動画のタイプを1つ選んでください。
+              </p>
+            )}
             <div className="space-y-2">
-              {THEME_MODES.map((m) => {
+              {(themeModeLocked ? THEME_MODES.filter((m) => m.id === themeMode) : THEME_MODES).map(
+                (m) => {
                 const selected = themeMode === m.id;
                 return (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => {
+                      if (themeModeLocked) return;
                       setThemeMode(m.id);
-                      resetResults();
+                      resetMarketForm();
                     }}
+                    disabled={themeModeLocked}
                     className={`w-full flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
-                      selected
+                      themeModeLocked
+                        ? "border-blue-300 bg-blue-50 cursor-default"
+                        : selected
                         ? "border-blue-400 bg-blue-50 ring-1 ring-blue-200"
                         : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
@@ -278,7 +295,8 @@ export function ThemeInput({ pattern, onSelect }: Props) {
                     </span>
                   </button>
                 );
-              })}
+              },
+              )}
             </div>
           </div>
         </>

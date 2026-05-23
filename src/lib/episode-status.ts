@@ -16,9 +16,16 @@ export const STATUS_COLOR: Record<EpisodeStatus, string> = {
 
 export const UNREVISED_BADGE = "bg-amber-100 text-amber-700";
 
-/** 執筆中かつ台本ドラフト未作成 */
-export function showUnrevisedBadge(status: EpisodeStatus, hasScriptDraft: boolean): boolean {
-  return status === "scripting" && !hasScriptDraft;
+/** 推敲比較が空のときに未推敲バッジを表示 */
+export function showUnrevisedBadge(status: EpisodeStatus, hasRevision: boolean): boolean {
+  if (hasRevision || status === "considering") return false;
+  return true;
+}
+
+/** 一覧表示用。未推敲のときは完了ラベルを出さない */
+export function effectiveDisplayStatus(status: EpisodeStatus, hasRevision: boolean): EpisodeStatus {
+  if (status === "done" && !hasRevision) return "scripting";
+  return status;
 }
 
 /** manifest の旧ステータスを現行3種に正規化 */
