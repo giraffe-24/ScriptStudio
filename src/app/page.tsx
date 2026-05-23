@@ -11,13 +11,13 @@ import type { Episode, EpisodeStatus, ThemeCandidate, ThemePattern } from "@/lib
 
 interface Plan {
   episodeTitle: string;
-  targetViewer?: string;
-  pain?: string;
-  promise?: string;
-  keyPoints?: string[];
-  outline?: { section: string; content: string }[];
-  competitorAnalysis?: string;
-  estimatedLength?: string;
+  targetViewer: string;
+  pain: string;
+  promise: string;
+  keyPoints: string[];
+  outline: { section: string; content: string }[];
+  competitorAnalysis: string;
+  estimatedLength: string;
 }
 
 export default function Home() {

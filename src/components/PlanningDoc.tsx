@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { GripVertical } from "lucide-react";
 import type { ThemeCandidate, ChatMessage } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
 import { sanitizePlanOutline, sanitizeSectionName } from "@/lib/plan-outline";
@@ -388,6 +389,8 @@ function OutlineEditor({
   const skipHistoryRef = useRef(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   useEffect(() => {
     pastRef.current = [];
@@ -459,11 +462,33 @@ function OutlineEditor({
   }
 
   function moveItem(from: number, to: number) {
-    if (to < 0 || to >= items.length) return;
+    if (from === to || to < 0 || to >= items.length) return;
     const next = cloneOutline(items);
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     applyChange(next);
+  }
+
+  function handleDragStart(index: number) {
+    setDragIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    if (dragIndex !== null && dragIndex !== index) {
+      setDropIndex(index);
+    }
+  }
+
+  function handleDrop(index: number) {
+    if (dragIndex !== null) moveItem(dragIndex, index);
+    setDragIndex(null);
+    setDropIndex(null);
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null);
+    setDropIndex(null);
   }
 
   function removeItem(index: number) {
@@ -485,6 +510,7 @@ function OutlineEditor({
         </div>
         <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
           <span className="text-xs font-medium text-gray-500">詳細</span>
+          <span className="text-[10px] text-gray-400 shrink-0">ドラッグで並べ替え</span>
           <div className="flex gap-1 shrink-0">
             <button
               type="button"
@@ -507,27 +533,29 @@ function OutlineEditor({
       </div>
 
       {items.map((item, i) => (
-        <div key={i} className="flex items-start gap-2">
-          {/* 操作ボタン */}
-          <div className="w-7 shrink-0 flex flex-col gap-0.5 pt-1">
-            <button
-              type="button"
-              onClick={() => moveItem(i, i - 1)}
-              disabled={i === 0}
-              className="w-7 h-6 rounded text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              aria-label="上へ移動"
+        <div
+          key={i}
+          onDragOver={(e) => handleDragOver(e, i)}
+          onDrop={() => handleDrop(i)}
+          className={`flex items-start gap-2 rounded-lg transition-colors ${
+            dragIndex === i ? "opacity-40" : ""
+          } ${dropIndex === i ? "bg-blue-50 ring-1 ring-blue-200" : ""}`}
+        >
+          <div className="w-7 shrink-0 flex flex-col gap-0.5 pt-1 items-center">
+            <div
+              draggable
+              onDragStart={(e) => {
+                handleDragStart(i);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragEnd={handleDragEnd}
+              className="w-7 h-7 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center"
+              aria-label="ドラッグして並べ替え"
+              role="button"
+              tabIndex={0}
             >
-              ↑
-            </button>
-            <button
-              type="button"
-              onClick={() => moveItem(i, i + 1)}
-              disabled={i === items.length - 1}
-              className="w-7 h-6 rounded text-[10px] text-gray-400 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              aria-label="下へ移動"
-            >
-              ↓
-            </button>
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
             <button
               type="button"
               onClick={() => removeItem(i)}

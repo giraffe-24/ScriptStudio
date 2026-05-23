@@ -82,15 +82,32 @@
 
 | 層 | ファイル |
 |----|---------|
-| SSOT | 本ファイル |
+| SSOT | 本ファイル、[market-analysis-rubric.md](market-analysis-rubric.md)、[competitors.md](competitors.md) |
+| 分析エンジン | `src/lib/market-analysis/` |
 | 検索統合 | `src/lib/theme-search.ts` |
 | 市場分析 API | `src/app/api/market-research/route.ts` |
+| 競合 ch API | `src/app/api/competitors/route.ts` |
 | テーマ分析 API | `src/app/api/adapt-theme/route.ts` |
 | UI | `src/components/ThemeInput.tsx` |
+| CLI | `npm run market-research` |
 
 ---
 
-## 6. クイック判定
+## 6. 市場分析（3軸）
+
+Studio の市場分析は次の 3 軸で「勝てる候補」を優先する。
+
+1. 需要（YouTube 複数クエリ・第一指標）
+2. 切り口（同一テーマ内の既出/空白）
+3. 自 ch / 競合 ch（outputs/ + 公開動画 + config/competitors.md）
+
+分析前にテーマ種 A/B/C（定番 / 旬 / 半々）を選ぶ。詳細は [market-analysis-rubric.md](market-analysis-rubric.md)。
+
+出力は `EnrichedCandidate`（差別化切り口・参照動画・競合密度・自 ch 関係など）。ハルシネーション禁止は §4 を維持。
+
+---
+
+## 7. クイック判定
 
 1. YouTube リストと対応しているか（第一指標）
 2. reason の YouTube 引用はリスト内か

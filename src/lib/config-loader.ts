@@ -10,14 +10,16 @@ async function readConfigFile(name: string): Promise<string> {
 }
 
 export async function loadChannelConfig(): Promise<ChannelConfig> {
-  const [brand, audience, quality, planning, themeSelection] = await Promise.all([
+  const [brand, audience, quality, planning, themeSelection, marketAnalysisRubric] =
+    await Promise.all([
     readConfigFile("brand.md"),
     readConfigFile("audience.md"),
     readConfigFile("quality.md"),
     readConfigFile("planning.md"),
     readConfigFile("theme-selection.md"),
+    readConfigFile("market-analysis-rubric.md"),
   ]);
-  return { brand, audience, quality, planning, themeSelection };
+  return { brand, audience, quality, planning, themeSelection, marketAnalysisRubric };
 }
 
 export function buildSystemPrompt(config: ChannelConfig): string {
@@ -38,5 +40,8 @@ ${config.quality}
 ${config.planning ?? ""}
 
 === テーマ選定 ===
-${config.themeSelection ?? ""}`;
+${config.themeSelection ?? ""}
+
+=== 市場分析スコアリング ===
+${config.marketAnalysisRubric ?? ""}`;
 }

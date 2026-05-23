@@ -1,8 +1,11 @@
 export interface YouTubeVideo {
+  videoId?: string;
   title: string;
   channelTitle: string;
+  channelId?: string;
   viewCount?: string;
   publishedAt?: string;
+  url?: string;
 }
 
 export interface GoogleWebResult {
@@ -43,16 +46,21 @@ function recentIsoMonthsAgo(months: number): string {
 }
 
 /** YouTube（第一指標） */
-export async function searchYouTubeVideos(query: string): Promise<YouTubeVideo[]> {
+export async function searchYouTubeVideos(
+  query: string,
+  options?: { maxResults?: number },
+): Promise<YouTubeVideo[]> {
   const apiKey = process.env.YOUTUBE_DATA_API_KEY;
   if (!apiKey) return [];
+
+  const maxResults = String(options?.maxResults ?? 20);
 
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("q", query);
   searchUrl.searchParams.set("type", "video");
   searchUrl.searchParams.set("order", "viewCount");
-  searchUrl.searchParams.set("maxResults", "20");
+  searchUrl.searchParams.set("maxResults", maxResults);
   searchUrl.searchParams.set("regionCode", "JP");
   searchUrl.searchParams.set("relevanceLanguage", "ja");
   searchUrl.searchParams.set("publishedAfter", recentIsoMonthsAgo(RECENT_MONTHS));
@@ -76,13 +84,22 @@ export async function searchYouTubeVideos(query: string): Promise<YouTubeVideo[]
 
   return (statsData.items ?? []).map(
     (item: {
-      snippet: { title: string; channelTitle: string; publishedAt?: string };
+      id: string;
+      snippet: {
+        title: string;
+        channelTitle: string;
+        channelId?: string;
+        publishedAt?: string;
+      };
       statistics: { viewCount?: string };
     }) => ({
+      videoId: item.id,
       title: item.snippet.title,
       channelTitle: item.snippet.channelTitle,
+      channelId: item.snippet.channelId,
       viewCount: item.statistics.viewCount,
       publishedAt: item.snippet.publishedAt,
+      url: `https://www.youtube.com/watch?v=${item.id}`,
     }),
   );
 }
@@ -193,7 +210,7 @@ export function formatVideoSummary(videos: YouTubeVideo[]): string {
     .slice(0, 15)
     .map(
       (v, i) =>
-        `${i + 1}. 「${v.title}」(${v.channelTitle}, ${Number(v.viewCount ?? 0).toLocaleString()}回再生${v.publishedAt ? `, ${v.publishedAt.slice(0, 10)}` : ""})`,
+        `${i + 1}. 「${v.title}」(${v.channelTitle}, ${Number(v.viewCount ?? 0).toLocaleString()}回再生${v.publishedAt ? `, ${v.publishedAt.slice(0, 10)}` : ""}${v.url ? `, ${v.url}` : ""})`,
     )
     .join("\n");
 }
