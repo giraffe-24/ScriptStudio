@@ -337,18 +337,22 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       </button>
 
       {loading && pattern === "market" && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">
+        <div className="analysis-loading-panel bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">
           {PROGRESS_LABELS.map((label, i) => (
             <div key={label} className="flex items-center gap-2">
               <div
                 className={`w-1.5 h-1.5 rounded-full ${
-                  i <= progressIndex ? "bg-blue-500 animate-pulse" : "bg-gray-300"
+                  i < progressIndex
+                    ? "bg-blue-500"
+                    : i === progressIndex
+                    ? "bg-blue-500 analysis-loading-dot"
+                    : "bg-gray-300"
                 }`}
               />
               <span
                 className={`text-[11px] ${
                   i <= progressIndex ? "text-blue-700" : "text-gray-400"
-                }`}
+                } ${i === progressIndex ? "analysis-loading-text" : ""}`}
               >
                 {label}
               </span>
