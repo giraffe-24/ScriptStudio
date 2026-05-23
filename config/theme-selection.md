@@ -23,7 +23,7 @@
 | 補助 | X（SNS） | 話題の補足・文脈。YouTube 単独では弱い候補の検証 |
 
 - 3 ソースを毎回並列検索する（キャッシュ禁止）
-- YouTube 結果が 0 件のときは候補を生成しない（Google/X のみでは不可）
+- YouTube 結果が 0 件のときは §3.3 の救済フローで候補を必ず返す（エラーにしない）
 - Google / X は API 未設定時スキップ可。YouTube は必須
 
 ---
@@ -46,9 +46,31 @@
 | `GOOGLE_CSE_API_KEY` | 任意 | 未設定時は `YOUTUBE_DATA_API_KEY` を流用可 |
 | `X_BEARER_TOKEN` | 任意 | X API v2。未設定時は Google site 検索で X 相当 |
 
-### 3.3 検索結果 0 件
+### 3.3 候補の guaranteed delivery（Studio）
 
-- YouTube 0 件 → エラー（候補捏造禁止）
+Studio では「候補を生成できませんでした」「YouTube 0 件」等の検索失敗をユーザーに出さない。
+候補は必ず 6 件以上返す（`YOUTUBE_DATA_API_KEY` 未設定など環境エラーは除く）。
+
+| 段階 | 条件 | 動作 |
+|------|------|------|
+| 1 | 通常 | `planSearchQueries` / 入力テーマ由来クエリ |
+| 2 | YouTube 0 件 | `GUARANTEED_RESCUE_QUERIES`（救済クエリ）で再検索 |
+| 3 | まだ 0 件 | 競合 ch 直近動画を YouTube 根拠に変換 |
+| 4 | まだ 0 件 | 自 ch 公開動画を根拠源に変換 |
+| 5 | LLM 候補 0 件 | 取得済み YouTube 動画から根拠付きフォールバック候補を生成 |
+
+救済クエリ（SSOT・`src/lib/market-analysis/guaranteed-search.ts` と同期）:
+
+- スマホ 便利 使い方 設定 無料
+- Google アプリ 使い方 初心者
+- Android 設定 効率化
+- Gmail 整理 方法
+- iPhone 便利機能 まとめ
+
+フォールバック候補も reason に実在する YouTube 動画タイトルを必須引用。捏造禁止（§4）は維持。
+
+### 3.4 Google / X 0 件
+
 - Google / X 0 件 → 警告なしで YouTube のみで続行
 
 ---
@@ -83,7 +105,7 @@
 | 層 | ファイル |
 |----|---------|
 | SSOT | 本ファイル、[market-analysis-rubric.md](market-analysis-rubric.md)、[competitors.md](competitors.md) |
-| 分析エンジン | `src/lib/market-analysis/` |
+| 分析エンジン | `src/lib/market-analysis/`（`guaranteed-search.ts` が救済・フォールバック） |
 | 検索統合 | `src/lib/theme-search.ts` |
 | 市場分析 API | `src/app/api/market-research/route.ts` |
 | 競合 ch API | `src/app/api/competitors/route.ts` |

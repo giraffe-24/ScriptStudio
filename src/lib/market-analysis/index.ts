@@ -9,7 +9,7 @@ import type { EnrichedCandidate } from "@/lib/types";
 import { collectAdaptiveWeb } from "./collectors/adaptive-web";
 import { collectCompetitorVideos } from "./collectors/competitors";
 import { collectOwnChannelHistory } from "./collectors/own-channel";
-import { collectYouTubeVideos } from "./collectors/youtube";
+import { collectYouTubeWithRescue, competitorVideosToYouTube, ensureEnrichedCandidates } from "./guaranteed-search";
 import { loadMarketAnalysisRubric } from "./prompts";
 import { createProgressLog, markStep } from "./progress";
 import {
@@ -96,8 +96,9 @@ async function collectAllData(
   const queries = planSearchQueries(category, themeMode);
   const primaryQuery = planPrimaryQuery(queries);
 
-  const [youtube, google, x, officialWeb, ownChannelTitles] = await Promise.all([
-    collectYouTubeVideos(queries),
+  let youtube = await collectYouTubeWithRescue(queries);
+
+  const [google, x, officialWeb, ownChannelTitles] = await Promise.all([
     searchGoogleWeb(primaryQuery),
     searchXPosts(primaryQuery),
     collectAdaptiveWeb(category, themeMode),
@@ -105,6 +106,10 @@ async function collectAllData(
   ]);
 
   const { competitorVideos, suggestions } = await collectCompetitorVideos(youtube);
+
+  if (youtube.length === 0 && competitorVideos.length > 0) {
+    youtube = competitorVideosToYouTube(competitorVideos);
+  }
 
   return {
     queries,
@@ -134,9 +139,8 @@ export async function runMarketAnalysis(
   const data = await collectAllData(category, themeMode);
   emit("search", "done");
 
-  if (data.youtube.length === 0) {
-    throw new Error("YouTube 検索結果が 0 件でした。カテゴリを変えて再検索してください。");
-  }
+  const modeLabel = themeModeLabel(themeMode);
+  const modeFit = themeModeFit(themeMode);
 
   emit("competitors", "running");
   emit("competitors", "done");
@@ -154,41 +158,51 @@ export async function runMarketAnalysis(
   const officialSummary = formatOfficialSummary(data.officialWeb);
   const competitorSummary = formatCompetitorSummary(data.competitorVideos);
   const ownChannelSummary = formatOwnChannelSummary(data.ownChannelTitles);
-  const modeLabel = themeModeLabel(themeMode);
-  const modeFit = themeModeFit(themeMode);
 
-  emit("angle_cluster", "running");
-  const angleAnalysis = await runAngleClusterStage(systemPrompt, {
-    queries: data.queries,
-    youtubeSummary,
-    googleSummary,
-    xSummary,
-    officialSummary,
-    competitorSummary,
-    ownChannelSummary,
-    themeModeLabel: modeLabel,
-    rubric,
-  });
+  let angleAnalysis = "";
+  try {
+    emit("angle_cluster", "running");
+    angleAnalysis = await runAngleClusterStage(systemPrompt, {
+      queries: data.queries,
+      youtubeSummary,
+      googleSummary,
+      xSummary,
+      officialSummary,
+      competitorSummary,
+      ownChannelSummary,
+      themeModeLabel: modeLabel,
+      rubric,
+    });
+  } catch (err) {
+    console.warn("[market-analysis] angle_cluster fallback:", err);
+  }
   emit("angle_cluster", "done");
 
   emit("candidates", "running");
-  let candidates = await runCandidateGenerateStage(systemPrompt, {
-    angleAnalysis,
-    youtubeSummary,
-    googleSummary,
-    xSummary,
-    officialSummary,
-    competitorSummary,
-    ownChannelSummary,
-    themeModeLabel: modeLabel,
-    themeModeFit: modeFit,
-    rubric,
-  });
+  let candidates: EnrichedCandidate[] = [];
+  try {
+    candidates = await runCandidateGenerateStage(systemPrompt, {
+      angleAnalysis,
+      youtubeSummary,
+      googleSummary,
+      xSummary,
+      officialSummary,
+      competitorSummary,
+      ownChannelSummary,
+      themeModeLabel: modeLabel,
+      themeModeFit: modeFit,
+      rubric,
+    });
+  } catch (err) {
+    console.warn("[market-analysis] candidates fallback:", err);
+  }
   emit("candidates", "done");
 
   emit("overlap", "running");
   candidates = applyOverlapPostProcessing(
-    candidates.map((c) => normalizeCandidate(c, modeFit)),
+    ensureEnrichedCandidates(candidates, data.youtube, { themeMode, category }).map((c) =>
+      normalizeCandidate(c, modeFit),
+    ),
     data.ownChannelTitles,
   );
   emit("overlap", "done");

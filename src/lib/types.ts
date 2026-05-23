@@ -60,6 +60,7 @@ export interface CompetitorChannel {
   channelId: string;
   displayName: string;
   addedAt: string;
+  enabled?: boolean;
 }
 
 export interface CompetitorSuggestion {

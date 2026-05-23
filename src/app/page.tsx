@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import YouTubeIcon from "@image/YouTubeIcon.svg";
+import { CompetitorSettingsDialog } from "@/components/CompetitorSettingsDialog";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
 import { ThemeInput } from "@/components/ThemeInput";
@@ -343,12 +344,15 @@ export default function Home() {
           <div className="w-80 shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
             <div className="h-[52px] px-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-700">テーマ選定</h2>
-              <button
-                onClick={handleNewEpisode}
-                className="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-md transition-colors"
-              >
-                ＋ 新規
-              </button>
+              <div className="flex items-center gap-1.5">
+                <CompetitorSettingsDialog />
+                <button
+                  onClick={handleNewEpisode}
+                  className="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-md transition-colors"
+                >
+                  リセット
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <PatternSelector

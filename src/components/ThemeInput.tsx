@@ -9,6 +9,10 @@ import type {
   ThemePattern,
 } from "@/lib/types";
 import type { ThemeSearchSources } from "@/lib/theme-search";
+import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
+import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
+import { CompetitorSubscriberStats } from "@/components/CompetitorSubscriberStats";
+import { CompetitorChannelAvatar } from "@/components/CompetitorChannelAvatar";
 
 interface Props {
   pattern: ThemePattern;
@@ -98,6 +102,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
   const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
   const [savingCompetitors, setSavingCompetitors] = useState(false);
+  const [competitorStats, setCompetitorStats] = useState<Record<string, ChannelSubscriberStats>>({});
 
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set());
@@ -111,6 +116,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     setCompetitorSuggestions([]);
     setShowCompetitorModal(false);
     setSelectedCompetitors(new Set());
+    setCompetitorStats({});
     setError(null);
     setProgressIndex(0);
   }
@@ -131,6 +137,19 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     }, 12000);
     return () => clearInterval(timer);
   }, [loading]);
+
+  useEffect(() => {
+    if (!showCompetitorModal || competitorSuggestions.length === 0) return;
+    const ids = competitorSuggestions.map((s) => s.channelId);
+    fetch("/api/competitors/stats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channelIds: ids }),
+    })
+      .then((r) => r.json())
+      .then((d) => setCompetitorStats(d.stats ?? {}))
+      .catch(() => setCompetitorStats({}));
+  }, [showCompetitorModal, competitorSuggestions]);
 
   function toggleOpen(i: number) {
     setOpenIndexes((prev) => {
@@ -169,11 +188,6 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       }
 
       const results: EnrichedCandidate[] = data.candidates ?? [];
-      if (results.length === 0) {
-        setError("候補を生成できませんでした。キーワードを変えて再検索してください。");
-        return;
-      }
-
       setCandidates(results);
       setSearchSources(data.searchSources ?? { youtube: true, google: false, x: false });
 
@@ -579,9 +593,9 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
             <p className="text-xs text-gray-500 leading-relaxed">
               今回の分析で見つかった競合 ch です。今後の分析に使う ch を選んで承認してください。
             </p>
-            <ul className="space-y-2 max-h-48 overflow-y-auto">
+            <ul className="space-y-2 max-h-56 overflow-y-auto">
               {competitorSuggestions.map((s) => (
-                <li key={s.channelId} className="flex items-center gap-2">
+                <li key={s.channelId} className="flex items-start gap-2">
                   <input
                     type="checkbox"
                     checked={selectedCompetitors.has(s.channelId)}
@@ -593,12 +607,28 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                         return next;
                       });
                     }}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 mt-0.5"
                   />
-                  <span className="text-xs text-gray-700">
-                    {s.displayName}
-                    <span className="text-gray-400 ml-1">({s.videoCount}件ヒット)</span>
-                  </span>
+                  <CompetitorChannelAvatar
+                    channelId={s.channelId}
+                    displayName={s.displayName}
+                    thumbnailUrl={competitorStats[s.channelId]?.thumbnailUrl}
+                    size={32}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs text-gray-700">
+                      <a
+                        href={youtubeChannelUrl(s.channelId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {s.displayName}
+                      </a>
+                      <span className="text-gray-400 ml-1">({s.videoCount}件ヒット)</span>
+                    </span>
+                    <CompetitorSubscriberStats stats={competitorStats[s.channelId]} />
+                  </div>
                 </li>
               ))}
             </ul>

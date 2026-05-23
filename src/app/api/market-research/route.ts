@@ -23,25 +23,10 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await runMarketAnalysis({ category, themeMode });
-
-    if (result.candidates.length === 0) {
-      return NextResponse.json(
-        {
-          error: "候補を生成できませんでした。カテゴリを変えて再検索してください。",
-          candidates: [],
-          searchSources: result.searchSources,
-          competitorSuggestions: result.competitorSuggestions,
-          progressLog: result.progressLog,
-        },
-        { status: 422 },
-      );
-    }
-
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[market-research]", msg);
-    const status = msg.includes("0 件") ? 422 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,6 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
+import {
+  collectYouTubeWithRescue,
+  ensureThemeCandidates,
+} from "@/lib/market-analysis/guaranteed-search";
 import type { ThemeCandidate } from "@/lib/types";
 import { buildThemeSearchUserPrompt, runThemeSearch } from "@/lib/theme-search";
 
@@ -19,28 +23,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const searchQuery = `${theme} 使い方 スマホ 設定`;
-    const searchResult = await runThemeSearch(searchQuery);
+    const searchQueries = [
+      `${theme} 使い方 スマホ 設定`,
+      `${theme} 設定 初心者`,
+      `${theme} 便利 機能`,
+    ];
+    let youtube = await collectYouTubeWithRescue(searchQueries);
 
-    if (searchResult.youtube.length === 0) {
-      return NextResponse.json(
-        {
-          error: "YouTube 検索結果が 0 件でした。テーマの言い方を変えて再検索してください。",
-          candidates: [],
-          searchSources: searchResult.sources,
-        },
-        { status: 422 },
-      );
+    const searchResult = await runThemeSearch(searchQueries[0]);
+    if (youtube.length === 0 && searchResult.youtube.length > 0) {
+      youtube = searchResult.youtube;
     }
 
     const config = await loadChannelConfig();
     const systemPrompt = buildSystemPrompt(config);
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    let candidates: ThemeCandidate[] = [];
 
-    const userPrompt = buildThemeSearchUserPrompt(
-      searchQuery,
-      searchResult,
-      `入力テーマ：「${theme}」
+    try {
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const userPrompt = buildThemeSearchUserPrompt(
+        searchQueries[0],
+        { ...searchResult, youtube },
+        `入力テーマ：「${theme}」
 
 上記を踏まえ、入力テーマを「効率化オタクのあらきり」チャンネル向けに改変した候補を 6〜10 件出してください。
 - 視聴者（40〜60代、ITリテラシー初〜中級）の言葉で表現
@@ -57,27 +61,31 @@ export async function POST(req: NextRequest) {
     "score": "high | medium | low"
   }
 ]`,
-    );
+      );
 
-    const message = await client.messages.create({
-      model: "claude-opus-4-5",
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+      const message = await client.messages.create({
+        model: "claude-opus-4-5",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
 
-    let candidates: ThemeCandidate[] = [];
-    try {
       const text = message.content[0].type === "text" ? message.content[0].text : "[]";
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       candidates = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
-    } catch {
-      candidates = [];
+    } catch (err) {
+      console.warn("[adapt-theme] LLM fallback:", err);
     }
+
+    candidates = ensureThemeCandidates(candidates, youtube, theme);
 
     return NextResponse.json({
       candidates,
-      searchSources: searchResult.sources,
+      searchSources: {
+        youtube: youtube.length > 0,
+        google: searchResult.sources.google,
+        x: searchResult.sources.x,
+      },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

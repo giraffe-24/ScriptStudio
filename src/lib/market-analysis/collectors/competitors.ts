@@ -1,7 +1,7 @@
 import type { YouTubeVideo } from "@/lib/theme-search";
 import type { CompetitorSuggestion } from "@/lib/types";
 import type { CompetitorVideo } from "../types";
-import { readCompetitorsConfig } from "../competitors-config";
+import { readEnabledCompetitorsConfig } from "../competitors-config";
 import { fetchChannelRecentVideos, isOwnChannelName } from "./own-channel";
 
 const MAX_DYNAMIC = 3;
@@ -41,7 +41,7 @@ export async function collectCompetitorVideos(
   const apiKey = process.env.YOUTUBE_DATA_API_KEY;
   if (!apiKey) return { competitorVideos: [], suggestions: [] };
 
-  const approved = await readCompetitorsConfig();
+  const approved = await readEnabledCompetitorsConfig();
   const approvedSet = new Set(approved.map((c) => c.channelId));
   for (const id of approvedIds) approvedSet.add(id);
 
