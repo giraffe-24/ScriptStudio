@@ -15,7 +15,7 @@ import { CompetitorSubscriberStats } from "@/components/CompetitorSubscriberStat
 import { CompetitorChannelAvatar } from "@/components/CompetitorChannelAvatar";
 
 interface Props {
-  pattern: ThemePattern;
+  pattern: ThemePattern | null;
   onSelect: (candidate: ThemeCandidate) => void;
   onAnalysisStart?: () => void;
 }
@@ -92,7 +92,7 @@ const PROGRESS_LABELS = [
 export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const [userTheme, setUserTheme] = useState("");
   const [category, setCategory] = useState("");
-  const [themeMode, setThemeMode] = useState<ThemeMode>("C");
+  const [themeMode, setThemeMode] = useState<ThemeMode | null>(null);
   const [loading, setLoading] = useState(false);
   const [progressIndex, setProgressIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -121,13 +121,13 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     setProgressIndex(0);
   }
 
-  function resetMarketForm() {
+  useEffect(() => {
+    if (!pattern) return;
     resetResults();
     setThemeModeLocked(false);
-  }
-
-  useEffect(() => {
-    resetMarketForm();
+    setThemeMode(null);
+    setCategory("");
+    setUserTheme("");
   }, [pattern]);
 
   useEffect(() => {
@@ -172,7 +172,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       const endpoint = pattern === "market" ? "/api/market-research" : "/api/adapt-theme";
       const body =
         pattern === "market"
-          ? { category, themeMode }
+          ? { category, themeMode: themeMode ?? "C" }
           : { theme: userTheme };
 
       const res = await fetch(endpoint, {
@@ -237,9 +237,18 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     onSelect(candidates[pickedIndex]);
   }
 
+  const canAnalyze =
+    !!pattern &&
+    !loading &&
+    (pattern === "market" ? themeMode != null : userTheme.trim().length > 0);
+
   return (
     <div className="space-y-4">
-      {pattern === "market" ? (
+      {!pattern ? (
+        <p className="text-xs text-gray-400 text-center py-6 leading-relaxed">
+          市場分析またはテーマ分析を選んでください
+        </p>
+      ) : pattern === "market" ? (
         <>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -250,7 +259,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
               value={category}
               onChange={(e) => {
                 setCategory(e.target.value);
-                resetMarketForm();
+                resetResults();
               }}
               placeholder="例：Gmail, Android, Google フォト"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
@@ -267,7 +276,10 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
               </p>
             )}
             <div className="space-y-2">
-              {(themeModeLocked ? THEME_MODES.filter((m) => m.id === themeMode) : THEME_MODES).map(
+              {(themeModeLocked && themeMode
+                ? THEME_MODES.filter((m) => m.id === themeMode)
+                : THEME_MODES
+              ).map(
                 (m) => {
                 const selected = themeMode === m.id;
                 return (
@@ -277,7 +289,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     onClick={() => {
                       if (themeModeLocked) return;
                       setThemeMode(m.id);
-                      resetMarketForm();
+                      resetResults();
                     }}
                     disabled={themeModeLocked}
                     className={`w-full flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
@@ -332,11 +344,12 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
         </div>
       )}
 
+      {pattern && (
       <button
         onClick={handleResearch}
-        disabled={loading || (pattern === "user-input" && !userTheme.trim())}
+        disabled={!canAnalyze}
         className={`w-full rounded-lg py-2.5 text-sm font-medium transition-all ${
-          loading
+          !canAnalyze
             ? "bg-gray-200 text-gray-400 cursor-not-allowed"
             : pattern === "market"
             ? "bg-blue-500 text-white hover:bg-blue-600"
@@ -349,6 +362,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
           ? "📊 トレンド分析する"
           : "✨ テーマを改変する"}
       </button>
+      )}
 
       {loading && pattern === "market" && (
         <div className="analysis-loading-panel bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">

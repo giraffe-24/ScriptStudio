@@ -23,7 +23,7 @@ interface Plan {
 
 export default function Home() {
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
-  const [pattern, setPattern] = useState<ThemePattern>("market");
+  const [pattern, setPattern] = useState<ThemePattern | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<ThemeCandidate | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
   const [episodeRefreshKey, setEpisodeRefreshKey] = useState(0);
@@ -80,7 +80,7 @@ export default function Home() {
                 .slice(0, 30) || `episode-${assignNumber}`,
             title,
             status: "scripting",
-            themePattern: pattern,
+            themePattern: pattern ?? "market",
             hook: selectedCandidate?.hook,
             targetPain: selectedCandidate?.targetPain,
             reason: selectedCandidate?.reason,
@@ -129,6 +129,7 @@ export default function Home() {
     if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
     if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
     resetPlanningAndScript();
+    setPattern(null);
     setWorkspaceResetKey((k) => k + 1);
   }
 
@@ -319,16 +320,14 @@ export default function Home() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={YouTubeIcon.src}
-              alt="YT_TalkScript Studio"
+              alt="ScriptStudio"
               width={80}
               height={68}
               className="mx-auto mb-6"
             />
-            <h2 className="text-xl font-bold text-gray-700 mb-2">YT_TalkScript Studio</h2>
+            <h2 className="text-xl font-bold text-gray-700 mb-2">ScriptStudio</h2>
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-              企画からトークスクリプトまでを
-              <br />
-              AI と一緒に作成できます
+              企画から台本まで、ひとつの画面で
             </p>
             <button
               onClick={handleNewEpisode}

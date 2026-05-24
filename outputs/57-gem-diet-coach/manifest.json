@@ -2,10 +2,12 @@
   "id": "57",
   "slug": "gem-diet-coach",
   "title": "3か月で5キロ減｜Geminiでパーソナルコーチを作る",
-  "status": "done",
+  "status": "scripting",
   "theme_pattern": "user-input",
   "created_at": "2026-05-22",
   "hook": "ダイエットが続かないのは意志の問題じゃない。毎日の判断を減らせばズボラでも続きます",
   "target_pain": "記録アプリが続かない・何を食べていいか毎日判断するのが疲れる",
-  "reason": "GeminiのGem機能で専属コーチを作る、という新鮮な切り口。指示文テンプレ配布との相性も高い"
+  "reason": "GeminiのGem機能で専属コーチを作る、という新鮮な切り口。指示文テンプレ配布との相性も高い",
+  "script_updated_at": "2026-05-23T04:53:57.381Z",
+  "script_updated_by": "d_araki"
 }

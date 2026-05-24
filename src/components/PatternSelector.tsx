@@ -3,7 +3,7 @@
 import type { ThemePattern } from "@/lib/types";
 
 interface Props {
-  pattern: ThemePattern;
+  pattern: ThemePattern | null;
   onChange: (pattern: ThemePattern) => void;
 }
 

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "YT_TalkScript Studio",
-  description: "企画からトークスクリプトまで AI と一緒に作成",
+  title: "ScriptStudio",
+  description: "企画から台本まで、ひとつの画面で",
 };
 
 export default function RootLayout({

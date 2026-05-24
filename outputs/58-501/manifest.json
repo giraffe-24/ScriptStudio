@@ -1,0 +1,23 @@
+{
+  "id": "58",
+  "slug": "501",
+  "title": "【50代夫婦検証】プロテイン1ヶ月の正直な変化",
+  "status": "scripting",
+  "theme_pattern": "user-input",
+  "created_at": "2026-05-22",
+  "hook": "「本当に効果あるの？」と疑いながら始めたプロテイン生活。1ヶ月続けて感じた正直な変化をお話しします。",
+  "target_pain": "プロテインに興味はあるが、本当に効果があるのか半信半疑",
+  "reason": "同世代の実体験レポートは信頼性が高い。「正直な」という言葉で誇張感を消し、検証済みコンテンツとしての価値を出す。",
+  "panes": [
+    {
+      "id": "pane1",
+      "label": "企画",
+      "path": "00-plan-and-structure.md"
+    },
+    {
+      "id": "pane2",
+      "label": "台本",
+      "path": "01-script-draft.md"
+    }
+  ]
+}
