@@ -35,3 +35,7 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 # next-env.d.ts はコミット対象（tsconfig.json で参照）
+
+# editor / local
+.claude/
+skills-lock.json

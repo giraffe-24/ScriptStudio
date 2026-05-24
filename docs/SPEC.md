@@ -351,5 +351,5 @@ npm run dev
 ## 12. 参考・モックアップ
 
 - インタラクティブモックアップ: `docs/prototype/mockup.html`（ブラウザで直接開く）
-- 参考UI: `docs/reference/講義/`（第5回 文字起こし）
+- 参考UI: `docs/prototype/mockup.html`（ContentStudio モック）
 - 台本データ例（YT_TalkScript 兄弟リポジトリ）: `outputs/54-sticky-windows-android/01-script-draft.md`

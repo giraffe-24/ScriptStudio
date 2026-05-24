@@ -70,17 +70,17 @@ export interface CompetitorSuggestion {
   source: "dynamic" | "approved";
 }
 
-export interface PlanSection {
-  id: string;
-  label: string;
-  content: string;
-  editable: boolean;
-}
-
-export interface PlanningDoc {
+/** plan.json / 企画書 API の共通型 */
+export interface EpisodePlan {
   episodeTitle: string;
-  theme: string;
-  sections: PlanSection[];
+  targetViewer: string;
+  pain: string;
+  promise: string;
+  keyPoints: string[];
+  outline: { section: string; content: string }[];
+  competitorAnalysis: string;
+  estimatedLength: string;
+  youtubeGoal?: string;
 }
 
 export interface ChatMessage {

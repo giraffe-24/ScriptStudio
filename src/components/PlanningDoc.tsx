@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
-import type { ThemeCandidate, ChatMessage } from "@/lib/types";
+import type { ChatMessage, EpisodePlan, ThemeCandidate } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
 import { sanitizePlanOutline, sanitizeSectionName } from "@/lib/plan-outline";
 
@@ -13,29 +13,18 @@ const EDITABLE =
 const EDITABLE_INPUT =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 placeholder:text-gray-300 transition-colors";
 
-interface Plan {
-  episodeTitle: string;
-  targetViewer: string;
-  pain: string;
-  promise: string;
-  keyPoints: string[];
-  outline: { section: string; content: string }[];
-  competitorAnalysis: string;
-  estimatedLength: string;
-}
-
 interface Props {
   candidate: ThemeCandidate | null;
-  plan?: Plan | null;
+  plan?: EpisodePlan | null;
   episodeNumber?: number | null;
-  onPlanReady: (plan: Plan, title: string) => void;
+  onPlanReady: (plan: EpisodePlan, title: string) => void;
   onTitleChange?: (title: string) => void;
   onEpisodeNumberChange?: (number: number) => void;
-  onPlanChange?: (plan: Plan) => void;
+  onPlanChange?: (plan: EpisodePlan) => void;
 }
 
 export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPlanReady, onTitleChange, onEpisodeNumberChange, onPlanChange }: Props) {
-  const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
+  const [plan, setPlan] = useState<EpisodePlan | null>(initialPlan ?? null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -88,7 +77,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPla
     setLoading(false);
   }
 
-  function update<K extends keyof Plan>(key: K, value: Plan[K]) {
+  function update<K extends keyof EpisodePlan>(key: K, value: EpisodePlan[K]) {
     if (!plan) return;
     const next = { ...plan, [key]: value };
     setPlan(next);

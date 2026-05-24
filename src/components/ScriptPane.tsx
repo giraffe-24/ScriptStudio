@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ScriptEditor } from "./ScriptEditor";
 import type { ScriptMeta } from "@/lib/file-manager";
+import type { EpisodePlan } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
 import {
   extractScriptHeaders,
@@ -10,20 +11,8 @@ import {
   syncScriptHeadersByIndex,
 } from "@/lib/script-outline";
 
-interface Plan {
-  episodeTitle: string;
-  youtubeGoal?: string;
-  targetViewer?: string;
-  pain?: string;
-  promise?: string;
-  keyPoints?: string[];
-  outline?: { section: string; content: string }[];
-  competitorAnalysis?: string;
-  estimatedLength?: string;
-}
-
 interface Props {
-  plan: Plan | null;
+  plan: EpisodePlan | null;
   episodeNumber: number | null;
   episodeSlug: string;
   generateKey?: number;

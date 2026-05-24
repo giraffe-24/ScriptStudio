@@ -8,24 +8,19 @@ import { PatternSelector } from "@/components/PatternSelector";
 import { ThemeInput } from "@/components/ThemeInput";
 import { PlanningDoc } from "@/components/PlanningDoc";
 import { ScriptPane } from "@/components/ScriptPane";
-import type { Episode, EpisodeStatus, ThemeCandidate, ThemePattern } from "@/lib/types";
-
-interface Plan {
-  episodeTitle: string;
-  targetViewer: string;
-  pain: string;
-  promise: string;
-  keyPoints: string[];
-  outline: { section: string; content: string }[];
-  competitorAnalysis: string;
-  estimatedLength: string;
-}
+import type {
+  Episode,
+  EpisodePlan,
+  EpisodeStatus,
+  ThemeCandidate,
+  ThemePattern,
+} from "@/lib/types";
 
 export default function Home() {
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
   const [pattern, setPattern] = useState<ThemePattern | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<ThemeCandidate | null>(null);
-  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<EpisodePlan | null>(null);
   const [episodeRefreshKey, setEpisodeRefreshKey] = useState(0);
   const [newEpisodeMode, setNewEpisodeMode] = useState(false);
   const [creatingEpisode, setCreatingEpisode] = useState(false);
@@ -54,7 +49,7 @@ export default function Home() {
       .catch(() => setNextEpisodeNumber(null));
   }, [newEpisodeMode, selectedEpisode]);
 
-  async function handlePlanReady(plan: Plan, title: string) {
+  async function handlePlanReady(plan: EpisodePlan, title: string) {
     let episode = selectedEpisode;
 
     if (!episode && !creatingEpisode) {
@@ -150,7 +145,7 @@ export default function Home() {
     const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
     const planData = await planRes.json();
     if (planData.plan) {
-      setCurrentPlan(planData.plan as Plan);
+      setCurrentPlan(planData.plan as EpisodePlan);
       return;
     }
 
@@ -170,7 +165,7 @@ export default function Home() {
       });
       const inferData = await inferRes.json();
       if (inferData.plan) {
-        setCurrentPlan(inferData.plan as Plan);
+        setCurrentPlan(inferData.plan as EpisodePlan);
         // 次回以降のためにキャッシュ保存
         await fetch("/api/files", {
           method: "POST",
@@ -210,7 +205,7 @@ export default function Home() {
     setEpisodeRefreshKey((k) => k + 1);
   }
 
-  function handlePlanChange(plan: Plan) {
+  function handlePlanChange(plan: EpisodePlan) {
     setCurrentPlan(plan);
   }
 

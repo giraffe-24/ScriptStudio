@@ -1,5 +1,5 @@
 {
-  "name": "yt-talkscript",
+  "name": "scriptstudio",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,12 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "market-research": "npx tsx scripts/market-research.ts"
+    "market-research": "npx tsx scripts/market-research.ts",
+    "title-studio": "node tools/title-studio/server.mjs",
+    "script-doc": "node tools/script-to-doc/export-doc.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
     "@base-ui/react": "^1.5.0",
-    "@supabase/supabase-js": "^2.106.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "diff": "^9.0.0",
