@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured, getSupabaseConfigHint } from "@/lib/supabase-server";
-import { updateRecordedPlanFingerprint } from "@/lib/file-manager";
+import { syncScriptRecordBaseline } from "@/lib/file-manager";
 import {
   createScriptSnapshot,
   getLatestScriptSnapshot,
@@ -116,10 +116,15 @@ export async function POST(req: NextRequest) {
       content,
       diffStats: body.diffStats ?? null,
     });
+    let scriptMeta = null;
     if (body.planFingerprint?.trim()) {
-      await updateRecordedPlanFingerprint(episodeNumber, episodeSlug, body.planFingerprint.trim());
+      scriptMeta = await syncScriptRecordBaseline(
+        episodeNumber,
+        episodeSlug,
+        body.planFingerprint.trim(),
+      );
     }
-    return NextResponse.json({ snapshot });
+    return NextResponse.json({ snapshot, scriptMeta });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

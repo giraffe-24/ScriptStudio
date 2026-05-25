@@ -130,16 +130,26 @@ export async function readScriptMeta(number: number, slug: string): Promise<Scri
   };
 }
 
+export async function syncScriptRecordBaseline(
+  number: number,
+  slug: string,
+  planFingerprint: string,
+): Promise<ScriptMeta | null> {
+  const identity = resolveEpisodeIdentity(number, slug);
+  const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
+  const m = await loadManifestForIdentity(identity, { repair: true });
+  m.script_plan_fingerprint = planFingerprint;
+  m.recorded_plan_fingerprint = planFingerprint;
+  await writeManifestAtDir(dirPath, m);
+  return readScriptMeta(number, slug);
+}
+
 export async function updateRecordedPlanFingerprint(
   number: number,
   slug: string,
   planFingerprint: string,
 ): Promise<void> {
-  const identity = resolveEpisodeIdentity(number, slug);
-  const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
-  const m = await loadManifestForIdentity(identity, { repair: true });
-  m.recorded_plan_fingerprint = planFingerprint;
-  await writeManifestAtDir(dirPath, m);
+  await syncScriptRecordBaseline(number, slug, planFingerprint);
 }
 
 export async function updateScriptMeta(

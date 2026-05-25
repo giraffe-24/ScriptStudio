@@ -187,6 +187,32 @@ export function ScriptPane({
     alertedOutlineRef.current = "";
   }
 
+  function applyRecordedState(options: {
+    recordedContent?: string | null;
+    scriptMeta?: ScriptMeta | null;
+    planFingerprint?: string;
+    savePlan?: EpisodePlan | null;
+  }) {
+    if (typeof options.recordedContent === "string") {
+      setLatestSnapshotContent(options.recordedContent);
+      setSnapshotCheckReady(true);
+    }
+    if (options.scriptMeta) {
+      setScriptMeta(options.scriptMeta);
+    }
+    if (!options.planFingerprint) return;
+    if (
+      options.savePlan &&
+      planGenerationFingerprint(options.savePlan) === options.planFingerprint
+    ) {
+      confirmPlanScriptBaseline(options.savePlan);
+      return;
+    }
+    confirmedPlanFingerprintRef.current = options.planFingerprint;
+    setOutOfSync(false);
+    alertedOutlineRef.current = "";
+  }
+
   async function refreshLatestSnapshot() {
     if (!episodeNumber || !episodeSlug || !versionsEnabled) {
       setLatestSnapshotContent(null);
@@ -212,13 +238,20 @@ export function ScriptPane({
     }
   }
 
-  async function refreshRecordBaseline(recordedContent?: string | null) {
-    await loadScriptMeta();
-    if (typeof recordedContent === "string") {
-      setLatestSnapshotContent(recordedContent);
-      setSnapshotCheckReady(true);
-      return;
-    }
+  async function refreshRecordBaseline(options?: {
+    recordedContent?: string | null;
+    scriptMeta?: ScriptMeta | null;
+    planFingerprint?: string;
+    savePlan?: EpisodePlan | null;
+  }) {
+    const meta = options?.scriptMeta ?? (await loadScriptMeta());
+    applyRecordedState({
+      recordedContent: options?.recordedContent,
+      scriptMeta: meta,
+      planFingerprint: options?.planFingerprint,
+      savePlan: options?.savePlan,
+    });
+    if (typeof options?.recordedContent === "string") return;
     await refreshLatestSnapshot();
   }
 
@@ -470,7 +503,12 @@ export function ScriptPane({
       if (!recordRes.ok) {
         throw new Error(recordData.error ?? "台本の自動記録に失敗しました");
       }
-      await refreshRecordBaseline(recordData.snapshot?.content ?? afterContent);
+      await refreshRecordBaseline({
+        recordedContent: recordData.snapshot?.content ?? afterContent,
+        scriptMeta: (recordData.scriptMeta ?? null) as ScriptMeta | null,
+        planFingerprint: planGenerationFingerprint(savePlan),
+        savePlan,
+      });
     } catch {
       // 履歴保存失敗は生成自体を止めない
     }
@@ -832,11 +870,10 @@ export function ScriptPane({
     const content = latestScriptRef.current;
     if (!content.trim() || !plan) return;
     await handleSave(content, "manual", { syncPlanFingerprint: true });
-    await loadScriptMeta();
     confirmPlanScriptBaseline(plan);
 
     if (versionsEnabled && episodeNumber && episodeSlug) {
-      await fetch("/api/files", {
+      const res = await fetch("/api/files", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -845,8 +882,13 @@ export function ScriptPane({
           slug: episodeSlug,
           planFingerprint: planGenerationFingerprint(plan),
         }),
-      }).catch(() => undefined);
-      await refreshRecordBaseline();
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
+      await refreshRecordBaseline({
+        scriptMeta: ((data as { scriptMeta?: ScriptMeta | null }).scriptMeta ?? null) as ScriptMeta | null,
+        planFingerprint: planGenerationFingerprint(plan),
+        savePlan: plan,
+      });
     }
   }
 
@@ -1072,7 +1114,14 @@ export function ScriptPane({
             currentContent={commitCurrentContent}
             previousContent={previousSnapshotContent}
             planFingerprint={plan ? planGenerationFingerprint(plan) : undefined}
-            onCommitted={(recordedContent) => void refreshRecordBaseline(recordedContent)}
+            onCommitted={(result) =>
+              void refreshRecordBaseline({
+                recordedContent: result.recordedContent,
+                scriptMeta: result.scriptMeta,
+                planFingerprint: result.planFingerprint,
+                savePlan: plan,
+              })
+            }
           />
           <HistoryModal
             open={historyOpen}

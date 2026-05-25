@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta, deleteEpisodes, updateRecordedPlanFingerprint } from "@/lib/file-manager";
+import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta, deleteEpisodes, syncScriptRecordBaseline } from "@/lib/file-manager";
 import { normalizeEpisodeStatus, type EpisodeStatus } from "@/lib/episode-status";
 import { getSessionUsernameFromRequest } from "@/lib/studio-session";
 import { getStudioUserName } from "@/lib/studio-user";
@@ -91,8 +91,7 @@ export async function POST(req: NextRequest) {
     if (!body.number || !body.slug || !planFingerprint) {
       return NextResponse.json({ error: "number, slug, planFingerprint required" }, { status: 400 });
     }
-    await updateRecordedPlanFingerprint(body.number, body.slug, planFingerprint);
-    const scriptMeta = await readScriptMeta(body.number, body.slug);
+    const scriptMeta = await syncScriptRecordBaseline(body.number, body.slug, planFingerprint);
     return NextResponse.json({ ok: true, scriptMeta });
   }
 
