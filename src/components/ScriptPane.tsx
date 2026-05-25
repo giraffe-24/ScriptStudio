@@ -212,8 +212,13 @@ export function ScriptPane({
     }
   }
 
-  async function refreshRecordBaseline() {
+  async function refreshRecordBaseline(recordedContent?: string | null) {
     await loadScriptMeta();
+    if (typeof recordedContent === "string") {
+      setLatestSnapshotContent(recordedContent);
+      setSnapshotCheckReady(true);
+      return;
+    }
     await refreshLatestSnapshot();
   }
 
@@ -447,7 +452,7 @@ export function ScriptPane({
         if (sumData.summary) summary = sumData.summary;
       }
 
-      await fetch("/api/script-versions", {
+      const recordRes = await fetch("/api/script-versions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -459,7 +464,13 @@ export function ScriptPane({
           planFingerprint: planGenerationFingerprint(savePlan),
         }),
       });
-      await refreshRecordBaseline();
+      const recordData = await recordRes
+        .json()
+        .catch(() => ({ error: "記録レスポンスの解析に失敗しました" }));
+      if (!recordRes.ok) {
+        throw new Error(recordData.error ?? "台本の自動記録に失敗しました");
+      }
+      await refreshRecordBaseline(recordData.snapshot?.content ?? afterContent);
     } catch {
       // 履歴保存失敗は生成自体を止めない
     }
@@ -1061,7 +1072,7 @@ export function ScriptPane({
             currentContent={commitCurrentContent}
             previousContent={previousSnapshotContent}
             planFingerprint={plan ? planGenerationFingerprint(plan) : undefined}
-            onCommitted={() => void refreshRecordBaseline()}
+            onCommitted={(recordedContent) => void refreshRecordBaseline(recordedContent)}
           />
           <HistoryModal
             open={historyOpen}

@@ -28,7 +28,7 @@ type Props = {
   currentContent: string;
   previousContent: string;
   planFingerprint?: string;
-  onCommitted: () => void;
+  onCommitted: (recordedContent: string) => void | Promise<void>;
 };
 
 export function SnapshotCommitModal({
@@ -119,7 +119,7 @@ export function SnapshotCommitModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
-      onCommitted();
+      await onCommitted(data.snapshot?.content ?? currentContent);
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

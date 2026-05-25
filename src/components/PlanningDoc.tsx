@@ -39,6 +39,7 @@ export function PlanningDoc({
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const planLoadKeyRef = useRef("");
+  const planRequestRef = useRef(0);
 
   // タイトル変更でキーが変わらないよう slug / 候補テーマのみで判定
   const planLoadKey = `${episodeNumber ?? "new"}:${episodeSlug ?? "new"}:${candidate?.title ?? ""}`;
@@ -46,6 +47,7 @@ export function PlanningDoc({
   useEffect(() => {
     if (planLoadKeyRef.current === planLoadKey) return;
     planLoadKeyRef.current = planLoadKey;
+    planRequestRef.current += 1;
     setDraftPlan(null);
     setChatSection(null);
     setChatHistory([]);
@@ -56,39 +58,55 @@ export function PlanningDoc({
 
   useEffect(() => {
     if (!candidate) return;
-    generatePlan();
+    void generatePlan();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidate]);
 
+  function isActivePlanRequest(requestId: number, requestKey: string) {
+    return planRequestRef.current === requestId && planLoadKeyRef.current === requestKey;
+  }
+
   async function generatePlan() {
     if (!candidate) return;
+    const targetCandidate = candidate;
+    const requestKey = planLoadKey;
+    const requestId = ++planRequestRef.current;
     setLoading(true);
     setDraftPlan(null);
     setChatSection(null);
     setChatHistory([]);
 
-    const res = await fetch("/api/generate-plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        theme: candidate.title,
-        hook: candidate.hook,
-        targetPain: candidate.targetPain,
-        reason: candidate.reason,
-      }),
-    });
+    try {
+      const res = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          theme: targetCandidate.title,
+          hook: targetCandidate.hook,
+          targetPain: targetCandidate.targetPain,
+          reason: targetCandidate.reason,
+        }),
+      });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      console.error("[PlanningDoc] generate-plan error:", err);
-      alert(`企画書の生成に失敗しました。\n${err.error ?? res.statusText}`);
-      setLoading(false);
-      return;
+      const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      if (!isActivePlanRequest(requestId, requestKey)) return;
+
+      if (!res.ok) {
+        console.error("[PlanningDoc] generate-plan error:", data);
+        alert(`企画書の生成に失敗しました。\n${data.error ?? res.statusText}`);
+        return;
+      }
+
+      setDraftPlan(sanitizePlanOutline(data.plan ?? null));
+    } catch (error) {
+      if (!isActivePlanRequest(requestId, requestKey)) return;
+      console.error("[PlanningDoc] generate-plan error:", error);
+      alert("企画書の生成に失敗しました。\n通信状況を確認して再試行してください。");
+    } finally {
+      if (isActivePlanRequest(requestId, requestKey)) {
+        setLoading(false);
+      }
     }
-
-    const data = await res.json();
-    setDraftPlan(sanitizePlanOutline(data.plan ?? null));
-    setLoading(false);
   }
 
   function update<K extends keyof EpisodePlan>(key: K, value: EpisodePlan[K]) {

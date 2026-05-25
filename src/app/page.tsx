@@ -46,6 +46,7 @@ export default function Home() {
   });
   const currentPlanRef = useRef<EpisodePlan | null>(null);
   const selectedEpisodeRef = useRef<Episode | null>(null);
+  const selectionRequestRef = useRef(0);
 
   useEffect(() => {
     currentPlanRef.current = currentPlan;
@@ -54,6 +55,14 @@ export default function Home() {
   useEffect(() => {
     selectedEpisodeRef.current = selectedEpisode;
   }, [selectedEpisode]);
+
+  function isActiveEpisodeSelection(requestId: number, episode: Pick<Episode, "number" | "slug">) {
+    return (
+      selectionRequestRef.current === requestId &&
+      selectedEpisodeRef.current?.number === episode.number &&
+      selectedEpisodeRef.current?.slug === episode.slug
+    );
+  }
 
   useEffect(() => {
     if (!newEpisodeMode || selectedEpisode) {
@@ -128,9 +137,12 @@ export default function Home() {
   }
 
   function resetPlanningAndScript() {
+    selectionRequestRef.current += 1;
     setSelectedCandidate(null);
     setCurrentPlan(null);
+    currentPlanRef.current = null;
     setScriptGenerateKey(0);
+    selectedEpisodeRef.current = null;
     setSelectedEpisode(null);
     setNewEpisodeMode(true);
     setInferringPlan(false);
@@ -179,16 +191,19 @@ export default function Home() {
   }, [currentPlan, recordState]);
 
   async function handleEpisodeSelect(ep: Episode) {
+    const requestId = ++selectionRequestRef.current;
     setRecordState({
       scriptUnrecorded: false,
       recordedPlanFingerprint: undefined,
       planFingerprintFallback: undefined,
       versionsEnabled: false,
     });
+    selectedEpisodeRef.current = ep;
     setSelectedEpisode(ep);
     setNewEpisodeMode(false);
     setSelectedCandidate(null);
     setCurrentPlan(null);
+    currentPlanRef.current = null;
     setTitleOverride(undefined);
     setNumberOverride(undefined);
     setStatusOverride(undefined);
@@ -196,6 +211,7 @@ export default function Home() {
     // plan.json を読み込む。なければ台本から推論して保存
     const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
     const planData = await planRes.json();
+    if (!isActiveEpisodeSelection(requestId, ep)) return;
     if (planData.plan) {
       setCurrentPlan(planData.plan as EpisodePlan);
       return;
@@ -206,6 +222,7 @@ export default function Home() {
       `/api/files?action=read&number=${ep.number}&slug=${ep.slug}&filename=01-script-draft.md`
     );
     const scriptData = await scriptRes.json();
+    if (!isActiveEpisodeSelection(requestId, ep)) return;
     if (!scriptData.content) return;
 
     setInferringPlan(true);
@@ -216,6 +233,7 @@ export default function Home() {
         body: JSON.stringify({ script: scriptData.content, title: ep.title }),
       });
       const inferData = await inferRes.json();
+      if (!isActiveEpisodeSelection(requestId, ep)) return;
       if (inferData.plan) {
         setCurrentPlan(inferData.plan as EpisodePlan);
         // 次回以降のためにキャッシュ保存
@@ -231,7 +249,9 @@ export default function Home() {
         });
       }
     } finally {
-      setInferringPlan(false);
+      if (isActiveEpisodeSelection(requestId, ep)) {
+        setInferringPlan(false);
+      }
     }
   }
 
@@ -247,13 +267,16 @@ export default function Home() {
     setEpisodeRefreshKey((k) => k + 1);
 
     if (selectedEpisode && deletedSlugs.includes(selectedEpisode.slug)) {
+      selectionRequestRef.current += 1;
       if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
       if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
       if (planSaveTimer.current) clearTimeout(planSaveTimer.current);
+      selectedEpisodeRef.current = null;
       setSelectedEpisode(null);
       setNewEpisodeMode(false);
       setSelectedCandidate(null);
       setCurrentPlan(null);
+      currentPlanRef.current = null;
       setTitleOverride(undefined);
       setNumberOverride(undefined);
       setStatusOverride(undefined);
