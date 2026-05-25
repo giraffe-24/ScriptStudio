@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import type { Episode } from "./types";
-import { normalizeEpisodeStatus, type EpisodeStatus } from "./episode-status";
+import { normalizeEpisodeStatus, resolveEpisodeStatus, type EpisodeStatus } from "./episode-status";
 import { hasRevision, hasScriptDraft } from "./script-calib";
 import { sortEpisodesByNumberDesc } from "./episode-sort";
 import { getStudioUserName } from "./studio-user";
@@ -96,7 +96,7 @@ async function loadManifestForIdentity(
     manifest.title = planTitle ?? identity.slug;
   }
   if (typeof manifest.status !== "string") {
-    manifest.status = "considering";
+    manifest.status = "planning";
   }
   if (typeof manifest.created_at !== "string") {
     manifest.created_at = new Date().toISOString().slice(0, 10);
@@ -194,12 +194,20 @@ export async function listEpisodes(): Promise<Episode[]> {
         .readFile(path.join(dirPath, "01-script-draft.md"), "utf-8")
         .catch(() => "");
 
+      const hasDraft = hasScriptDraft(scriptContent);
+      const storedStatus = normalizeEpisodeStatus(typeof m.status === "string" ? m.status : undefined);
+      const status = resolveEpisodeStatus(storedStatus, hasDraft);
+      if (status !== storedStatus) {
+        m.status = status;
+        await writeManifestAtDir(dirPath, m);
+      }
+
       episodes.push({
         id: String(identity.number),
         number: identity.number,
         slug: identity.slug,
         title: typeof m.title === "string" && m.title.trim() ? m.title : identity.slug,
-        status: normalizeEpisodeStatus(typeof m.status === "string" ? m.status : undefined),
+        status,
         themePattern: m.theme_pattern as Episode["themePattern"],
         createdAt: typeof m.created_at === "string" ? m.created_at : "",
         hook: typeof m.hook === "string" ? m.hook : undefined,
@@ -287,8 +295,25 @@ export async function writeEpisodeFile(
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = await assertEpisodeDirExists(identity);
   await fs.writeFile(path.join(dirPath, filename), content, "utf-8");
-  if (filename === "01-script-draft.md" && scriptMeta) {
-    return updateScriptMeta(number, slug, scriptMeta);
+  if (filename === "01-script-draft.md") {
+    const manifest = await loadManifestForIdentity(identity, { repair: true });
+    const hasDraft = hasScriptDraft(content);
+    const stored = normalizeEpisodeStatus(
+      typeof manifest.status === "string" ? manifest.status : undefined,
+    );
+    const nextStatus = hasDraft
+      ? stored === "planning" || stored === "considering"
+        ? "scripting"
+        : stored
+      : "planning";
+    if (nextStatus !== stored) {
+      manifest.status = nextStatus;
+      await writeManifestAtDir(dirPath, manifest);
+    }
+    if (scriptMeta) {
+      return updateScriptMeta(number, slug, scriptMeta);
+    }
+    return null;
   }
   return null;
 }
@@ -307,12 +332,17 @@ export async function readPlan(number: number, slug: string): Promise<Record<str
   }
 }
 
-export async function updateManifestStatus(number: number, slug: string, status: EpisodeStatus): Promise<void> {
+export async function updateManifestStatus(number: number, slug: string, status: EpisodeStatus): Promise<EpisodeStatus> {
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = await assertEpisodeDirExists(identity);
   const m = await loadManifestForIdentity(identity, { repair: true });
-  m.status = status;
+  const scriptContent = await fs
+    .readFile(path.join(dirPath, "01-script-draft.md"), "utf-8")
+    .catch(() => "");
+  const resolved = resolveEpisodeStatus(normalizeEpisodeStatus(status), hasScriptDraft(scriptContent));
+  m.status = resolved;
   await writeManifestAtDir(dirPath, m);
+  return resolved;
 }
 
 export async function updateManifestTitle(number: number, slug: string, title: string): Promise<void> {
@@ -360,17 +390,26 @@ export async function updateEpisodeNumber(
   await writeManifestAtDir(oldPath, updated);
   await fs.rename(oldPath, newPath);
 
+  const scriptContent = await fs
+    .readFile(path.join(newPath, "01-script-draft.md"), "utf-8")
+    .catch(() => "");
+  const hasDraft = hasScriptDraft(scriptContent);
+  const storedStatus = normalizeEpisodeStatus(typeof updated.status === "string" ? updated.status : undefined);
+  const status = resolveEpisodeStatus(storedStatus, hasDraft);
+
   return {
     id: String(newNumber),
     number: newNumber,
     slug,
     title: typeof updated.title === "string" ? updated.title : slug,
-    status: normalizeEpisodeStatus(typeof updated.status === "string" ? updated.status : undefined),
+    status,
     themePattern: updated.theme_pattern as Episode["themePattern"],
     createdAt: typeof updated.created_at === "string" ? updated.created_at : "",
     hook: typeof updated.hook === "string" ? updated.hook : undefined,
     targetPain: typeof updated.target_pain === "string" ? updated.target_pain : undefined,
     reason: typeof updated.reason === "string" ? updated.reason : undefined,
+    hasScriptDraft: hasDraft,
+    hasRevision: hasRevision(scriptContent),
   };
 }
 

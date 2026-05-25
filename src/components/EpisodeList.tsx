@@ -200,6 +200,7 @@ export function EpisodeList({
             const displayNumber =
               numberOverride?.slug === ep.slug ? numberOverride.number : ep.number;
 
+            const hasScriptDraft = ep.hasScriptDraft ?? false;
             const rawStatus =
               statusOverride?.slug === ep.slug ? statusOverride.status : ep.status;
             const hasRevision = ep.hasRevision ?? false;
@@ -253,23 +254,31 @@ export function EpisodeList({
                       )}
                       {!deleteMode && (
                         <>
-                          <select
-                            value={displayStatus}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              onStatusChange?.(ep, e.target.value as EpisodeStatus);
-                            }}
-                            aria-label="ステータスを変更"
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 border-0 cursor-pointer appearance-none text-center ${STATUS_COLOR[displayStatus]}`}
-                          >
-                            {EPISODE_STATUSES.map((status) => (
-                              <option key={status} value={status}>
-                                {STATUS_LABEL[status]}
-                              </option>
-                            ))}
-                          </select>
+                          {hasScriptDraft ? (
+                            <select
+                              value={displayStatus}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                onStatusChange?.(ep, e.target.value as EpisodeStatus);
+                              }}
+                              aria-label="ステータスを変更"
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 border-0 cursor-pointer appearance-none text-center ${STATUS_COLOR[displayStatus]}`}
+                            >
+                              {EPISODE_STATUSES.map((status) => (
+                                <option key={status} value={status}>
+                                  {STATUS_LABEL[status]}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${STATUS_COLOR.planning}`}
+                            >
+                              {STATUS_LABEL.planning}
+                            </span>
+                          )}
                           {showUnrevised && (
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${UNREVISED_BADGE}`}

@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
 
   if (body.action === "update-status") {
     const status = normalizeEpisodeStatus(body.status);
-    await updateManifestStatus(body.number, body.slug, status);
-    return NextResponse.json({ ok: true, status });
+    const resolved = await updateManifestStatus(body.number, body.slug, status);
+    return NextResponse.json({ ok: true, status: resolved });
   }
 
   if (body.action === "update-recorded-plan") {

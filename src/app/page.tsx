@@ -94,7 +94,7 @@ export default function Home() {
                 .replace(/\s+/g, "-")
                 .slice(0, 30) || `episode-${assignNumber}`,
             title,
-            status: "scripting",
+            status: "planning",
             themePattern: pattern ?? "market",
             hook: selectedCandidate?.hook,
             targetPain: selectedCandidate?.targetPain,
@@ -370,12 +370,7 @@ export default function Home() {
   }
 
   async function handleStatusChange(ep: Episode, status: EpisodeStatus) {
-    setStatusOverride({ slug: ep.slug, status });
-    if (selectedEpisode?.slug === ep.slug) {
-      setSelectedEpisode({ ...selectedEpisode, status });
-    }
-
-    await fetch("/api/files", {
+    const res = await fetch("/api/files", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -385,6 +380,12 @@ export default function Home() {
         status,
       }),
     });
+    const data = await res.json();
+    const resolved = (data.status ?? status) as EpisodeStatus;
+    setStatusOverride({ slug: ep.slug, status: resolved });
+    if (selectedEpisode?.slug === ep.slug) {
+      setSelectedEpisode({ ...selectedEpisode, status: resolved });
+    }
   }
 
   const showWorkspace = newEpisodeMode || selectedEpisode;
