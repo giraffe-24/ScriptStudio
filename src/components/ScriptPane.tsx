@@ -406,14 +406,16 @@ export function ScriptPane({
     }
   }
 
-  async function runIncrementalUpdate() {
+  async function runIncrementalUpdate(forcedIndices?: number[]) {
     if (!plan?.outline?.length || !script.trim()) return;
 
     const previousScript = script;
     const previousPlan = parsePlanFingerprint(scriptMeta?.planFingerprint);
     const previousOutline = previousPlan?.outline;
     const removedNames = getRemovedSectionNames(previousOutline, plan.outline);
-    const indices = collectSectionIndicesToRegenerate(previousOutline, plan.outline);
+    const indices =
+      forcedIndices ??
+      collectSectionIndicesToRegenerate(previousOutline, plan.outline);
 
     let workingScript = script;
     if (removedNames.length) {
@@ -511,9 +513,26 @@ export function ScriptPane({
     await runIncrementalUpdate();
   }
 
-  async function handleSave(content: string, source: "generation" | "manual" = "manual") {
+  async function handleRegenerateSection(index: number) {
+    if (!plan?.outline?.length || loading) return;
+    await runIncrementalUpdate([index]);
+  }
+
+  async function handleManualPlanSync() {
+    const content = latestScriptRef.current;
+    if (!content.trim() || !plan) return;
+    await handleSave(content, "manual", { syncPlanFingerprint: true });
+  }
+
+  async function handleSave(
+    content: string,
+    source: "generation" | "manual" = "manual",
+    options?: { syncPlanFingerprint?: boolean },
+  ) {
     if (!episodeNumber) return;
     latestScriptRef.current = content;
+    const shouldSyncPlan =
+      (source === "generation" || options?.syncPlanFingerprint) && plan;
     const res = await fetch("/api/files", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -524,7 +543,7 @@ export function ScriptPane({
         filename: "01-script-draft.md",
         content,
         scriptSaveSource: source,
-        planFingerprint: source === "generation" && plan ? planGenerationFingerprint(plan) : undefined,
+        planFingerprint: shouldSyncPlan ? planGenerationFingerprint(plan) : undefined,
       }),
     });
     const data = await res.json();
@@ -631,10 +650,17 @@ export function ScriptPane({
       )}
 
       {needsOutlineUpdate && !loading && (
-        <div className="bg-red-50 border-b border-red-100 px-4 py-2">
-          <p className="text-xs text-red-600">
-            構成（目次案）に変更があります。再生成すると、変更したセクションのみ AI で更新します（他はそのまま）
+        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between gap-3">
+          <p className="text-xs text-amber-800 flex-1">
+            構成（目次案）に変更があります。軽い修正は下の台本を直接編集し「手動で反映」を。大幅な変更は「再生成」で AI 更新（変更セクションのみ）。
           </p>
+          <button
+            type="button"
+            onClick={() => void handleManualPlanSync()}
+            className="text-xs font-medium px-2.5 py-1 rounded-md border border-amber-300 bg-white text-amber-800 hover:bg-amber-100 shrink-0"
+          >
+            手動で反映
+          </button>
         </div>
       )}
 
@@ -660,6 +686,8 @@ export function ScriptPane({
             episodeTitle={plan.episodeTitle}
             outline={plan.outline}
             latestContentRef={latestScriptRef}
+            regeneratingSectionIndices={updatingSections}
+            onRegenerateSection={generated ? (index) => void handleRegenerateSection(index) : undefined}
             onSave={(content) => {
               latestScriptRef.current = content;
               handleSave(content);

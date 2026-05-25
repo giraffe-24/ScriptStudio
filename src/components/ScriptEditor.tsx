@@ -14,6 +14,8 @@ interface Props {
   onRevisionEntered?: () => void;
   onRevisionCleared?: () => void;
   latestContentRef?: React.MutableRefObject<string>;
+  onRegenerateSection?: (index: number) => void;
+  regeneratingSectionIndices?: number[];
 }
 
 interface Section {
@@ -80,7 +82,16 @@ function toHtml(text: string): string {
   return htmlLines.join("");
 }
 
-export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRevisionCleared, latestContentRef }: Props) {
+export function ScriptEditor({
+  script,
+  onSave,
+  outline,
+  onRevisionEntered,
+  onRevisionCleared,
+  latestContentRef,
+  onRegenerateSection,
+  regeneratingSectionIndices = [],
+}: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
@@ -212,6 +223,7 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRev
             <div className={`h-full ${progressColor} transition-all`} style={{ width: `${progress}%` }} />
           </div>
           <span className="text-[10px] text-gray-400">目標 4,000〜6,000 字</span>
+          <span className="text-[10px] text-gray-400 hidden sm:inline">· 軽い修正は直接編集</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -242,25 +254,37 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRev
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
               セクション
             </p>
-            {sections.map((sec) => (
-              <button
-                key={sec.label}
-                onClick={() => scrollToSection(sec)}
-                onContextMenu={(e) => { e.preventDefault(); handleCopySection(sec.label, sec.content); }}
-                title={`クリック：ジャンプ　右クリック：コピー`}
-                className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
-                  copied === sec.label
-                    ? "bg-green-100 text-green-700"
-                    : "hover:bg-white hover:shadow-sm text-gray-600"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
-                  <span className="shrink-0 text-[10px] opacity-0 group-hover:opacity-100 text-gray-400 transition-opacity">
-                    {copied === sec.label ? "✓" : "↑"}
-                  </span>
-                </div>
-              </button>
+            {sections.map((sec, index) => (
+              <div key={sec.label} className="flex items-start gap-1">
+                <button
+                  onClick={() => scrollToSection(sec)}
+                  onContextMenu={(e) => { e.preventDefault(); handleCopySection(sec.label, sec.content); }}
+                  title={`クリック：ジャンプ　右クリック：コピー`}
+                  className={`flex-1 text-left rounded-lg px-2.5 py-2 transition-all group ${
+                    copied === sec.label
+                      ? "bg-green-100 text-green-700"
+                      : "hover:bg-white hover:shadow-sm text-gray-600"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
+                    <span className="shrink-0 text-[10px] opacity-0 group-hover:opacity-100 text-gray-400 transition-opacity">
+                      {copied === sec.label ? "✓" : "↑"}
+                    </span>
+                  </div>
+                </button>
+                {onRegenerateSection && (
+                  <button
+                    type="button"
+                    onClick={() => onRegenerateSection(index)}
+                    disabled={regeneratingSectionIndices.includes(index)}
+                    title="この章だけ AI 再生成"
+                    className="shrink-0 mt-1.5 w-7 h-7 rounded text-[10px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {regeneratingSectionIndices.includes(index) ? "…" : "↻"}
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}

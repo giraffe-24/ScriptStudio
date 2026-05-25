@@ -58,12 +58,11 @@ export async function updateScriptMeta(
   const meta: ScriptMeta = {
     updatedAt: new Date().toISOString(),
     updatedBy: options.updatedBy?.trim() || getStudioUserName(),
-    planFingerprint:
-      options.source === "generation" && options.planFingerprint
-        ? options.planFingerprint
-        : typeof m.script_plan_fingerprint === "string"
-          ? m.script_plan_fingerprint
-          : undefined,
+    planFingerprint: options.planFingerprint
+      ? options.planFingerprint
+      : typeof m.script_plan_fingerprint === "string"
+        ? m.script_plan_fingerprint
+        : undefined,
   };
   m.script_updated_at = meta.updatedAt;
   m.script_updated_by = meta.updatedBy;
