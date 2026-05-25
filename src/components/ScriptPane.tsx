@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   ScriptEditor,
   type GenerationStatus,
@@ -8,6 +8,13 @@ import {
 } from "./ScriptEditor";
 import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
+import {
+  scriptBtnDisabled,
+  scriptBtnPrimaryBlueFill,
+  scriptBtnPrimaryOrange,
+  scriptBtnPrimaryRed,
+  scriptBtnSecondary,
+} from "./script-toolbar-styles";
 import type { ScriptMeta } from "@/lib/file-manager";
 import type { EpisodePlan } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
@@ -22,6 +29,8 @@ import {
   splitScriptIntoSections,
 } from "@/lib/script-sections";
 import { computeScriptDiff } from "@/lib/script-diff";
+import { hasScriptChangesSinceRecord } from "@/lib/record-state";
+import { scriptBtnRecordPending } from "@/components/UnrecordedBadge";
 import {
   extractScriptHeaders,
   isScriptOutlineInSync,
@@ -37,6 +46,12 @@ interface Props {
   onScriptCreated?: () => void;
   onRevisionEntered?: () => void;
   onRevisionCleared?: () => void;
+  onRecordStateChange?: (state: {
+    scriptUnrecorded: boolean;
+    recordedPlanFingerprint?: string;
+    planFingerprintFallback?: string;
+    versionsEnabled: boolean;
+  }) => void;
 }
 
 function cleanScript(text: string): string {
@@ -98,6 +113,7 @@ export function ScriptPane({
   onScriptCreated,
   onRevisionEntered,
   onRevisionCleared,
+  onRecordStateChange,
 }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
@@ -106,6 +122,9 @@ export function ScriptPane({
   const [reconciling, setReconciling] = useState(false);
   const [updatingSections, setUpdatingSections] = useState<number[]>([]);
   const [scriptMeta, setScriptMeta] = useState<ScriptMeta | null>(null);
+  const [latestSnapshotContent, setLatestSnapshotContent] = useState<string | null>(null);
+  const [snapshotCheckReady, setSnapshotCheckReady] = useState(false);
+  const [draftRevision, setDraftRevision] = useState(0);
   const [versionsEnabled, setVersionsEnabled] = useState(false);
   const [versionsHint, setVersionsHint] = useState("");
   const [commitOpen, setCommitOpen] = useState(false);
@@ -115,19 +134,87 @@ export function ScriptPane({
   const latestScriptRef = useRef<string>("");
   const prevOutlineRef = useRef<string[] | null>(null);
   const alertedOutlineRef = useRef<string>("");
+  const confirmedPlanFingerprintRef = useRef<string | null>(null);
   const lastGenerateKeyRef = useRef(0);
-  const loadedEpisodeKeyRef = useRef("");
+  const generationAbortRef = useRef<AbortController | null>(null);
+
+  function episodeKey(number: number | null, slug: string): string {
+    return number && slug ? `${number}-${slug}` : "";
+  }
+
+  function abortActiveGeneration() {
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
+  }
+
+  function beginGenerationSession(): AbortSignal {
+    abortActiveGeneration();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+    return controller.signal;
+  }
+
+  function isGenerationSessionActive(
+    signal: AbortSignal,
+    targetNumber: number | null,
+    targetSlug: string,
+  ): boolean {
+    return (
+      !signal.aborted &&
+      episodeKey(episodeNumber, episodeSlug) === episodeKey(targetNumber, targetSlug)
+    );
+  }
 
   async function loadScriptMeta() {
     if (!episodeNumber || !episodeSlug) {
       setScriptMeta(null);
-      return;
+      return null;
     }
     const res = await fetch(
       `/api/files?action=read-script-meta&number=${episodeNumber}&slug=${episodeSlug}`,
     );
     const data = await res.json();
-    setScriptMeta(data.scriptMeta ?? null);
+    const meta = (data.scriptMeta ?? null) as ScriptMeta | null;
+    setScriptMeta(meta);
+    return meta;
+  }
+
+  function confirmPlanScriptBaseline(savePlan: EpisodePlan) {
+    const fingerprint = planGenerationFingerprint(savePlan);
+    confirmedPlanFingerprintRef.current = fingerprint;
+    prevOutlineRef.current = savePlan.outline?.map((o) => o.section) ?? [];
+    setOutOfSync(false);
+    alertedOutlineRef.current = "";
+  }
+
+  async function refreshLatestSnapshot() {
+    if (!episodeNumber || !episodeSlug || !versionsEnabled) {
+      setLatestSnapshotContent(null);
+      setSnapshotCheckReady(true);
+      return;
+    }
+
+    setSnapshotCheckReady(false);
+    try {
+      const res = await fetch(
+        `/api/script-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setLatestSnapshotContent(null);
+        return;
+      }
+      setLatestSnapshotContent(data.snapshot?.content ?? null);
+    } catch {
+      setLatestSnapshotContent(null);
+    } finally {
+      setSnapshotCheckReady(true);
+    }
+  }
+
+  async function refreshRecordBaseline() {
+    await loadScriptMeta();
+    await refreshLatestSnapshot();
   }
 
   async function refreshVersionsStatus() {
@@ -151,6 +238,43 @@ export function ScriptPane({
     if (generated) void refreshVersionsStatus();
   }, [generated]);
 
+  useEffect(() => {
+    if (!versionsEnabled) {
+      setLatestSnapshotContent(null);
+      setSnapshotCheckReady(true);
+      return;
+    }
+    void refreshLatestSnapshot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episodeNumber, episodeSlug, versionsEnabled]);
+
+  const scriptUnrecorded =
+    versionsEnabled &&
+    snapshotCheckReady &&
+    generated &&
+    !loading &&
+    hasScriptChangesSinceRecord(latestScriptRef.current, latestSnapshotContent);
+
+  useEffect(() => {
+    onRecordStateChange?.({
+      scriptUnrecorded,
+      recordedPlanFingerprint: scriptMeta?.recordedPlanFingerprint,
+      planFingerprintFallback: scriptMeta?.planFingerprint,
+      versionsEnabled,
+    });
+  }, [
+    scriptUnrecorded,
+    scriptMeta?.recordedPlanFingerprint,
+    scriptMeta?.planFingerprint,
+    versionsEnabled,
+    onRecordStateChange,
+    draftRevision,
+  ]);
+
+  const handleDraftChange = useCallback(() => {
+    setDraftRevision((value) => value + 1);
+  }, []);
+
   async function openCommitModal() {
     if (!episodeNumber || !episodeSlug || !latestScriptRef.current.trim()) return;
     await handleSave(latestScriptRef.current);
@@ -173,56 +297,68 @@ export function ScriptPane({
     setScript(displayContent);
     latestScriptRef.current = content;
     await handleSave(content);
-    await loadScriptMeta();
+    await refreshRecordBaseline();
   }
 
-  // エピソード選択時のみディスクから読み込み
+  // エピソード切替時: 状態をリセットしてディスクから読み込み
   useEffect(() => {
-    const episodeKey = episodeNumber && episodeSlug ? `${episodeNumber}-${episodeSlug}` : "";
-    if (!episodeKey) return;
-    if (loadedEpisodeKeyRef.current === episodeKey) return;
+    abortActiveGeneration();
+    setLoading(false);
+    setReconciling(false);
+    setUpdatingSections([]);
+    prevOutlineRef.current = null;
+    alertedOutlineRef.current = "";
+    setOutOfSync(false);
+    setScriptMeta(null);
+    confirmedPlanFingerprintRef.current = null;
+    setLatestSnapshotContent(null);
+    setSnapshotCheckReady(false);
+    lastGenerateKeyRef.current = 0;
 
-    loadedEpisodeKeyRef.current = episodeKey;
+    const key = episodeKey(episodeNumber, episodeSlug);
+    if (!key) {
+      setScript("");
+      latestScriptRef.current = "";
+      setGenerated(false);
+      return;
+    }
+
+    let cancelled = false;
+
     fetch(`/api/files?action=read&number=${episodeNumber}&slug=${episodeSlug}&filename=01-script-draft.md`)
       .then((r) => r.json())
       .then((d) => {
+        if (cancelled) return;
         if (d.content && !looksLikeHtmlErrorPage(d.content)) {
           const cleaned = cleanScript(d.content);
           setScript(cleaned);
           latestScriptRef.current = cleaned;
           setGenerated(true);
-        } else if (d.content && looksLikeHtmlErrorPage(d.content)) {
-          setScript("");
-          latestScriptRef.current = "";
-          setGenerated(false);
         } else {
           setScript("");
           latestScriptRef.current = "";
           setGenerated(false);
         }
       });
-    void loadScriptMeta();
+
+    void loadScriptMeta().then((meta) => {
+      if (meta?.planFingerprint) {
+        confirmedPlanFingerprintRef.current = meta.planFingerprint;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [episodeNumber, episodeSlug]);
 
   // 企画書「台本を作成する」→ 状態に関係なく新規生成開始（ディスクは上書きしない）
   useEffect(() => {
     if (!generateKey || generateKey === lastGenerateKeyRef.current || !plan) return;
     lastGenerateKeyRef.current = generateKey;
-    if (episodeNumber && episodeSlug) {
-      loadedEpisodeKeyRef.current = `${episodeNumber}-${episodeSlug}`;
-    }
     void handleGenerate({ fromPlan: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generateKey, plan]);
-
-  useEffect(() => {
-    prevOutlineRef.current = null;
-    alertedOutlineRef.current = "";
-    setOutOfSync(false);
-    setScriptMeta(null);
-    lastGenerateKeyRef.current = 0;
-    loadedEpisodeKeyRef.current = "";
-  }, [episodeNumber, episodeSlug]);
 
   // 目次案のリネームのみ自動同期（件数が同じ場合）
   useEffect(() => {
@@ -252,28 +388,46 @@ export function ScriptPane({
     prevOutlineRef.current = sections;
   }, [plan?.outline, script, loading]);
 
-  // 構成と台本の不一致を検知
+  // 構成と台本の不一致を検知（手動で反映済みの企画指紋は確定扱い）
   useEffect(() => {
     if (!plan?.outline || !generated || loading || !script) {
       setOutOfSync(false);
       return;
     }
 
+    const planFingerprint = planGenerationFingerprint(plan);
+    const confirmed = confirmedPlanFingerprintRef.current === planFingerprint;
     const inSync = isScriptOutlineInSync(script, plan.outline);
-    setOutOfSync(!inSync);
+    setOutOfSync(!inSync && !confirmed);
 
-    if (inSync) {
+    if (inSync || confirmed) {
       alertedOutlineRef.current = "";
       return;
     }
 
     const alertKey = JSON.stringify(plan.outline.map((o) => ({ s: o.section, c: o.content })));
     alertedOutlineRef.current = alertKey;
-  }, [plan?.outline, script, generated, loading]);
+  }, [plan, script, generated, loading]);
 
   async function autoRecordSnapshot(beforeContent: string, afterContent: string) {
-    if (!versionsEnabled || !episodeNumber || !episodeSlug || !plan) return;
-    if (beforeContent.trim() === afterContent.trim()) return;
+    if (!episodeNumber || !episodeSlug || !plan) return;
+    await autoRecordSnapshotForEpisode(
+      episodeNumber,
+      episodeSlug,
+      plan,
+      beforeContent,
+      afterContent,
+    );
+  }
+
+  async function autoRecordSnapshotForEpisode(
+    number: number,
+    slug: string,
+    savePlan: EpisodePlan,
+    beforeContent: string,
+    afterContent: string,
+  ) {
+    if (!versionsEnabled || beforeContent.trim() === afterContent.trim()) return;
 
     try {
       const diff = computeScriptDiff(beforeContent, afterContent);
@@ -283,7 +437,7 @@ export function ScriptPane({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          episodeTitle: plan.episodeTitle,
+          episodeTitle: savePlan.episodeTitle,
           oldText: beforeContent,
           newText: afterContent,
         }),
@@ -297,20 +451,66 @@ export function ScriptPane({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          episodeNumber,
-          episodeSlug,
+          episodeNumber: number,
+          episodeSlug: slug,
           summary,
           content: afterContent,
           diffStats: diff.stats,
+          planFingerprint: planGenerationFingerprint(savePlan),
         }),
       });
+      await refreshRecordBaseline();
     } catch {
       // 履歴保存失敗は生成自体を止めない
     }
   }
 
+  async function persistEpisodeScript(
+    number: number,
+    slug: string,
+    savePlan: EpisodePlan | null,
+    content: string,
+    source: "generation" | "manual",
+    options?: { syncPlanFingerprint?: boolean },
+  ) {
+    const shouldSyncPlan =
+      (source === "generation" || options?.syncPlanFingerprint) && savePlan;
+    const res = await fetch("/api/files", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "write",
+        number,
+        slug,
+        filename: "01-script-draft.md",
+        content,
+        scriptSaveSource: source,
+        planFingerprint: shouldSyncPlan ? planGenerationFingerprint(savePlan) : undefined,
+      }),
+    });
+    const data = await res.json();
+    if (episodeKey(episodeNumber, episodeSlug) === episodeKey(number, slug)) {
+      latestScriptRef.current = content;
+      if (data.scriptMeta) {
+        setScriptMeta(data.scriptMeta);
+      }
+      if (shouldSyncPlan && savePlan) {
+        confirmPlanScriptBaseline(savePlan);
+      }
+      onScriptSaved();
+    }
+  }
+
   async function runFullGeneration(options?: { fromPlan?: boolean }) {
     if (!plan) return;
+
+    const targetNumber = episodeNumber;
+    const targetSlug = episodeSlug;
+    const targetPlan = plan;
+    const sessionKey = episodeKey(targetNumber, targetSlug);
+    const signal = beginGenerationSession();
+    const isActive = () =>
+      !signal.aborted && episodeKey(episodeNumber, episodeSlug) === sessionKey;
 
     const previousScript = script;
     const previousGenerated = generated;
@@ -323,14 +523,17 @@ export function ScriptPane({
       !isScriptOutlineInSync(script, plan.outline);
 
     setLoading(true);
-    setScript("");
-    setGenerated(false);
-    setOutOfSync(false);
-    alertedOutlineRef.current = "";
+    if (isActive()) {
+      setScript("");
+      setGenerated(false);
+      setOutOfSync(false);
+      alertedOutlineRef.current = "";
+    }
     setReconciling(needsReconcile);
     setUpdatingSections([]);
 
     function restorePreviousScript() {
+      if (!isActive()) return;
       setScript(previousScript);
       latestScriptRef.current = previousScript;
       setGenerated(previousGenerated);
@@ -340,8 +543,9 @@ export function ScriptPane({
       const res = await fetch("/api/generate-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
-          plan,
+          plan: targetPlan,
           streaming: true,
           reconcile: needsReconcile,
           existingScript: needsReconcile ? previousScript : undefined,
@@ -349,6 +553,7 @@ export function ScriptPane({
       });
 
       if (!res.ok) {
+        if (signal.aborted) return;
         const errText = await res.text();
         let message = `台本生成に失敗しました（${res.status}）`;
         try {
@@ -364,8 +569,10 @@ export function ScriptPane({
 
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("text/plain")) {
-        window.alert("台本生成の応答形式が不正です。しばらく待ってから再試行してください。");
-        restorePreviousScript();
+        if (!signal.aborted) {
+          window.alert("台本生成の応答形式が不正です。しばらく待ってから再試行してください。");
+          restorePreviousScript();
+        }
         return;
       }
 
@@ -375,11 +582,14 @@ export function ScriptPane({
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (signal.aborted) break;
         full += decoder.decode(value, { stream: true });
-        if (!looksLikeHtmlErrorPage(full)) {
+        if (!looksLikeHtmlErrorPage(full) && isActive()) {
           setScript(full);
         }
       }
+
+      if (signal.aborted) return;
 
       if (!full.trim() || looksLikeHtmlErrorPage(full)) {
         window.alert(
@@ -390,58 +600,93 @@ export function ScriptPane({
       }
 
       const cleaned = cleanScript(full);
-      setScript(cleaned);
-      latestScriptRef.current = cleaned;
-      setGenerated(true);
-      prevOutlineRef.current = plan.outline?.map((o) => o.section) ?? [];
+      if (isActive()) {
+        setScript(cleaned);
+        latestScriptRef.current = cleaned;
+        setGenerated(true);
+        prevOutlineRef.current = targetPlan.outline?.map((o) => o.section) ?? [];
+      }
 
-      if (episodeNumber && episodeSlug && cleaned.trim()) {
-        await handleSave(cleaned, "generation");
-        await autoRecordSnapshot(previousScript, cleaned);
+      if (targetNumber && targetSlug && cleaned.trim()) {
+        await persistEpisodeScript(
+          targetNumber,
+          targetSlug,
+          targetPlan,
+          cleaned,
+          "generation",
+        );
+        await autoRecordSnapshotForEpisode(
+          targetNumber,
+          targetSlug,
+          targetPlan,
+          previousScript,
+          cleaned,
+        );
         onScriptCreated?.();
       }
-    } catch {
+    } catch (err) {
+      if (signal.aborted) return;
       window.alert("台本生成中に通信エラーが発生しました。ネットワークを確認して再試行してください。");
       restorePreviousScript();
     } finally {
-      setLoading(false);
-      setReconciling(false);
-      setUpdatingSections([]);
+      if (isActive()) {
+        setLoading(false);
+        setReconciling(false);
+        setUpdatingSections([]);
+      }
     }
   }
 
   async function runIncrementalUpdate(forcedIndices?: number[]) {
     if (!plan?.outline?.length || !script.trim()) return;
 
+    const targetNumber = episodeNumber;
+    const targetSlug = episodeSlug;
+    const targetPlan = plan;
+    const sessionKey = episodeKey(targetNumber, targetSlug);
+    const signal = beginGenerationSession();
+    const isActive = () => isGenerationSessionActive(signal, targetNumber, targetSlug);
+
     const previousScript = script;
     const previousPlan = parsePlanFingerprint(scriptMeta?.planFingerprint);
     const previousOutline = previousPlan?.outline;
-    const removedNames = getRemovedSectionNames(previousOutline, plan.outline);
+    const removedNames = getRemovedSectionNames(previousOutline, targetPlan.outline);
     const indices =
       forcedIndices ??
-      collectSectionIndicesToRegenerate(previousOutline, plan.outline);
+      collectSectionIndicesToRegenerate(previousOutline, targetPlan.outline);
 
     let workingScript = script;
     if (removedNames.length) {
       workingScript = buildScriptFromSections(
-        plan.outline,
-        splitScriptIntoSections(workingScript, plan.outline),
+        targetPlan.outline,
+        splitScriptIntoSections(workingScript, targetPlan.outline),
       );
     }
 
-    if (!isScriptOutlineInSync(workingScript, plan.outline)) {
-      workingScript = syncScriptHeadersByIndex(workingScript, plan.outline);
+    if (!isScriptOutlineInSync(workingScript, targetPlan.outline)) {
+      workingScript = syncScriptHeadersByIndex(workingScript, targetPlan.outline);
     }
 
     if (!indices.length) {
       if (workingScript !== previousScript) {
         const cleaned = cleanScript(workingScript);
-        setScript(cleaned);
-        latestScriptRef.current = cleaned;
-        await handleSave(cleaned, "generation");
-        await autoRecordSnapshot(previousScript, cleaned);
+        if (isActive()) {
+          setScript(cleaned);
+          latestScriptRef.current = cleaned;
+        }
+        if (targetNumber && targetSlug) {
+          await persistEpisodeScript(targetNumber, targetSlug, targetPlan, cleaned, "generation");
+          await autoRecordSnapshotForEpisode(
+            targetNumber,
+            targetSlug,
+            targetPlan,
+            previousScript,
+            cleaned,
+          );
+          onScriptCreated?.();
+        }
       } else {
-        window.alert("構成（目次案）に変更がないため、更新対象がありません。");
+        window.alert("構成（目次案と詳細）に変更がないため、更新対象がありません。");
       }
       return;
     }
@@ -450,11 +695,13 @@ export function ScriptPane({
     setReconciling(true);
     setUpdatingSections(indices);
     const interim = cleanScript(workingScript);
-    setScript(interim);
-    latestScriptRef.current = interim;
+    if (isActive()) {
+      setScript(interim);
+      latestScriptRef.current = interim;
+    }
 
     try {
-      const currentSections = splitScriptIntoSections(workingScript, plan.outline);
+      const currentSections = splitScriptIntoSections(workingScript, targetPlan.outline);
       const sectionBodies: Record<string, string> = {};
       currentSections.forEach((section, index) => {
         sectionBodies[String(index)] = section.body;
@@ -463,14 +710,17 @@ export function ScriptPane({
       const res = await fetch("/api/generate-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
           mode: "sections",
-          plan,
+          plan: targetPlan,
           sectionIndices: indices,
           sectionBodies,
           scriptHeaders: extractScriptHeaders(workingScript),
         }),
       });
+
+      if (signal.aborted) return;
 
       const data = await res.json();
       if (!res.ok) {
@@ -483,24 +733,35 @@ export function ScriptPane({
         updates.set(Number(index), String(body));
       }
 
-      let merged = replaceScriptSections(workingScript, plan.outline, updates);
+      let merged = replaceScriptSections(workingScript, targetPlan.outline, updates);
       merged = cleanScript(merged);
-      setScript(merged);
-      latestScriptRef.current = merged;
-      setGenerated(true);
-      prevOutlineRef.current = plan.outline.map((o) => o.section);
+      if (isActive()) {
+        setScript(merged);
+        latestScriptRef.current = merged;
+        setGenerated(true);
+        prevOutlineRef.current = targetPlan.outline.map((o) => o.section);
+      }
 
-      if (episodeNumber && episodeSlug) {
-        await handleSave(merged, "generation");
-        await autoRecordSnapshot(previousScript, merged);
+      if (targetNumber && targetSlug) {
+        await persistEpisodeScript(targetNumber, targetSlug, targetPlan, merged, "generation");
+        await autoRecordSnapshotForEpisode(
+          targetNumber,
+          targetSlug,
+          targetPlan,
+          previousScript,
+          merged,
+        );
         onScriptCreated?.();
       }
-    } catch {
+    } catch (err) {
+      if (signal.aborted) return;
       window.alert("セクション更新中に通信エラーが発生しました。");
     } finally {
-      setLoading(false);
-      setReconciling(false);
-      setUpdatingSections([]);
+      if (isActive()) {
+        setLoading(false);
+        setReconciling(false);
+        setUpdatingSections([]);
+      }
     }
   }
 
@@ -560,6 +821,22 @@ export function ScriptPane({
     const content = latestScriptRef.current;
     if (!content.trim() || !plan) return;
     await handleSave(content, "manual", { syncPlanFingerprint: true });
+    await loadScriptMeta();
+    confirmPlanScriptBaseline(plan);
+
+    if (versionsEnabled && episodeNumber && episodeSlug) {
+      await fetch("/api/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update-recorded-plan",
+          number: episodeNumber,
+          slug: episodeSlug,
+          planFingerprint: planGenerationFingerprint(plan),
+        }),
+      }).catch(() => undefined);
+      await refreshRecordBaseline();
+    }
   }
 
   async function handleSave(
@@ -568,27 +845,7 @@ export function ScriptPane({
     options?: { syncPlanFingerprint?: boolean },
   ) {
     if (!episodeNumber) return;
-    latestScriptRef.current = content;
-    const shouldSyncPlan =
-      (source === "generation" || options?.syncPlanFingerprint) && plan;
-    const res = await fetch("/api/files", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "write",
-        number: episodeNumber,
-        slug: episodeSlug,
-        filename: "01-script-draft.md",
-        content,
-        scriptSaveSource: source,
-        planFingerprint: shouldSyncPlan ? planGenerationFingerprint(plan) : undefined,
-      }),
-    });
-    const data = await res.json();
-    if (data.scriptMeta) {
-      setScriptMeta(data.scriptMeta);
-    }
-    onScriptSaved();
+    await persistEpisodeScript(episodeNumber, episodeSlug, plan, content, source, options);
   }
 
   if (!plan) {
@@ -614,9 +871,10 @@ export function ScriptPane({
   const pendingRemovals = plan?.outline
     ? getRemovedSectionNames(storedPlan?.outline, plan.outline)
     : [];
-  const needsOutlineUpdate =
-    outOfSync || pendingSectionUpdates.length > 0 || pendingRemovals.length > 0;
-  const canRegenerate = !generated || needsOutlineUpdate;
+  const needsPlanRegenerate =
+    pendingSectionUpdates.length > 0 || pendingRemovals.length > 0;
+  const showOutlineNotice = needsPlanRegenerate || outOfSync;
+  const canRegenerate = !generated || needsPlanRegenerate;
   const regenerateDisabled = loading || (generated && !canRegenerate);
 
   const updatingSectionLabels = updatingSections
@@ -678,37 +936,52 @@ export function ScriptPane({
                 type="button"
                 onClick={() => void openCommitModal()}
                 disabled={loading || !latestScriptRef.current.trim()}
-                className="text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className={scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary}
+                title={
+                  scriptUnrecorded
+                    ? "前回の記録から変更があります。クリックして記録してください"
+                    : "現在の台本をバージョンとして記録"
+                }
               >
-                記録
+                記録{scriptUnrecorded ? " *" : ""}
               </button>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(true)}
                 disabled={loading}
-                className="text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className={scriptBtnSecondary}
               >
                 履歴
               </button>
             </>
+          )}
+          {generated && showOutlineNotice && !loading && (
+            <button
+              type="button"
+              onClick={() => void handleManualPlanSync()}
+              className={scriptBtnSecondary}
+              title="台本を手直し済みとして、目次案と詳細とのズレ通知を消す"
+            >
+              手動で反映
+            </button>
           )}
           <button
             onClick={() => handleGenerate()}
             disabled={regenerateDisabled}
             title={
               regenerateDisabled && generated && !loading
-                ? "構成（目次案）に変更がないため再生成できません"
+                ? "構成（目次案と詳細）に変更がないため再生成できません"
                 : undefined
             }
-            className={`text-xs font-medium px-3 py-1 rounded-md transition-colors ${
+            className={
               regenerateDisabled
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : outOfSync
-                ? "bg-red-500 text-white hover:bg-red-600"
+                ? scriptBtnDisabled
+                : needsPlanRegenerate
+                ? scriptBtnPrimaryOrange
                 : generated
-                ? "bg-orange-500 text-white hover:bg-orange-600"
-                : "bg-blue-500 text-white hover:bg-blue-600"
-            }`}
+                ? scriptBtnPrimaryOrange
+                : scriptBtnPrimaryBlueFill
+            }
           >
             {loading
               ? updatingSections.length > 0
@@ -716,7 +989,7 @@ export function ScriptPane({
                 : script.trim()
                 ? "執筆中…"
                 : "生成中…"
-              : outOfSync || needsOutlineUpdate
+              : needsPlanRegenerate
               ? `再生成（${pendingSectionUpdates.length || 1}セクション）`
               : generated
               ? "再生成"
@@ -728,21 +1001,6 @@ export function ScriptPane({
       {generated && !versionsEnabled && versionsHint && !loading && (
         <div className="bg-amber-50 border-b border-amber-100 px-4 py-2">
           <p className="text-xs text-amber-700">{versionsHint}</p>
-        </div>
-      )}
-
-      {needsOutlineUpdate && !loading && (
-        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between gap-3">
-          <p className="text-xs text-amber-800 flex-1">
-            構成（目次案）に変更があります。軽い修正は台本をドラッグ選択→「選択部分を再生成」、または直接編集→「手動で反映」。大幅な変更は「再生成」。
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleManualPlanSync()}
-            className="text-xs font-medium px-2.5 py-1 rounded-md border border-amber-300 bg-white text-amber-800 hover:bg-amber-100 shrink-0"
-          >
-            手動で反映
-          </button>
         </div>
       )}
 
@@ -768,7 +1026,9 @@ export function ScriptPane({
             outline={plan.outline}
             latestContentRef={latestScriptRef}
             generationStatus={generationStatus}
-            onRegenerateSelection={generated && !loading ? handleRegenerateSelection : undefined}
+            onRegenerateSelection={
+              generated && !loading && canRegenerate ? handleRegenerateSelection : undefined
+            }
             onSelectionRegenerated={(before, after) => void handleSelectionRegenerated(before, after)}
             onSave={(content) => {
               latestScriptRef.current = content;
@@ -776,6 +1036,7 @@ export function ScriptPane({
             }}
             onRevisionEntered={onRevisionEntered}
             onRevisionCleared={onRevisionCleared}
+            onDraftChange={handleDraftChange}
           />
         ) : (
           <div className="h-full flex items-center justify-center">
@@ -799,7 +1060,8 @@ export function ScriptPane({
             episodeSlug={episodeSlug}
             currentContent={commitCurrentContent}
             previousContent={previousSnapshotContent}
-            onCommitted={() => void loadScriptMeta()}
+            planFingerprint={plan ? planGenerationFingerprint(plan) : undefined}
+            onCommitted={() => void refreshRecordBaseline()}
           />
           <HistoryModal
             open={historyOpen}

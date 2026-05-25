@@ -20,7 +20,7 @@
       "path": "01-script-draft.md"
     }
   ],
-  "script_updated_at": "2026-05-25T00:17:58.337Z",
+  "script_updated_at": "2026-05-25T05:43:34.695Z",
   "script_updated_by": "d_araki",
   "script_plan_fingerprint": "{\"episodeTitle\":\"スマホだけでGemini活用｜PCなしの設定3つ\",\"youtubeGoal\":\"\",\"targetViewer\":\"50代前後のスマホユーザー。普段PCは使わずスマホで完結したい。AIが便利らしいとは聞くがPC向けの情報ばかりで「自分には関係ない」と諦めかけている。Googleアプリは日常的に使っている。\",\"pain\":\"AI活用の情報を見るとPC画面ばかりで、スマホしか使わない自分には縁がないと感じている。Geminiという名前は聞いたことがあるが、スマホでどう使えばいいのか、そもそも使えるのかもわからない。\",\"promise\":\"動画を見終わる頃には、スマホだけでGeminiを日常的に使える3つの設定が完了し、「AIは自分にも使える」という実感が得られる。\",\"keyPoints\":[\"Geminiアプリのインストールと基本設定（iPhone/Android両対応）\",\"Googleアシスタントの代わりにGeminiを呼び出す設定\",\"よく使う質問をショートカット化して1タップで起動する方法\"],\"outline\":[{\"section\":\"スマホでもGeminiは使える\",\"content\":\"PC不要でAIを活用できる事実を伝え、視聴者の「自分には関係ない」という思い込みを解く\\n\\n\"},{\"section\":\"Geminiアプリのインストールと初期設定\",\"content\":\"iPhone/Androidそれぞれのインストール手順とGoogleアカウント連携の確認\"},{\"section\":\"音声でGeminiを呼び出す設定\",\"content\":\"Googleアシスタントの代わりにGeminiを起動する設定方法（Android）とiPhoneでの代替操作\"},{\"section\":\"1タップでGeminiを起動するショートカット\",\"content\":\"よく使う質問や定型プロンプトをホーム画面に置く方法\"},{\"section\":\"スマホGeminiの活用シーン3選\",\"content\":\"買い物メモの整理、長文要約、調べものなど日常での具体的な使い方\"},{\"section\":\"今日からできる最初の一歩\",\"content\":\"まずアプリを入れて1つ質問してみる、という行動を促す締め\"}],\"competitorAnalysis\":\"競合のGemini解説動画はPC画面での操作が中心で、スプレッドシート連携や業務自動化などビジネス向けが多い。本動画はスマホ完結に特化し、40-60代のPC非利用層が「自分でもできそう」と感じられる内容で差別化する。\",\"estimatedLength\":\"8〜10分\"}"
 }

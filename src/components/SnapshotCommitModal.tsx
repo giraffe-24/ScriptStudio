@@ -13,9 +13,10 @@ import { Button } from "@/components/ui/button";
 import {
   computeScriptDiff,
   formatDiffStats,
-  type DiffStats,
   type DiffPreviewLine,
+  type DiffStats,
 } from "@/lib/script-diff";
+import { ScriptDiffPreview } from "@/components/ScriptDiffPreview";
 import { resolveStudioAuthorName } from "@/lib/studio-author";
 
 type Props = {
@@ -26,34 +27,9 @@ type Props = {
   episodeSlug: string;
   currentContent: string;
   previousContent: string;
+  planFingerprint?: string;
   onCommitted: () => void;
 };
-
-function DiffPreview({ lines }: { lines: DiffPreviewLine[] }) {
-  const visible = lines.filter((l) => l.type !== "same").slice(0, 120);
-  if (visible.length === 0) {
-    return <p className="text-xs text-muted-foreground">変更はありません。</p>;
-  }
-  return (
-    <div className="max-h-48 overflow-y-auto rounded-md border bg-muted/30 p-2 font-mono text-xs leading-relaxed">
-      {visible.map((line, i) => (
-        <div
-          key={i}
-          className={
-            line.type === "add"
-              ? "bg-green-50 text-green-800"
-              : line.type === "remove"
-                ? "bg-red-50 text-red-700 line-through"
-                : "text-muted-foreground"
-          }
-        >
-          {line.type === "add" ? "+ " : line.type === "remove" ? "- " : "  "}
-          {line.text || " "}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export function SnapshotCommitModal({
   open,
@@ -63,6 +39,7 @@ export function SnapshotCommitModal({
   episodeSlug,
   currentContent,
   previousContent,
+  planFingerprint,
   onCommitted,
 }: Props) {
   const [authorName, setAuthorName] = useState("");
@@ -137,6 +114,7 @@ export function SnapshotCommitModal({
           summary: text,
           content: currentContent,
           diffStats: stats,
+          planFingerprint,
         }),
       });
       const data = await res.json();
@@ -165,7 +143,7 @@ export function SnapshotCommitModal({
 
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-foreground">変更内容</p>
-            <DiffPreview lines={previewLines} />
+            <ScriptDiffPreview lines={previewLines} />
           </div>
 
           <label className="block space-y-1.5">

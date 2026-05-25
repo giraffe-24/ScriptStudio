@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta } from "@/lib/file-manager";
+import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta, deleteEpisodes, updateRecordedPlanFingerprint } from "@/lib/file-manager";
 import { normalizeEpisodeStatus, type EpisodeStatus } from "@/lib/episode-status";
 import { getSessionUsernameFromRequest } from "@/lib/studio-session";
 import { getStudioUserName } from "@/lib/studio-user";
@@ -84,6 +84,26 @@ export async function POST(req: NextRequest) {
     const status = normalizeEpisodeStatus(body.status);
     await updateManifestStatus(body.number, body.slug, status);
     return NextResponse.json({ ok: true, status });
+  }
+
+  if (body.action === "update-recorded-plan") {
+    const planFingerprint = typeof body.planFingerprint === "string" ? body.planFingerprint.trim() : "";
+    if (!body.number || !body.slug || !planFingerprint) {
+      return NextResponse.json({ error: "number, slug, planFingerprint required" }, { status: 400 });
+    }
+    await updateRecordedPlanFingerprint(body.number, body.slug, planFingerprint);
+    const scriptMeta = await readScriptMeta(body.number, body.slug);
+    return NextResponse.json({ ok: true, scriptMeta });
+  }
+
+  if (body.action === "delete") {
+    const episodes = Array.isArray(body.episodes) ? body.episodes : [];
+    if (episodes.length === 0) {
+      return NextResponse.json({ error: "削除対象が指定されていません" }, { status: 400 });
+    }
+    const mode = body.mode === "permanent" ? "permanent" : "archive";
+    const result = await deleteEpisodes(episodes, mode);
+    return NextResponse.json(result);
   }
 
   return NextResponse.json({ error: "unknown action" }, { status: 400 });

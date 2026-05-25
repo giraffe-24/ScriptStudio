@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { GripVertical } from "lucide-react";
 import type { ChatMessage, EpisodePlan, ThemeCandidate } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
-import { sanitizePlanOutline, sanitizeSectionName } from "@/lib/plan-outline";
+import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
@@ -489,16 +489,23 @@ function OutlineEditor({
   }
 
   function updateField(index: number, field: "section" | "content", value: string) {
-    const next = cloneOutline(items);
+    const next = cloneOutline(itemsRef.current);
     next[index] = {
       ...next[index],
-      [field]:
-        field === "section"
-          ? sanitizeSectionName(value, next[index].content)
-          : value,
+      [field]: value,
     };
     skipHistoryRef.current = true;
     onChange(next);
+  }
+
+  function handleSectionBlur(index: number) {
+    handleFieldBlur();
+    const item = itemsRef.current[index];
+    if (!item) return;
+    const normalized = normalizeSectionNameStructure(item.section);
+    if (normalized !== item.section) {
+      updateField(index, "section", normalized);
+    }
   }
 
   function undo() {
@@ -665,7 +672,7 @@ function OutlineEditor({
                   value={item.section}
                   onChange={(v) => updateField(i, "section", v)}
                   onFocus={handleFieldFocus}
-                  onBlur={handleFieldBlur}
+                  onBlur={() => handleSectionBlur(i)}
                   placeholder="セクション名…"
                   className="text-xs text-gray-600"
                 />

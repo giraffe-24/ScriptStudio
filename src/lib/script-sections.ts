@@ -1,5 +1,7 @@
-import type { OutlineItem } from "@/lib/script-outline";
-import { extractScriptHeaders } from "@/lib/script-outline";
+import {
+  type OutlineItem,
+  parseScriptHeadingBlocks,
+} from "@/lib/script-outline";
 
 export type ScriptSectionBlock = {
   section: string;
@@ -13,42 +15,17 @@ export function splitScriptIntoSections(
 ): ScriptSectionBlock[] {
   if (!outline.length) return [];
 
-  const lines = script.split("\n");
-  const blocks: ScriptSectionBlock[] = [];
-  let currentName: string | null = null;
-  let bodyLines: string[] = [];
-
-  function flush() {
-    if (currentName === null) return;
-    blocks.push({ section: currentName, body: bodyLines.join("\n").trimEnd() });
-    bodyLines = [];
-  }
-
-  for (const line of lines) {
-    if (/^##\s/.test(line)) {
-      flush();
-      currentName = line.replace(/^##\s+/, "").trim();
-      continue;
-    }
-    if (currentName !== null) {
-      bodyLines.push(line);
-    }
-  }
-  flush();
-
-  // 件数が一致するときは順序（インデックス）を優先。企画見出しと台本 ## が異なるケースで誤マッチを防ぐ
+  const blocks = parseScriptHeadingBlocks(script);
   const alignByIndex = blocks.length === outline.length;
 
   return outline.map((item, index) => {
     const byIndex = blocks[index];
-    const byName = blocks.find((b) => b.section === item.section);
-    const body = alignByIndex
-      ? (byIndex?.body ?? byName?.body ?? "")
-      : (byName?.body ?? byIndex?.body ?? "");
+    const byName = blocks.find((block) => block.heading === item.section);
+    const matched = alignByIndex ? byIndex : (byName ?? byIndex);
     return {
       section: item.section,
-      body,
-      scriptHeader: byIndex?.section ?? item.section,
+      body: matched?.body.trimEnd() ?? "",
+      scriptHeader: matched?.heading ?? item.section,
     };
   });
 }
@@ -76,7 +53,7 @@ export function replaceScriptSections(
   outline: OutlineItem[],
   updates: Map<number, string>,
 ): string {
-  const scriptHeaders = extractScriptHeaders(script);
+  const scriptHeaders = parseScriptHeadingBlocks(script).map((b) => b.heading);
   const sections = splitScriptIntoSections(script, outline);
   for (const [index, body] of updates) {
     if (index >= 0 && index < sections.length) {
@@ -94,9 +71,15 @@ export function replaceScriptSections(
   return buildScriptFromSections(outline, sections, headers);
 }
 
-export function removeScriptSectionsByName(script: string, outline: OutlineItem[], removeNames: string[]): string {
+export function removeScriptSectionsByName(
+  script: string,
+  outline: OutlineItem[],
+  removeNames: string[],
+): string {
   const removeSet = new Set(removeNames);
   const filteredOutline = outline.filter((item) => !removeSet.has(item.section));
-  const sections = splitScriptIntoSections(script, outline).filter((s) => !removeSet.has(s.section));
+  const sections = splitScriptIntoSections(script, outline).filter(
+    (s) => !removeSet.has(s.section),
+  );
   return buildScriptFromSections(filteredOutline, sections);
 }

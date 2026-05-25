@@ -1,0 +1,12 @@
+---
+description: ローカル ScriptStudio の URL を成果報告時に必ず案内する
+alwaysApply: true
+---
+
+# ローカル URL の案内
+
+Web アプリ（ScriptStudio）の実装・修正・動作確認手順をユーザーに伝えるときは、末尾に次を必ず1行入れる。
+
+- ローカル確認: http://localhost:3001
+
+`npm run dev` / `npm run studio` 以外のポートを使う場合のみ、実際の URL に読み替える。

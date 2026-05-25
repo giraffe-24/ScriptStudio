@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import YouTubeIcon from "@image/YouTubeIcon.svg";
 import { CompetitorSettingsDialog } from "@/components/CompetitorSettingsDialog";
 import { EpisodeList } from "@/components/EpisodeList";
@@ -15,6 +15,9 @@ import type {
   ThemeCandidate,
   ThemePattern,
 } from "@/lib/types";
+import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
+import { hasPlanChangesSinceRecord } from "@/lib/record-state";
+import { UnrecordedBadge } from "@/components/UnrecordedBadge";
 
 export default function Home() {
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
@@ -35,6 +38,12 @@ export default function Home() {
   const [statusOverride, setStatusOverride] = useState<{ slug: string; status: EpisodeStatus } | undefined>(undefined);
   const [workspaceResetKey, setWorkspaceResetKey] = useState(0);
   const [planningScriptResetKey, setPlanningScriptResetKey] = useState(0);
+  const [recordState, setRecordState] = useState({
+    scriptUnrecorded: false,
+    recordedPlanFingerprint: undefined as string | undefined,
+    planFingerprintFallback: undefined as string | undefined,
+    versionsEnabled: false,
+  });
   const currentPlanRef = useRef<EpisodePlan | null>(null);
   const selectedEpisodeRef = useRef<Episode | null>(null);
 
@@ -143,7 +152,39 @@ export default function Home() {
     resetPlanningAndScript();
   }
 
+  const handleRecordStateChange = useCallback(
+    (state: {
+      scriptUnrecorded: boolean;
+      recordedPlanFingerprint?: string;
+      planFingerprintFallback?: string;
+      versionsEnabled: boolean;
+    }) => {
+      setRecordState({
+        scriptUnrecorded: state.scriptUnrecorded,
+        recordedPlanFingerprint: state.recordedPlanFingerprint,
+        planFingerprintFallback: state.planFingerprintFallback,
+        versionsEnabled: state.versionsEnabled,
+      });
+    },
+    [],
+  );
+
+  const planUnrecorded = useMemo(() => {
+    if (!currentPlan || !recordState.versionsEnabled) return false;
+    return hasPlanChangesSinceRecord(
+      planGenerationFingerprint(currentPlan),
+      recordState.recordedPlanFingerprint,
+      recordState.planFingerprintFallback,
+    );
+  }, [currentPlan, recordState]);
+
   async function handleEpisodeSelect(ep: Episode) {
+    setRecordState({
+      scriptUnrecorded: false,
+      recordedPlanFingerprint: undefined,
+      planFingerprintFallback: undefined,
+      versionsEnabled: false,
+    });
     setSelectedEpisode(ep);
     setNewEpisodeMode(false);
     setSelectedCandidate(null);
@@ -200,6 +241,25 @@ export default function Home() {
 
   function handleScriptCreated() {
     setEpisodeRefreshKey((k) => k + 1);
+  }
+
+  function handleEpisodesDeleted(deletedSlugs: string[]) {
+    setEpisodeRefreshKey((k) => k + 1);
+
+    if (selectedEpisode && deletedSlugs.includes(selectedEpisode.slug)) {
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+      if (numberSaveTimer.current) clearTimeout(numberSaveTimer.current);
+      if (planSaveTimer.current) clearTimeout(planSaveTimer.current);
+      setSelectedEpisode(null);
+      setNewEpisodeMode(false);
+      setSelectedCandidate(null);
+      setCurrentPlan(null);
+      setTitleOverride(undefined);
+      setNumberOverride(undefined);
+      setStatusOverride(undefined);
+      setScriptGenerateKey(0);
+      setPlanningScriptResetKey((k) => k + 1);
+    }
   }
 
   async function handleRevisionEntered() {
@@ -341,6 +401,7 @@ export default function Home() {
           statusOverride={statusOverride}
           onSelect={handleEpisodeSelect}
           onStatusChange={handleStatusChange}
+          onDeleted={handleEpisodesDeleted}
           refreshKey={episodeRefreshKey}
         />
       </div>
@@ -414,6 +475,7 @@ export default function Home() {
                   </p>
                 </>
               )}
+              {planUnrecorded && <UnrecordedBadge />}
               {inferringPlan && (
                 <span className="ml-auto text-xs text-blue-400 animate-pulse shrink-0">台本から企画書を復元中…</span>
               )}
@@ -445,7 +507,11 @@ export default function Home() {
           {/* Pane 4: 台本 */}
           <div className="flex-1 bg-white overflow-hidden flex flex-col">
             <ScriptPane
-              key={planningScriptResetKey}
+              key={
+                selectedEpisode
+                  ? `${selectedEpisode.number}-${selectedEpisode.slug}`
+                  : `new-${planningScriptResetKey}`
+              }
               plan={currentPlan}
               episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
               episodeSlug={selectedEpisode?.slug ?? ""}
@@ -454,6 +520,7 @@ export default function Home() {
               onScriptCreated={handleScriptCreated}
               onRevisionEntered={handleRevisionEntered}
               onRevisionCleared={handleRevisionCleared}
+              onRecordStateChange={handleRecordStateChange}
             />
           </div>
         </div>

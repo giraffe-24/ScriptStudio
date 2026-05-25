@@ -43,8 +43,23 @@ export function stripTimeFromSection(section: string): string {
     .trim();
 }
 
-/** 構成ラベルを除去し、視聴者にそのまま見せる見出し名だけ残す */
+/** 構成ラベルを除去し、視聴者にそのまま見せる見出し名だけ残す（AI生成・インポート用） */
 export function sanitizeSectionName(section: string, contentFallback = ""): string {
+  let name = normalizeSectionNameStructure(section);
+
+  if (!name || FORBIDDEN_STANDALONE.has(name)) {
+    const fallback = contentFallback.trim().split(/\n/)[0]?.slice(0, 40).trim() ?? "";
+    if (fallback) name = fallback;
+  }
+
+  return name.trim();
+}
+
+/**
+ * 手入力中・blur 時用。構成ラベルと時間表記だけ整え、詳細欄からの復元はしない。
+ * 空文字は空のまま保持する（編集中に全文が戻るのを防ぐ）。
+ */
+export function normalizeSectionNameStructure(section: string): string {
   let name = stripTimeFromSection(section.trim());
 
   let prev = "";
@@ -53,11 +68,6 @@ export function sanitizeSectionName(section: string, contentFallback = ""): stri
     for (const pattern of STRUCTURAL_PREFIX_PATTERNS) {
       name = name.replace(pattern, "").trim();
     }
-  }
-
-  if (!name || FORBIDDEN_STANDALONE.has(name)) {
-    const fallback = contentFallback.trim().split(/\n/)[0]?.slice(0, 40).trim() ?? "";
-    if (fallback) name = fallback;
   }
 
   return name.trim();

@@ -6,6 +6,13 @@ import {
   splitScriptCalib,
 } from "@/lib/script-calib";
 import { extractSelectionContext } from "@/lib/script-selection";
+import { buildEditorNavSections } from "@/lib/script-outline";
+import { scrollTextareaToCharOffset } from "@/lib/script-editor-scroll";
+import {
+  scriptBtnPrimaryBlue,
+  scriptBtnSecondary,
+  scriptBtnTertiary,
+} from "./script-toolbar-styles";
 
 export type SelectionRegeneratePayload = {
   selection: string;
@@ -29,6 +36,7 @@ interface Props {
   outline?: { section: string; content: string }[];
   onRevisionEntered?: () => void;
   onRevisionCleared?: () => void;
+  onDraftChange?: () => void;
   latestContentRef?: React.MutableRefObject<string>;
   onRegenerateSelection?: (payload: SelectionRegeneratePayload) => Promise<string>;
   onSelectionRegenerated?: (beforeContent: string, afterContent: string) => void;
@@ -37,47 +45,13 @@ interface Props {
 
 interface Section {
   label: string;
+  planSection: string | null;
   content: string;
   charOffset: number;
 }
 
 const MIN_SELECTION_CHARS = 8;
 const HEADING_LINE_RE = /^#{1,6}\s/;
-
-function parseSections(text: string, outline?: { section: string; content: string }[]): Section[] {
-  if (!text.trim()) return outline?.map((item) => ({ label: item.section, content: "", charOffset: 0 })) ?? [];
-
-  const lines = text.split("\n");
-  const sections: Section[] = [];
-  let current: Section | null = null;
-  let charPos = 0;
-
-  for (const line of lines) {
-    if (line.startsWith("## ")) {
-      if (current) sections.push(current);
-      current = { label: line.replace(/^##\s+/, "").trim(), content: "", charOffset: charPos };
-    } else {
-      if (!current) {
-        current = { label: "導入", content: "", charOffset: 0 };
-      }
-      current.content += line + "\n";
-    }
-    charPos += line.length + 1;
-  }
-  if (current) sections.push(current);
-
-  const parsed = sections.filter((s) => s.content.trim() || outline?.length);
-
-  if (!outline?.length) return parsed.filter((s) => s.content.trim());
-
-  return outline.map((item, i) => {
-    const fromScript = parsed[i];
-    if (fromScript) {
-      return { ...fromScript, label: item.section };
-    }
-    return { label: item.section, content: "", charOffset: text.length };
-  });
-}
 
 function splitCalib(raw: string): { main: string; calib: string } {
   return splitScriptCalib(raw);
@@ -161,6 +135,7 @@ export function ScriptEditor({
   outline,
   onRevisionEntered,
   onRevisionCleared,
+  onDraftChange,
   latestContentRef,
   onRegenerateSelection,
   onSelectionRegenerated,
@@ -174,7 +149,7 @@ export function ScriptEditor({
   const [calibOpen, setCalibOpen] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [selectionBusy, setSelectionBusy] = useState(false);
-  const [activeSectionLabel, setActiveSectionLabel] = useState<string | null>(null);
+  const [activeSectionOffset, setActiveSectionOffset] = useState<number | null>(null);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -217,7 +192,8 @@ export function ScriptEditor({
     if (latestContentRef) {
       latestContentRef.current = combineScriptCalib(value, calibText);
     }
-  }, [calibText, latestContentRef]);
+    onDraftChange?.();
+  }, [calibText, latestContentRef, onDraftChange]);
 
   const handleCalibChange = useCallback((value: string) => {
     setCalibText(value);
@@ -225,7 +201,8 @@ export function ScriptEditor({
     if (latestContentRef) {
       latestContentRef.current = combineScriptCalib(content, value);
     }
-  }, [content, latestContentRef]);
+    onDraftChange?.();
+  }, [content, latestContentRef, onDraftChange]);
 
   function syncHighlightScroll(scrollTop: number) {
     if (highlightRef.current) {
@@ -252,26 +229,13 @@ export function ScriptEditor({
     }
   }
 
-  function handleSave() {
-    const combined = combineScriptCalib(content, calibText);
-    onSave(combined);
-    setSaved(true);
-  }
-
   function scrollToSection(sec: Section) {
     const ta = textareaRef.current;
     if (!ta) return;
 
-    setActiveSectionLabel(sec.label);
-    const lineIndex = content.slice(0, sec.charOffset).split("\n").length - 1;
-    const style = window.getComputedStyle(ta);
-    const lineHeight = Number.parseFloat(style.lineHeight) || 22;
-
-    ta.focus();
-    ta.setSelectionRange(sec.charOffset, sec.charOffset);
-    const scrollTop = Math.max(0, lineIndex * lineHeight);
-    ta.scrollTop = scrollTop;
-    syncHighlightScroll(scrollTop);
+    setActiveSectionOffset(sec.charOffset);
+    scrollTextareaToCharOffset(ta, content, sec.charOffset);
+    syncHighlightScroll(ta.scrollTop);
     syncSelectionFromTextarea();
   }
 
@@ -342,7 +306,7 @@ export function ScriptEditor({
     }
   }
 
-  const sections = parseSections(content, outline);
+  const sections: Section[] = buildEditorNavSections(content, outline);
   const selectionLength = selectionRange ? selectionRange.end - selectionRange.start : 0;
   const canRegenerateSelection =
     !!onRegenerateSelection && !!selectionRange && selectionLength >= MIN_SELECTION_CHARS;
@@ -373,12 +337,11 @@ export function ScriptEditor({
             <div className={`h-full ${progressColor} transition-all`} style={{ width: `${progress}%` }} />
           </div>
           <span className="text-[10px] text-gray-400 hidden md:inline">目標 4,000〜6,000 字</span>
-          <span className="text-[10px] text-gray-400 hidden lg:inline">· ドラッグで選択 → 部分再生成</span>
           {(isGenerating || selectionBusy) && (
             <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-blue-700">
               <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
               {selectionBusy
-                ? "選択部分を再生成中"
+                ? "部分再生成中"
                 : isStreaming
                 ? "執筆中（反映中）"
                 : generationStatus?.kind === "sections"
@@ -400,42 +363,37 @@ export function ScriptEditor({
                   ? `選択中 ${selectionLength} 字を前後文脈を踏まえて書き直す`
                   : "台本内の文字列をドラッグして選択してください"
               }
-              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors inline-flex items-center gap-1.5 ${
+              className={`inline-flex items-center gap-1.5 ${
                 canRegenerateSelection && !selectionBusy && !isGenerating
-                  ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                  : "border-gray-200 text-gray-400 cursor-not-allowed"
+                  ? scriptBtnPrimaryBlue
+                  : scriptBtnSecondary
               }`}
             >
               {selectionBusy && <LoadingSpinner className="w-3 h-3 border-[1.5px]" />}
-              {selectionBusy ? "AIが書き直し中…" : "選択部分を再生成"}
+              {selectionBusy ? "再生成中…" : "部分再生成"}
             </button>
           )}
           <button
             onClick={() => void handleCopyAll()}
             disabled={selectionBusy || isGenerating}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
+            className={
               copied === "__all__"
-                ? "bg-green-50 text-green-600 border-green-300"
-                : "border-gray-200 text-gray-600 hover:border-gray-300 disabled:opacity-40"
-            }`}
+                ? "text-xs font-medium px-3 py-1 rounded-md border border-green-300 bg-green-50 text-green-600"
+                : scriptBtnTertiary
+            }
           >
             {copied === "__all__" ? "コピー済み ✓" : "全体をコピー"}
           </button>
-          {!saved && !editorLocked && <span className="text-[10px] text-orange-400">未保存</span>}
-          <button
-            onClick={handleSave}
-            disabled={editorLocked}
-            className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-40"
-          >
-            保存
-          </button>
+          {!saved && !editorLocked && (
+            <span className="text-[10px] text-gray-400">自動保存中…</span>
+          )}
         </div>
       </div>
 
       {selectionRange && canRegenerateSelection && !selectionBusy && !isGenerating && (
         <div className="px-4 py-1.5 border-b border-blue-100 bg-blue-50 shrink-0">
           <p className="text-[10px] text-blue-700">
-            {selectionLength.toLocaleString()} 字を選択中 —「選択部分を再生成」で前後の文脈を踏まえて書き直します
+            {selectionLength.toLocaleString()} 字を選択中 —「部分再生成」で前後の文脈を踏まえて書き直します
           </p>
         </div>
       )}
@@ -459,15 +417,19 @@ export function ScriptEditor({
             </p>
             {sections.map((sec) => (
               <button
-                key={sec.label}
+                key={`${sec.charOffset}-${sec.label}`}
                 onClick={() => scrollToSection(sec)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   void handleCopySection(sec.label, sec.content);
                 }}
-                title="クリック：ジャンプ　右クリック：コピー"
+                title={
+                  sec.planSection
+                    ? `台本: ${sec.label}\n企画: ${sec.planSection}\nクリック：ジャンプ　右クリック：コピー`
+                    : "クリック：ジャンプ　右クリック：コピー"
+                }
                 className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
-                  activeSectionLabel === sec.label
+                  activeSectionOffset === sec.charOffset
                     ? "bg-blue-100 text-blue-800 ring-1 ring-blue-200"
                     : copied === sec.label
                     ? "bg-green-100 text-green-700"
