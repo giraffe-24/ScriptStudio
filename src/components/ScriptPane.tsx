@@ -315,7 +315,6 @@ export function ScriptPane({
 
   async function openCommitModal() {
     if (!episodeNumber || !episodeSlug || !latestScriptRef.current.trim()) return;
-    await handleSave(latestScriptRef.current);
     const res = await fetch(
       `/api/script-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
     );
@@ -869,7 +868,6 @@ export function ScriptPane({
   async function handleManualPlanSync() {
     const content = latestScriptRef.current;
     if (!content.trim() || !plan) return;
-    await handleSave(content, "manual", { syncPlanFingerprint: true });
     confirmPlanScriptBaseline(plan);
 
     if (versionsEnabled && episodeNumber && episodeSlug) {

@@ -205,6 +205,20 @@ export async function runMarketAnalysis(
     ),
     data.ownChannelTitles,
   );
+  if (candidates.length < 6) {
+    const toppedUp = ensureEnrichedCandidates(candidates, data.youtube, {
+      themeMode,
+      category,
+    }).map((c) => normalizeCandidate(c, modeFit));
+    const existingTitles = new Set(candidates.map((c) => c.title));
+    const extras = toppedUp.filter((c) => !existingTitles.has(c.title));
+    if (extras.length > 0) {
+      candidates = [
+        ...candidates,
+        ...applyOverlapPostProcessing(extras, data.ownChannelTitles),
+      ];
+    }
+  }
   emit("overlap", "done");
 
   const dynamicSuggestions = data.competitorSuggestions.filter((s) => s.source === "dynamic");

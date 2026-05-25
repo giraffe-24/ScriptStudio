@@ -4,6 +4,11 @@ import type { Episode } from "./types";
 import { normalizeEpisodeStatus, resolveEpisodeStatus, type EpisodeStatus } from "./episode-status";
 import { hasRevision, hasScriptDraft } from "./script-calib";
 import { sortEpisodesByNumberDesc } from "./episode-sort";
+import {
+  readPersistedScriptMeta,
+  writePersistedScriptMeta,
+  type PersistedScriptMeta,
+} from "./script-meta-store";
 import { getStudioUserName } from "./studio-user";
 import {
   episodeDirName,
@@ -48,12 +53,7 @@ function resolveEpisodeIdentity(number: number, slug: string): EpisodeIdentity {
   };
 }
 
-export interface ScriptMeta {
-  updatedAt: string;
-  updatedBy: string;
-  planFingerprint?: string;
-  recordedPlanFingerprint?: string;
-}
+export type ScriptMeta = PersistedScriptMeta;
 
 async function readManifestAtDir(dirPath: string): Promise<Record<string, unknown>> {
   const filePath = path.join(dirPath, "manifest.json");
@@ -68,6 +68,58 @@ async function readManifestAtDir(dirPath: string): Promise<Record<string, unknow
 
 async function writeManifestAtDir(dirPath: string, manifest: Record<string, unknown>): Promise<void> {
   await fs.writeFile(path.join(dirPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+}
+
+function extractScriptMetaFromManifest(manifest: Record<string, unknown>): ScriptMeta | null {
+  const updatedAt = manifest.script_updated_at;
+  const updatedBy = manifest.script_updated_by;
+  if (typeof updatedAt !== "string" || typeof updatedBy !== "string") return null;
+  return {
+    updatedAt,
+    updatedBy,
+    planFingerprint:
+      typeof manifest.script_plan_fingerprint === "string"
+        ? manifest.script_plan_fingerprint
+        : undefined,
+    recordedPlanFingerprint:
+      typeof manifest.recorded_plan_fingerprint === "string"
+        ? manifest.recorded_plan_fingerprint
+        : undefined,
+  };
+}
+
+async function readManifestScriptMeta(dirPath: string): Promise<ScriptMeta | null> {
+  const manifest = await readManifestAtDir(dirPath);
+  return extractScriptMetaFromManifest(manifest);
+}
+
+async function writeScriptMetaBestEffort(dirPath: string, meta: ScriptMeta): Promise<void> {
+  try {
+    const manifest = await readManifestAtDir(dirPath);
+    manifest.script_updated_at = meta.updatedAt;
+    manifest.script_updated_by = meta.updatedBy;
+    if (meta.planFingerprint) {
+      manifest.script_plan_fingerprint = meta.planFingerprint;
+    }
+    if (meta.recordedPlanFingerprint) {
+      manifest.recorded_plan_fingerprint = meta.recordedPlanFingerprint;
+    }
+    await writeManifestAtDir(dirPath, manifest);
+  } catch (error) {
+    console.warn("[file-manager] skipped manifest script meta write:", error);
+  }
+}
+
+async function readCurrentScriptMeta(number: number, slug: string): Promise<ScriptMeta | null> {
+  try {
+    const persisted = await readPersistedScriptMeta(number, slug);
+    if (persisted) return persisted;
+  } catch (error) {
+    console.warn("[file-manager] failed to read persisted script meta:", error);
+  }
+  const identity = resolveEpisodeIdentity(number, slug);
+  const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
+  return readManifestScriptMeta(dirPath);
 }
 
 async function readPlanTitle(dirPath: string): Promise<string | undefined> {
@@ -116,18 +168,7 @@ export async function readScriptMeta(number: number, slug: string): Promise<Scri
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
   const exists = await fs.access(dirPath).then(() => true).catch(() => false);
   if (!exists) return null;
-
-  const m = await loadManifestForIdentity(identity, { repair: true });
-  const updatedAt = m.script_updated_at;
-  const updatedBy = m.script_updated_by;
-  if (typeof updatedAt !== "string" || typeof updatedBy !== "string") return null;
-  return {
-    updatedAt,
-    updatedBy,
-    planFingerprint: typeof m.script_plan_fingerprint === "string" ? m.script_plan_fingerprint : undefined,
-    recordedPlanFingerprint:
-      typeof m.recorded_plan_fingerprint === "string" ? m.recorded_plan_fingerprint : undefined,
-  };
+  return readCurrentScriptMeta(number, slug);
 }
 
 export async function syncScriptRecordBaseline(
@@ -137,11 +178,16 @@ export async function syncScriptRecordBaseline(
 ): Promise<ScriptMeta | null> {
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
-  const m = await loadManifestForIdentity(identity, { repair: true });
-  m.script_plan_fingerprint = planFingerprint;
-  m.recorded_plan_fingerprint = planFingerprint;
-  await writeManifestAtDir(dirPath, m);
-  return readScriptMeta(number, slug);
+  const current = await readCurrentScriptMeta(number, slug);
+  const meta: ScriptMeta = {
+    updatedAt: current?.updatedAt ?? new Date().toISOString(),
+    updatedBy: current?.updatedBy ?? getStudioUserName(),
+    planFingerprint,
+    recordedPlanFingerprint: planFingerprint,
+  };
+  await writePersistedScriptMeta(number, slug, meta);
+  await writeScriptMetaBestEffort(dirPath, meta);
+  return meta;
 }
 
 export async function updateRecordedPlanFingerprint(
@@ -168,22 +214,15 @@ export async function updateScriptMeta(
     throw new Error(`Episode folder not found: ${identity.dirName}`);
   }
 
-  const m = await loadManifestForIdentity(identity, { repair: true });
+  const current = await readCurrentScriptMeta(number, slug);
   const meta: ScriptMeta = {
     updatedAt: new Date().toISOString(),
     updatedBy: options.updatedBy?.trim() || getStudioUserName(),
-    planFingerprint: options.planFingerprint
-      ? options.planFingerprint
-      : typeof m.script_plan_fingerprint === "string"
-        ? m.script_plan_fingerprint
-        : undefined,
+    planFingerprint: options.planFingerprint ?? current?.planFingerprint,
+    recordedPlanFingerprint: current?.recordedPlanFingerprint,
   };
-  m.script_updated_at = meta.updatedAt;
-  m.script_updated_by = meta.updatedBy;
-  if (meta.planFingerprint) {
-    m.script_plan_fingerprint = meta.planFingerprint;
-  }
-  await writeManifestAtDir(dirPath, m);
+  await writePersistedScriptMeta(number, slug, meta);
+  await writeScriptMetaBestEffort(dirPath, meta);
   return meta;
 }
 
