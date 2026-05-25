@@ -4,6 +4,69 @@ import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 
 export const maxDuration = 300;
 
+type OutlineItem = { section: string; content: string };
+type PlanPayload = {
+  episodeTitle: string;
+  targetViewer?: string;
+  pain?: string;
+  promise?: string;
+  keyPoints?: string[];
+  outline?: OutlineItem[];
+};
+
+async function generateSectionBody(
+  client: Anthropic,
+  systemPrompt: string,
+  plan: PlanPayload,
+  index: number,
+  existingBody: string,
+  neighborBodies: { prev?: string; next?: string },
+): Promise<string> {
+  const outline = plan.outline ?? [];
+  const item = outline[index];
+  if (!item) throw new Error(`invalid section index: ${index}`);
+
+  const keyPointsText = (plan.keyPoints ?? []).map((p) => `・${p}`).join("\n");
+  const prompt = `YouTube動画のトークスクリプトの「1セクションだけ」を書いてください。見出し行（##）は出力しないでください。本文のみ。
+
+=== 企画書 ===
+タイトル：${plan.episodeTitle}
+想定視聴者：${plan.targetViewer ?? ""}
+視聴者の悩み：${plan.pain ?? ""}
+動画の約束：${plan.promise ?? ""}
+${keyPointsText ? `\nキーポイント：\n${keyPointsText}` : ""}
+
+=== 今回書くセクション ===
+見出し：${item.section}
+詳細：${item.content}
+
+=== 執筆ルール ===
+1. 詳細欄の指示に沿って、このセクションの本文だけを書く
+2. 他セクションの内容は書かない
+3. 視聴者は40〜60代向けに平易な語り口
+4. ### や # 見出しは禁止
+5. 既存本文がある場合は、変更が必要な部分だけ直し、不要な全面書き換えは避ける
+
+=== 前後のセクション（トーン参考・写さない） ===
+${neighborBodies.prev ? `前：${neighborBodies.prev.slice(0, 400)}` : "（なし）"}
+${neighborBodies.next ? `次：${neighborBodies.next.slice(0, 400)}` : "（なし）"}
+
+=== 既存のこのセクション本文（参考） ===
+${existingBody.trim() || "（新規セクション）"}
+
+本文のみ出力：`;
+
+  const message = await client.messages.create({
+    model: "claude-opus-4-5",
+    max_tokens: 1800,
+    system: systemPrompt,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  return text.replace(/^##\s+.*\n?/m, "").trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
@@ -16,25 +79,64 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { plan, streaming, reconcile, existingScript } = await req.json();
+    const body = await req.json();
+    const {
+      plan,
+      streaming,
+      reconcile,
+      existingScript,
+      mode,
+      sectionIndices,
+      sectionBodies,
+    } = body as {
+      plan: PlanPayload;
+      streaming?: boolean;
+      reconcile?: boolean;
+      existingScript?: string;
+      mode?: "full" | "sections";
+      sectionIndices?: number[];
+      sectionBodies?: Record<string, string>;
+    };
+
     if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
 
     const config = await loadChannelConfig();
     const systemPrompt = buildSystemPrompt(config);
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+    if (mode === "sections") {
+      const indices = Array.isArray(sectionIndices)
+        ? sectionIndices.filter((n) => Number.isInteger(n) && n >= 0)
+        : [];
+      if (!indices.length) {
+        return NextResponse.json({ error: "sectionIndices required" }, { status: 400 });
+      }
+
+      const bodies = sectionBodies ?? {};
+      const sections: Record<number, string> = {};
+
+      for (const index of indices) {
+        const existingBody = bodies[String(index)] ?? "";
+        sections[index] = await generateSectionBody(client, systemPrompt, plan, index, existingBody, {
+          prev: bodies[String(index - 1)],
+          next: bodies[String(index + 1)],
+        });
+      }
+
+      return NextResponse.json({ sections });
+    }
+
     const outline = plan.outline ?? [];
     const outlineText = outline
       .map(
-        (s: { section: string; content: string }, i: number) =>
+        (s: OutlineItem, i: number) =>
           `${i + 1}. 見出し「${s.section}」\n   詳細：${s.content}`,
       )
       .join("\n");
 
     const outlineTemplate = outline
       .map(
-        (s: { section: string; content: string }) =>
-          `## ${s.section}\n（ここに「${s.content}」に沿った本文を書く）`,
+        (s: OutlineItem) => `## ${s.section}\n（ここに「${s.content}」に沿った本文を書く）`,
       )
       .join("\n\n");
 
