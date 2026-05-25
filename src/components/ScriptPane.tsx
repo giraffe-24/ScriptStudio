@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ScriptEditor, type SelectionRegeneratePayload } from "./ScriptEditor";
+import {
+  ScriptEditor,
+  type GenerationStatus,
+  type SelectionRegeneratePayload,
+} from "./ScriptEditor";
 import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
 import type { ScriptMeta } from "@/lib/file-manager";
@@ -464,6 +468,7 @@ export function ScriptPane({
           plan,
           sectionIndices: indices,
           sectionBodies,
+          scriptHeaders: extractScriptHeaders(workingScript),
         }),
       });
 
@@ -614,6 +619,46 @@ export function ScriptPane({
   const canRegenerate = !generated || needsOutlineUpdate;
   const regenerateDisabled = loading || (generated && !canRegenerate);
 
+  const updatingSectionLabels = updatingSections
+    .map((index) => plan.outline[index]?.section)
+    .filter(Boolean);
+
+  const generationStatus: GenerationStatus | undefined = loading
+    ? {
+        active: true,
+        kind: updatingSections.length > 0 ? "sections" : "full",
+        title:
+          updatingSections.length > 0
+            ? `セクションを再生成中（${updatingSections.length}件）`
+            : script.trim()
+            ? "AIが台本を執筆中"
+            : "台本を生成中",
+        detail:
+          updatingSections.length > 0
+            ? updatingSectionLabels.join("、")
+            : script.trim()
+            ? "本文がリアルタイムで反映されています。完了までそのままお待ちください。"
+            : "構成に沿って執筆しています。しばらくお待ちください。",
+        streaming: updatingSections.length === 0 && !!script.trim(),
+      }
+    : undefined;
+
+  const loadingBannerTitle =
+    updatingSections.length > 0
+      ? `変更セクション（${updatingSections.length}件）を再生成中`
+      : script.trim()
+      ? "AIが台本を執筆中（リアルタイム反映）"
+      : reconciling
+      ? "構成の変更を反映中"
+      : "台本を生成中";
+
+  const loadingBannerDetail =
+    updatingSections.length > 0
+      ? updatingSectionLabels.join("、")
+      : script.trim()
+      ? "完了するまで編集は一時停止されます"
+      : "AIが企画書から台本を書いています";
+
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
@@ -666,7 +711,11 @@ export function ScriptPane({
             }`}
           >
             {loading
-              ? "更新中…"
+              ? updatingSections.length > 0
+                ? `再生成中（${updatingSections.length}件）…`
+                : script.trim()
+                ? "執筆中…"
+                : "生成中…"
               : outOfSync || needsOutlineUpdate
               ? `再生成（${pendingSectionUpdates.length || 1}セクション）`
               : generated
@@ -698,16 +747,15 @@ export function ScriptPane({
       )}
 
       {loading && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-            <span className="text-xs text-blue-600">
-              {reconciling && updatingSections.length > 0
-                ? `変更セクション（${updatingSections.length}件）を更新中…`
-                : reconciling
-                ? "構成の変更を反映中…"
-                : "AI が台本を執筆中…リアルタイムで表示されます"}
-            </span>
+        <div className="analysis-loading-panel bg-blue-50 border-b border-blue-100 px-4 py-2.5">
+          <div className="flex items-start gap-2.5">
+            <div className="script-loading-spinner w-3.5 h-3.5 rounded-full border-2 border-blue-200 border-t-blue-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-blue-800 analysis-loading-text">{loadingBannerTitle}</p>
+              {loadingBannerDetail && (
+                <p className="text-[10px] text-blue-600 mt-0.5 truncate">{loadingBannerDetail}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -719,7 +767,8 @@ export function ScriptPane({
             episodeTitle={plan.episodeTitle}
             outline={plan.outline}
             latestContentRef={latestScriptRef}
-            onRegenerateSelection={generated ? handleRegenerateSelection : undefined}
+            generationStatus={generationStatus}
+            onRegenerateSelection={generated && !loading ? handleRegenerateSelection : undefined}
             onSelectionRegenerated={(before, after) => void handleSelectionRegenerated(before, after)}
             onSave={(content) => {
               latestScriptRef.current = content;

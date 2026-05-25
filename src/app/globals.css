@@ -188,3 +188,24 @@
 .analysis-loading-text {
   animation: analysis-text-shimmer 1.2s ease-in-out infinite;
 }
+
+@keyframes script-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.script-loading-spinner {
+  animation: script-spinner 0.8s linear infinite;
+}
+
+.script-editor-streaming-bar {
+  background-image: linear-gradient(
+    90deg,
+    rgb(59 130 246) 0%,
+    rgb(147 197 253) 50%,
+    rgb(59 130 246) 100%
+  );
+  background-size: 200% 100%;
+  animation: analysis-panel-shimmer 1.6s ease-in-out infinite;
+}

@@ -1,6 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
+import {
+  buildScriptOutlineContext,
+  SECTION_INTERNAL_LINK_RULES,
+} from "@/lib/script-internal-links";
 
 export const maxDuration = 300;
 
@@ -21,11 +25,15 @@ async function generateSectionBody(
   index: number,
   existingBody: string,
   neighborBodies: { prev?: string; next?: string },
+  options?: { scriptHeaders?: string[] },
 ): Promise<string> {
   const outline = plan.outline ?? [];
   const item = outline[index];
   if (!item) throw new Error(`invalid section index: ${index}`);
 
+  const scriptHeaders = options?.scriptHeaders ?? [];
+  const scriptHeader = scriptHeaders[index]?.trim() || item.section;
+  const outlineContext = buildScriptOutlineContext(outline, scriptHeaders);
   const keyPointsText = (plan.keyPoints ?? []).map((p) => `・${p}`).join("\n");
   const prompt = `YouTube動画のトークスクリプトの「1セクションだけ」を書いてください。見出し行（##）は出力しないでください。本文のみ。
 
@@ -36,20 +44,27 @@ async function generateSectionBody(
 動画の約束：${plan.promise ?? ""}
 ${keyPointsText ? `\nキーポイント：\n${keyPointsText}` : ""}
 
-=== 今回書くセクション ===
-見出し：${item.section}
-詳細：${item.content}
+=== 動画全体の構成（内部リンクの参照元・順序固定） ===
+${outlineContext}
+
+${SECTION_INTERNAL_LINK_RULES}
+
+=== 今回書くセクション（${index + 1}/${outline.length}） ===
+台本見出し：${scriptHeader}
+企画見出し：${item.section}
+詳細・必須トピック：${item.content}
 
 === 執筆ルール ===
-1. 詳細欄の指示に沿って、このセクションの本文だけを書く
-2. 他セクションの内容は書かない
-3. 視聴者は40〜60代向けに平易な語り口
-4. ### や # 見出しは禁止
-5. 既存本文がある場合は、変更が必要な部分だけ直し、不要な全面書き換えは避ける
+1. 詳細欄の「必須トピック」を本文の核として必ず盛り込む（省略・要約しすぎない）
+2. このセクションの本文だけを書く（他セクションの手順本文は書かない）
+3. 後続セクションを予告する場合は「動画全体の構成」の順番・見出しと一致させる
+4. 視聴者は40〜60代向けに平易な語り口
+5. ### や # 見出しは禁止
+6. 既存本文がある場合は、変更が必要な部分だけ直し、不要な全面書き換えは避ける
 
 === 前後のセクション（トーン参考・写さない） ===
-${neighborBodies.prev ? `前：${neighborBodies.prev.slice(0, 400)}` : "（なし）"}
-${neighborBodies.next ? `次：${neighborBodies.next.slice(0, 400)}` : "（なし）"}
+${neighborBodies.prev ? `前：${neighborBodies.prev.slice(0, 800)}` : "（なし）"}
+${neighborBodies.next ? `次：${neighborBodies.next.slice(0, 800)}` : "（なし）"}
 
 === 既存のこのセクション本文（参考） ===
 ${existingBody.trim() || "（新規セクション）"}
@@ -146,6 +161,7 @@ export async function POST(req: NextRequest) {
       mode,
       sectionIndices,
       sectionBodies,
+      scriptHeaders,
       selection,
       before,
       after,
@@ -158,6 +174,7 @@ export async function POST(req: NextRequest) {
       mode?: "full" | "sections" | "selection";
       sectionIndices?: number[];
       sectionBodies?: Record<string, string>;
+      scriptHeaders?: string[];
       selection?: string;
       before?: string;
       after?: string;
@@ -193,6 +210,7 @@ export async function POST(req: NextRequest) {
       }
 
       const bodies = sectionBodies ?? {};
+      const headers = Array.isArray(scriptHeaders) ? scriptHeaders : [];
       const sections: Record<number, string> = {};
 
       for (const index of indices) {
@@ -200,7 +218,7 @@ export async function POST(req: NextRequest) {
         sections[index] = await generateSectionBody(client, systemPrompt, plan, index, existingBody, {
           prev: bodies[String(index - 1)],
           next: bodies[String(index + 1)],
-        });
+        }, { scriptHeaders: headers });
       }
 
       return NextResponse.json({ sections });

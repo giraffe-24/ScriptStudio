@@ -28,12 +28,23 @@ export default function Home() {
   const [titleOverride, setTitleOverride] = useState<{ slug: string; title: string } | undefined>(undefined);
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const numberSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const planSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scriptGenerateKey, setScriptGenerateKey] = useState(0);
   const [nextEpisodeNumber, setNextEpisodeNumber] = useState<number | null>(null);
   const [numberOverride, setNumberOverride] = useState<{ slug: string; number: number } | undefined>(undefined);
   const [statusOverride, setStatusOverride] = useState<{ slug: string; status: EpisodeStatus } | undefined>(undefined);
   const [workspaceResetKey, setWorkspaceResetKey] = useState(0);
   const [planningScriptResetKey, setPlanningScriptResetKey] = useState(0);
+  const currentPlanRef = useRef<EpisodePlan | null>(null);
+  const selectedEpisodeRef = useRef<Episode | null>(null);
+
+  useEffect(() => {
+    currentPlanRef.current = currentPlan;
+  }, [currentPlan]);
+
+  useEffect(() => {
+    selectedEpisodeRef.current = selectedEpisode;
+  }, [selectedEpisode]);
 
   useEffect(() => {
     if (!newEpisodeMode || selectedEpisode) {
@@ -207,11 +218,37 @@ export default function Home() {
 
   function handlePlanChange(plan: EpisodePlan) {
     setCurrentPlan(plan);
+    currentPlanRef.current = plan;
+
+    const episode = selectedEpisodeRef.current;
+    if (!episode) return;
+
+    if (planSaveTimer.current) clearTimeout(planSaveTimer.current);
+
+    const savePlan = async () => {
+      await fetch("/api/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "write-plan",
+          number: episode.number,
+          slug: episode.slug,
+          plan: currentPlanRef.current,
+        }),
+      });
+    };
+
+    // 目次を空にしたときは即保存（デバウンス待ちで元に戻るのを防ぐ）
+    if (!plan.outline?.length) {
+      void savePlan();
+      return;
+    }
+
+    planSaveTimer.current = setTimeout(() => void savePlan(), 800);
   }
 
   function handleTitleChange(title: string) {
-    // 企画書・台本ヘッダーを即時更新
-    if (currentPlan) setCurrentPlan({ ...currentPlan, episodeTitle: title });
+    setCurrentPlan((prev) => (prev ? { ...prev, episodeTitle: title } : null));
 
     // エピソード一覧をリアルタイム更新
     if (selectedEpisode) {
@@ -395,6 +432,7 @@ export default function Home() {
                   candidate={selectedCandidate}
                   plan={currentPlan}
                   episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
+                  episodeSlug={selectedEpisode?.slug}
                   onPlanReady={handlePlanReady}
                   onTitleChange={handleTitleChange}
                   onEpisodeNumberChange={handleEpisodeNumberChange}

@@ -14,6 +14,14 @@ export type SelectionRegeneratePayload = {
   sectionHeading: string | null;
 };
 
+export type GenerationStatus = {
+  active: boolean;
+  kind: "full" | "sections";
+  title: string;
+  detail?: string;
+  streaming?: boolean;
+};
+
 interface Props {
   script: string;
   onSave: (content: string) => void;
@@ -24,6 +32,7 @@ interface Props {
   latestContentRef?: React.MutableRefObject<string>;
   onRegenerateSelection?: (payload: SelectionRegeneratePayload) => Promise<string>;
   onSelectionRegenerated?: (beforeContent: string, afterContent: string) => void;
+  generationStatus?: GenerationStatus;
 }
 
 interface Section {
@@ -33,6 +42,7 @@ interface Section {
 }
 
 const MIN_SELECTION_CHARS = 8;
+const HEADING_LINE_RE = /^#{1,6}\s/;
 
 function parseSections(text: string, outline?: { section: string; content: string }[]): Section[] {
   if (!text.trim()) return outline?.map((item) => ({ label: item.section, content: "", charOffset: 0 })) ?? [];
@@ -78,16 +88,71 @@ function toHtml(text: string): string {
   const htmlLines = lines.map((line) => {
     if (/^##\s/.test(line)) {
       const heading = line.replace(/^##\s+/, "");
-      return `<h2>${heading}</h2>`;
+      return `<h2><strong>${heading}</strong></h2>`;
     }
     if (/^#\s/.test(line)) {
       const heading = line.replace(/^#\s+/, "");
-      return `<h1>${heading}</h1>`;
+      return `<h1><strong>${heading}</strong></h1>`;
     }
     if (line.trim() === "") return "<br>";
     return `<p>${line}</p>`;
   });
   return htmlLines.join("");
+}
+
+function renderHighlightedContent(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, index) => (
+    <span key={index}>
+      {index > 0 ? "\n" : null}
+      {HEADING_LINE_RE.test(line) ? (
+        <span className="font-bold text-gray-900">{line}</span>
+      ) : (
+        line
+      )}
+    </span>
+  ));
+}
+
+function LoadingSpinner({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`script-loading-spinner w-4 h-4 rounded-full border-2 border-blue-200 border-t-blue-600 shrink-0 ${className}`}
+      aria-hidden
+    />
+  );
+}
+
+function EditorLoadingOverlay({
+  title,
+  detail,
+  blocking,
+}: {
+  title: string;
+  detail?: string;
+  blocking: boolean;
+}) {
+  return (
+    <div
+      className={`absolute inset-0 z-10 flex items-center justify-center pointer-events-none ${
+        blocking ? "bg-white/75 backdrop-blur-[1px]" : "bg-transparent"
+      }`}
+    >
+      <div
+        className={`rounded-lg border border-blue-200 px-4 py-3 shadow-sm max-w-md mx-4 ${
+          blocking ? "analysis-loading-panel bg-blue-50" : "bg-white/95"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <LoadingSpinner className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-blue-900 analysis-loading-text">{title}</p>
+            {detail && <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">{detail}</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ScriptEditor({
@@ -99,6 +164,7 @@ export function ScriptEditor({
   latestContentRef,
   onRegenerateSelection,
   onSelectionRegenerated,
+  generationStatus,
 }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
@@ -108,8 +174,10 @@ export function ScriptEditor({
   const [calibOpen, setCalibOpen] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [selectionBusy, setSelectionBusy] = useState(false);
+  const [activeSectionLabel, setActiveSectionLabel] = useState<string | null>(null);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLPreElement>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
 
   useEffect(() => {
@@ -159,6 +227,12 @@ export function ScriptEditor({
     }
   }, [content, latestContentRef]);
 
+  function syncHighlightScroll(scrollTop: number) {
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = scrollTop;
+    }
+  }
+
   function syncSelectionFromTextarea() {
     const ta = textareaRef.current;
     if (!ta) {
@@ -187,12 +261,17 @@ export function ScriptEditor({
   function scrollToSection(sec: Section) {
     const ta = textareaRef.current;
     if (!ta) return;
+
+    setActiveSectionLabel(sec.label);
+    const lineIndex = content.slice(0, sec.charOffset).split("\n").length - 1;
+    const style = window.getComputedStyle(ta);
+    const lineHeight = Number.parseFloat(style.lineHeight) || 22;
+
     ta.focus();
     ta.setSelectionRange(sec.charOffset, sec.charOffset);
-    const textBefore = content.slice(0, sec.charOffset);
-    const lineIndex = textBefore.split("\n").length - 1;
-    const approxLineHeight = ta.scrollHeight / (content.split("\n").length || 1);
-    ta.scrollTop = Math.max(0, (lineIndex - 1) * approxLineHeight);
+    const scrollTop = Math.max(0, lineIndex * lineHeight);
+    ta.scrollTop = scrollTop;
+    syncHighlightScroll(scrollTop);
     syncSelectionFromTextarea();
   }
 
@@ -268,6 +347,10 @@ export function ScriptEditor({
   const canRegenerateSelection =
     !!onRegenerateSelection && !!selectionRange && selectionLength >= MIN_SELECTION_CHARS;
 
+  const isGenerating = Boolean(generationStatus?.active);
+  const isStreaming = Boolean(generationStatus?.active && generationStatus.streaming);
+  const editorLocked = selectionBusy || (isGenerating && !isStreaming);
+
   const targetMin = 4000;
   const targetMax = 6000;
   const progress = Math.min((charCount / targetMax) * 100, 100);
@@ -275,6 +358,9 @@ export function ScriptEditor({
     charCount < targetMin ? "bg-yellow-400" : charCount <= targetMax ? "bg-green-400" : "bg-red-400";
   const countColor =
     charCount < targetMin ? "text-yellow-600" : charCount <= targetMax ? "text-green-600" : "text-red-600";
+
+  const editorTextareaClass =
+    "absolute inset-0 w-full h-full p-4 text-sm leading-relaxed resize-none border-0 focus:outline-none font-mono bg-transparent text-transparent caret-gray-800 selection:bg-blue-200/60 placeholder:text-gray-400";
 
   return (
     <div className="flex flex-col h-full">
@@ -288,52 +374,80 @@ export function ScriptEditor({
           </div>
           <span className="text-[10px] text-gray-400 hidden md:inline">目標 4,000〜6,000 字</span>
           <span className="text-[10px] text-gray-400 hidden lg:inline">· ドラッグで選択 → 部分再生成</span>
+          {(isGenerating || selectionBusy) && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-blue-700">
+              <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
+              {selectionBusy
+                ? "選択部分を再生成中"
+                : isStreaming
+                ? "執筆中（反映中）"
+                : generationStatus?.kind === "sections"
+                ? "セクション再生成中"
+                : "台本生成中"}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {onRegenerateSelection && (
             <button
               type="button"
               onClick={() => void handleRegenerateSelectionClick()}
-              disabled={!canRegenerateSelection || selectionBusy}
+              disabled={!canRegenerateSelection || selectionBusy || isGenerating}
               title={
-                canRegenerateSelection
+                isGenerating
+                  ? "台本生成中は部分再生成できません"
+                  : canRegenerateSelection
                   ? `選択中 ${selectionLength} 字を前後文脈を踏まえて書き直す`
                   : "台本内の文字列をドラッグして選択してください"
               }
-              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
-                canRegenerateSelection && !selectionBusy
+              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors inline-flex items-center gap-1.5 ${
+                canRegenerateSelection && !selectionBusy && !isGenerating
                   ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
                   : "border-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
-              {selectionBusy ? "再生成中…" : "選択部分を再生成"}
+              {selectionBusy && <LoadingSpinner className="w-3 h-3 border-[1.5px]" />}
+              {selectionBusy ? "AIが書き直し中…" : "選択部分を再生成"}
             </button>
           )}
           <button
             onClick={() => void handleCopyAll()}
+            disabled={selectionBusy || isGenerating}
             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
               copied === "__all__"
                 ? "bg-green-50 text-green-600 border-green-300"
-                : "border-gray-200 text-gray-600 hover:border-gray-300"
+                : "border-gray-200 text-gray-600 hover:border-gray-300 disabled:opacity-40"
             }`}
           >
             {copied === "__all__" ? "コピー済み ✓" : "全体をコピー"}
           </button>
-          {!saved && <span className="text-[10px] text-orange-400">未保存</span>}
+          {!saved && !editorLocked && <span className="text-[10px] text-orange-400">未保存</span>}
           <button
             onClick={handleSave}
-            className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+            disabled={editorLocked}
+            className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-40"
           >
             保存
           </button>
         </div>
       </div>
 
-      {selectionRange && canRegenerateSelection && !selectionBusy && (
+      {selectionRange && canRegenerateSelection && !selectionBusy && !isGenerating && (
         <div className="px-4 py-1.5 border-b border-blue-100 bg-blue-50 shrink-0">
           <p className="text-[10px] text-blue-700">
             {selectionLength.toLocaleString()} 字を選択中 —「選択部分を再生成」で前後の文脈を踏まえて書き直します
           </p>
+        </div>
+      )}
+
+      {selectionBusy && (
+        <div className="px-4 py-1.5 border-b border-blue-200 bg-blue-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
+            <p className="text-[10px] text-blue-800 font-medium">
+              選択した {selectionLength.toLocaleString()} 字を AI が前後文脈を踏まえて書き直しています…
+            </p>
+          </div>
         </div>
       )}
 
@@ -353,7 +467,9 @@ export function ScriptEditor({
                 }}
                 title="クリック：ジャンプ　右クリック：コピー"
                 className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
-                  copied === sec.label
+                  activeSectionLabel === sec.label
+                    ? "bg-blue-100 text-blue-800 ring-1 ring-blue-200"
+                    : copied === sec.label
                     ? "bg-green-100 text-green-700"
                     : "hover:bg-white hover:shadow-sm text-gray-600"
                 }`}
@@ -369,18 +485,67 @@ export function ScriptEditor({
           </div>
         )}
 
-        <div className="flex-1 overflow-hidden">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => handleChange(e.target.value)}
-            onSelect={syncSelectionFromTextarea}
-            onMouseUp={syncSelectionFromTextarea}
-            onKeyUp={syncSelectionFromTextarea}
-            className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
-            placeholder="台本をここに入力…"
-            spellCheck={false}
-          />
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          {isStreaming && (
+            <div className="h-1 shrink-0 script-editor-streaming-bar" aria-hidden />
+          )}
+
+          <div className="relative flex-1 overflow-hidden">
+            <pre
+              ref={highlightRef}
+              aria-hidden
+              className="absolute inset-0 m-0 p-4 text-sm leading-relaxed font-mono whitespace-pre-wrap break-words overflow-hidden pointer-events-none text-gray-800"
+            >
+              {renderHighlightedContent(content)}
+            </pre>
+
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => handleChange(e.target.value)}
+              onSelect={syncSelectionFromTextarea}
+              onMouseUp={syncSelectionFromTextarea}
+              onKeyUp={syncSelectionFromTextarea}
+              onScroll={(e) => syncHighlightScroll(e.currentTarget.scrollTop)}
+              readOnly={editorLocked}
+              className={editorTextareaClass}
+              placeholder="台本をここに入力…"
+              spellCheck={false}
+            />
+
+            {selectionBusy && (
+              <EditorLoadingOverlay
+                blocking
+                title="選択部分を再生成中"
+                detail="前後の文脈を読み取り、選択範囲だけを書き直しています。完了までお待ちください。"
+              />
+            )}
+
+            {isGenerating && !selectionBusy && generationStatus?.kind === "sections" && (
+              <EditorLoadingOverlay
+                blocking
+                title={generationStatus.title}
+                detail={generationStatus.detail}
+              />
+            )}
+
+            {isGenerating && !selectionBusy && generationStatus?.kind === "full" && !isStreaming && (
+              <EditorLoadingOverlay
+                blocking
+                title={generationStatus.title}
+                detail={generationStatus.detail ?? "AIが構成に沿って執筆しています。"}
+              />
+            )}
+
+            {isStreaming && (
+              <div className="absolute bottom-3 right-3 z-10 pointer-events-none">
+                <div className="flex items-center gap-2 rounded-full border border-blue-200 bg-white/95 px-3 py-1.5 shadow-sm">
+                  <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
+                  <span className="text-[11px] font-medium text-blue-800">執筆中…</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

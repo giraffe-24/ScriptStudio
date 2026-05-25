@@ -17,28 +17,42 @@ interface Props {
   candidate: ThemeCandidate | null;
   plan?: EpisodePlan | null;
   episodeNumber?: number | null;
+  episodeSlug?: string;
   onPlanReady: (plan: EpisodePlan, title: string) => void;
   onTitleChange?: (title: string) => void;
   onEpisodeNumberChange?: (number: number) => void;
   onPlanChange?: (plan: EpisodePlan) => void;
 }
 
-export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPlanReady, onTitleChange, onEpisodeNumberChange, onPlanChange }: Props) {
-  const [plan, setPlan] = useState<EpisodePlan | null>(initialPlan ?? null);
+export function PlanningDoc({
+  candidate,
+  plan: initialPlan,
+  episodeNumber,
+  episodeSlug,
+  onPlanReady,
+  onTitleChange,
+  onEpisodeNumberChange,
+  onPlanChange,
+}: Props) {
+  const [draftPlan, setDraftPlan] = useState<EpisodePlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const planLoadKeyRef = useRef("");
+
+  // タイトル変更でキーが変わらないよう slug / 候補テーマのみで判定
+  const planLoadKey = `${episodeNumber ?? "new"}:${episodeSlug ?? "new"}:${candidate?.title ?? ""}`;
 
   useEffect(() => {
-    if (initialPlan) {
-      setPlan(sanitizePlanOutline(initialPlan));
-    } else if (!candidate) {
-      setPlan(null);
-    }
+    if (planLoadKeyRef.current === planLoadKey) return;
+    planLoadKeyRef.current = planLoadKey;
+    setDraftPlan(null);
     setChatSection(null);
     setChatHistory([]);
     setLoading(false);
-  }, [initialPlan, candidate]);
+  }, [planLoadKey]);
+
+  const plan = initialPlan ?? draftPlan;
 
   useEffect(() => {
     if (!candidate) return;
@@ -49,7 +63,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPla
   async function generatePlan() {
     if (!candidate) return;
     setLoading(true);
-    setPlan(null);
+    setDraftPlan(null);
     setChatSection(null);
     setChatHistory([]);
 
@@ -73,15 +87,19 @@ export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPla
     }
 
     const data = await res.json();
-    setPlan(sanitizePlanOutline(data.plan ?? null));
+    setDraftPlan(sanitizePlanOutline(data.plan ?? null));
     setLoading(false);
   }
 
   function update<K extends keyof EpisodePlan>(key: K, value: EpisodePlan[K]) {
-    if (!plan) return;
-    const next = { ...plan, [key]: value };
-    setPlan(next);
-    onPlanChange?.(next);
+    const base = initialPlan ?? draftPlan;
+    if (!base) return;
+    const next = { ...base, [key]: value };
+    if (initialPlan) {
+      onPlanChange?.(next);
+    } else {
+      setDraftPlan(next);
+    }
   }
 
   if (!candidate && !plan) {
@@ -221,7 +239,7 @@ export function PlanningDoc({ candidate, plan: initialPlan, episodeNumber, onPla
             <OutlineEditor
               items={plan.outline}
               onChange={(items) => update("outline", items)}
-              historyResetKey={initialPlan?.episodeTitle ?? "plan"}
+              historyResetKey={planLoadKey}
             />
           </DocSection>
 
@@ -569,7 +587,6 @@ function OutlineEditor({
     (dropSlot === dragIndex || dropSlot === dragIndex + 1);
 
   function removeItem(index: number) {
-    if (items.length <= 1) return;
     applyChange(items.filter((_, i) => i !== index));
   }
 
@@ -621,6 +638,9 @@ function OutlineEditor({
             <div className="flex-1 h-0.5 bg-blue-500 rounded-full" />
           </div>
         )}
+        {items.length === 0 && (
+          <p className="text-xs text-gray-400 px-2 py-3">目次案がありません。「＋ 行を追加」から追加できます。</p>
+        )}
         {items.map((item, i) => (
           <div key={`outline-row-${i}`}>
             <div
@@ -663,8 +683,7 @@ function OutlineEditor({
                 <button
                   type="button"
                   onClick={() => removeItem(i)}
-                  disabled={items.length <= 1}
-                  className="w-7 h-7 rounded text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="w-7 h-7 rounded text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                   aria-label="削除"
                 >
                   ×
