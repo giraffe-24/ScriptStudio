@@ -2,33 +2,46 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
-  const { plan, streaming, reconcile, existingScript } = await req.json();
-  if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
+  try {
+    if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            "ANTHROPIC_API_KEY が未設定です。Vercel の Environment Variables を確認してください。",
+        },
+        { status: 503 },
+      );
+    }
 
-  const config = await loadChannelConfig();
-  const systemPrompt = buildSystemPrompt(config);
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const { plan, streaming, reconcile, existingScript } = await req.json();
+    if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
 
-  const outline = plan.outline ?? [];
-  const outlineText = outline
-    .map(
-      (s: { section: string; content: string }, i: number) =>
-        `${i + 1}. 見出し「${s.section}」\n   詳細：${s.content}`
-    )
-    .join("\n");
+    const config = await loadChannelConfig();
+    const systemPrompt = buildSystemPrompt(config);
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const outlineTemplate = outline
-    .map(
-      (s: { section: string; content: string }) =>
-        `## ${s.section}\n（ここに「${s.content}」に沿った本文を書く）`
-    )
-    .join("\n\n");
+    const outline = plan.outline ?? [];
+    const outlineText = outline
+      .map(
+        (s: { section: string; content: string }, i: number) =>
+          `${i + 1}. 見出し「${s.section}」\n   詳細：${s.content}`,
+      )
+      .join("\n");
 
-  const keyPointsText = (plan.keyPoints ?? []).map((p: string) => `・${p}`).join("\n");
+    const outlineTemplate = outline
+      .map(
+        (s: { section: string; content: string }) =>
+          `## ${s.section}\n（ここに「${s.content}」に沿った本文を書く）`,
+      )
+      .join("\n\n");
 
-  const reconcileBlock = reconcile
-    ? `
+    const keyPointsText = (plan.keyPoints ?? []).map((p: string) => `・${p}`).join("\n");
+
+    const reconcileBlock = reconcile
+      ? `
 === 重要：構成更新に伴う再生成 ===
 企画書の構成が更新され、既存台本と一致しなくなっています。
 以下の既存台本を参考にしつつ、企画書の最新構成に完全準拠した台本を書き直してください。
@@ -43,9 +56,9 @@ export async function POST(req: NextRequest) {
 ${existingScript ?? "（なし）"}
 
 `
-    : "";
+      : "";
 
-  const prompt = `${reconcileBlock}以下の企画書に基づいて、YouTube動画のトークスクリプトを書いてください。
+    const prompt = `${reconcileBlock}以下の企画書に基づいて、YouTube動画のトークスクリプトを書いてください。
 
 === 企画書 ===
 タイトル：${plan.episodeTitle}
@@ -84,38 +97,48 @@ ${outlineTemplate || "## 導入\n（本文）"}
 
 台本のみを書いてください（タイトル行・読み込みメモ・メタ説明は一切不要）：`;
 
-  if (streaming) {
-    const stream = client.messages.stream({
+    if (streaming) {
+      const stream = client.messages.stream({
+        model: "claude-opus-4-5",
+        max_tokens: 6000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of stream) {
+              if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+                controller.enqueue(encoder.encode(chunk.delta.text));
+              }
+            }
+            controller.close();
+          } catch (err) {
+            controller.error(err);
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
+
+    const message = await client.messages.create({
       model: "claude-opus-4-5",
       max_tokens: 6000,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream({
-      async start(controller) {
-        for await (const chunk of stream) {
-          if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
-            controller.enqueue(encoder.encode(chunk.delta.text));
-          }
-        }
-        controller.close();
-      },
-    });
-
-    return new Response(readable, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+    const script = message.content[0].type === "text" ? message.content[0].text : "";
+    return NextResponse.json({ script });
+  } catch (err) {
+    console.error("generate-script error:", err);
+    const message =
+      err instanceof Error ? err.message : "台本生成中にサーバーエラーが発生しました";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const message = await client.messages.create({
-    model: "claude-opus-4-5",
-    max_tokens: 6000,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const script = message.content[0].type === "text" ? message.content[0].text : "";
-  return NextResponse.json({ script });
 }

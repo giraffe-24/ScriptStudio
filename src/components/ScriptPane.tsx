@@ -50,6 +50,16 @@ function cleanScript(text: string): string {
   return result.join("\n").trim();
 }
 
+function looksLikeHtmlErrorPage(text: string): boolean {
+  const t = text.trimStart();
+  return (
+    t.startsWith("<!DOCTYPE") ||
+    t.startsWith("<html") ||
+    t.includes("__next_error__") ||
+    t.includes("This page couldn't be rendered")
+  );
+}
+
 function formatUpdatedAt(iso: string): string {
   try {
     return new Date(iso).toLocaleString("ja-JP", {
@@ -145,11 +155,15 @@ export function ScriptPane({
     fetch(`/api/files?action=read&number=${episodeNumber}&slug=${episodeSlug}&filename=01-script-draft.md`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.content) {
+        if (d.content && !looksLikeHtmlErrorPage(d.content)) {
           const cleaned = cleanScript(d.content);
           setScript(cleaned);
           latestScriptRef.current = cleaned;
           setGenerated(true);
+        } else if (d.content && looksLikeHtmlErrorPage(d.content)) {
+          setScript("");
+          latestScriptRef.current = "";
+          setGenerated(false);
         } else {
           setScript("");
           latestScriptRef.current = "";
@@ -230,6 +244,8 @@ export function ScriptPane({
     if (!plan || loading) return;
 
     const fromPlan = options?.fromPlan ?? false;
+    const previousScript = script;
+    const previousGenerated = generated;
     const needsReconcile =
       !fromPlan &&
       generated &&
@@ -244,37 +260,81 @@ export function ScriptPane({
     alertedOutlineRef.current = "";
     setReconciling(needsReconcile);
 
-    const res = await fetch("/api/generate-script", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        plan,
-        streaming: true,
-        reconcile: needsReconcile,
-        existingScript: needsReconcile ? script : undefined,
-      }),
-    });
-
-    const reader = res.body?.getReader();
-    const decoder = new TextDecoder();
-    let full = "";
-    while (reader) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      full += decoder.decode(value, { stream: true });
-      setScript(full);
+    function restorePreviousScript() {
+      setScript(previousScript);
+      latestScriptRef.current = previousScript;
+      setGenerated(previousGenerated);
     }
-    const cleaned = cleanScript(full);
-    setScript(cleaned);
-    latestScriptRef.current = cleaned;
-    setGenerated(true);
-    prevOutlineRef.current = plan.outline?.map((o) => o.section) ?? [];
-    setLoading(false);
-    setReconciling(false);
 
-    if (episodeNumber && episodeSlug && cleaned.trim()) {
-      await handleSave(cleaned, "generation");
-      onScriptCreated?.();
+    try {
+      const res = await fetch("/api/generate-script", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan,
+          streaming: true,
+          reconcile: needsReconcile,
+          existingScript: needsReconcile ? previousScript : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        let message = `台本生成に失敗しました（${res.status}）`;
+        try {
+          const data = JSON.parse(errText) as { error?: string };
+          if (data.error) message = data.error;
+        } catch {
+          if (errText && !looksLikeHtmlErrorPage(errText)) message = errText.slice(0, 200);
+        }
+        window.alert(message);
+        restorePreviousScript();
+        return;
+      }
+
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("text/plain")) {
+        window.alert("台本生成の応答形式が不正です。しばらく待ってから再試行してください。");
+        restorePreviousScript();
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+        if (!looksLikeHtmlErrorPage(full)) {
+          setScript(full);
+        }
+      }
+
+      if (!full.trim() || looksLikeHtmlErrorPage(full)) {
+        window.alert(
+          "台本生成中にサーバーエラーが発生しました。Vercel の ANTHROPIC_API_KEY 設定と Redeploy を確認してください。",
+        );
+        restorePreviousScript();
+        return;
+      }
+
+      const cleaned = cleanScript(full);
+      setScript(cleaned);
+      latestScriptRef.current = cleaned;
+      setGenerated(true);
+      prevOutlineRef.current = plan.outline?.map((o) => o.section) ?? [];
+
+      if (episodeNumber && episodeSlug && cleaned.trim()) {
+        await handleSave(cleaned, "generation");
+        onScriptCreated?.();
+      }
+    } catch {
+      window.alert("台本生成中に通信エラーが発生しました。ネットワークを確認して再試行してください。");
+      restorePreviousScript();
+    } finally {
+      setLoading(false);
+      setReconciling(false);
     }
   }
 
