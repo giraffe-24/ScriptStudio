@@ -2,6 +2,22 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { computeScriptDiff } from "@/lib/script-diff";
 
+function buildFallbackSummary(
+  episodeTitle: string,
+  stats: { added: number; removed: number },
+): string {
+  if (stats.added > 0 && stats.removed > 0) {
+    return `${episodeTitle} の台本を更新しました。表現と内容を見直しています。`;
+  }
+  if (stats.added > 0) {
+    return `${episodeTitle} の台本に追記を反映しました。`;
+  }
+  if (stats.removed > 0) {
+    return `${episodeTitle} の台本を整理して更新しました。`;
+  }
+  return "台本を更新しました。";
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY が未設定です" }, { status: 503 });
@@ -40,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model =
-    process.env.ANTHROPIC_MODEL?.trim() || "claude-3-5-haiku-20241022";
+    process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-5";
 
   const userPrompt = `YouTube トーク台本の変更内容を、日本語で1〜2文に要約してください。箇条書きや Markdown は使わないでください。
 
@@ -66,6 +82,10 @@ ${diff.diffExcerpt || "（差分テキストなし）"}`;
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({
+      summary: buildFallbackSummary(episodeTitle, diff.stats),
+      stats: diff.stats,
+      warning: message,
+    });
   }
 }
