@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta } from "@/lib/file-manager";
 import { normalizeEpisodeStatus, type EpisodeStatus } from "@/lib/episode-status";
+import { getSessionUsernameFromRequest } from "@/lib/studio-session";
+import { getStudioUserName } from "@/lib/studio-user";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -38,6 +40,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const sessionUser =
+    (await getSessionUsernameFromRequest(req)) || getStudioUserName();
 
   if (body.action === "create") {
     const episode = await createEpisode(body.episode);
@@ -50,6 +54,7 @@ export async function POST(req: NextRequest) {
         ? await writeEpisodeFile(body.number, body.slug, body.filename, body.content, {
             source: body.scriptSaveSource === "generation" ? "generation" : "manual",
             planFingerprint: body.planFingerprint,
+            updatedBy: sessionUser,
           })
         : await writeEpisodeFile(body.number, body.slug, body.filename, body.content);
     return NextResponse.json({ ok: true, scriptMeta });

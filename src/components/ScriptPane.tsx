@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ScriptEditor } from "./ScriptEditor";
+import { SnapshotCommitModal } from "./SnapshotCommitModal";
+import { HistoryModal } from "./HistoryModal";
 import type { ScriptMeta } from "@/lib/file-manager";
 import type { EpisodePlan } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
@@ -78,6 +80,11 @@ export function ScriptPane({
   const [outOfSync, setOutOfSync] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [scriptMeta, setScriptMeta] = useState<ScriptMeta | null>(null);
+  const [versionsEnabled, setVersionsEnabled] = useState(false);
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [previousSnapshotContent, setPreviousSnapshotContent] = useState("");
+  const [commitCurrentContent, setCommitCurrentContent] = useState("");
   const latestScriptRef = useRef<string>("");
   const prevOutlineRef = useRef<string[] | null>(null);
   const alertedOutlineRef = useRef<string>("");
@@ -94,6 +101,38 @@ export function ScriptPane({
     );
     const data = await res.json();
     setScriptMeta(data.scriptMeta ?? null);
+  }
+
+  useEffect(() => {
+    fetch("/api/script-versions?action=status")
+      .then((r) => r.json())
+      .then((d) => setVersionsEnabled(Boolean(d.configured)))
+      .catch(() => setVersionsEnabled(false));
+  }, []);
+
+  async function openCommitModal() {
+    if (!episodeNumber || !episodeSlug || !latestScriptRef.current.trim()) return;
+    await handleSave(latestScriptRef.current);
+    const res = await fetch(
+      `/api/script-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      window.alert(data.error ?? "最新の記録を取得できませんでした");
+      return;
+    }
+    setPreviousSnapshotContent(data.snapshot?.content ?? "");
+    setCommitCurrentContent(latestScriptRef.current);
+    setCommitOpen(true);
+  }
+
+  async function handleRestoreSnapshot(content: string) {
+    if (!episodeNumber) throw new Error("エピソードが選択されていません");
+    const displayContent = cleanScript(content);
+    setScript(displayContent);
+    latestScriptRef.current = content;
+    await handleSave(content);
+    await loadScriptMeta();
   }
 
   // エピソード選択時のみディスクから読み込み
@@ -297,6 +336,26 @@ export function ScriptPane({
               {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
             </span>
           )}
+          {generated && versionsEnabled && (
+            <>
+              <button
+                type="button"
+                onClick={() => void openCommitModal()}
+                disabled={loading || !latestScriptRef.current.trim()}
+                className="text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                記録
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                disabled={loading}
+                className="text-xs font-medium px-2.5 py-1 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+              >
+                履歴
+              </button>
+            </>
+          )}
           <button
             onClick={() => handleGenerate()}
             disabled={regenerateDisabled}
@@ -315,7 +374,7 @@ export function ScriptPane({
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {loading ? "生成中…" : outOfSync ? "構成を反映して再生成" : generated ? "再生成" : "台本を生成"}
+            {loading ? "生成中…" : outOfSync ? "再生成（更新）" : generated ? "再生成" : "台本を生成"}
           </button>
         </div>
       </div>
@@ -347,6 +406,7 @@ export function ScriptPane({
             script={script}
             episodeTitle={plan.episodeTitle}
             outline={plan.outline}
+            latestContentRef={latestScriptRef}
             onSave={(content) => {
               latestScriptRef.current = content;
               handleSave(content);
@@ -365,6 +425,29 @@ export function ScriptPane({
           </div>
         )}
       </div>
+
+      {episodeNumber && episodeSlug && (
+        <>
+          <SnapshotCommitModal
+            open={commitOpen}
+            onOpenChange={setCommitOpen}
+            episodeTitle={plan.episodeTitle}
+            episodeNumber={episodeNumber}
+            episodeSlug={episodeSlug}
+            currentContent={commitCurrentContent}
+            previousContent={previousSnapshotContent}
+            onCommitted={() => void loadScriptMeta()}
+          />
+          <HistoryModal
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            episodeTitle={plan.episodeTitle}
+            episodeNumber={episodeNumber}
+            episodeSlug={episodeSlug}
+            onRestore={handleRestoreSnapshot}
+          />
+        </>
+      )}
     </div>
   );
 }

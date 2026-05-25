@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { setStudioAuthorName } from "@/lib/studio-author";
 
 export function LoginForm() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export function LoginForm() {
       return;
     }
 
+    setStudioAuthorName(username.trim());
     router.replace(nextPath.startsWith("/") ? nextPath : "/");
     router.refresh();
   }

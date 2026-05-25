@@ -48,12 +48,16 @@ export async function readScriptMeta(number: number, slug: string): Promise<Scri
 export async function updateScriptMeta(
   number: number,
   slug: string,
-  options: { source: "generation" | "manual"; planFingerprint?: string },
+  options: {
+    source: "generation" | "manual";
+    planFingerprint?: string;
+    updatedBy?: string;
+  },
 ): Promise<ScriptMeta> {
   const m = await readManifestRaw(number, slug);
   const meta: ScriptMeta = {
     updatedAt: new Date().toISOString(),
-    updatedBy: getStudioUserName(),
+    updatedBy: options.updatedBy?.trim() || getStudioUserName(),
     planFingerprint:
       options.source === "generation" && options.planFingerprint
         ? options.planFingerprint
@@ -144,7 +148,11 @@ export async function writeEpisodeFile(
   slug: string,
   filename: string,
   content: string,
-  scriptMeta?: { source: "generation" | "manual"; planFingerprint?: string },
+  scriptMeta?: {
+    source: "generation" | "manual";
+    planFingerprint?: string;
+    updatedBy?: string;
+  },
 ): Promise<ScriptMeta | null> {
   const dirName = `${String(number).padStart(2, "0")}-${slug}`;
   const dirPath = path.join(OUTPUTS_DIR, dirName);

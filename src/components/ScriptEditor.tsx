@@ -13,6 +13,7 @@ interface Props {
   outline?: { section: string; content: string }[];
   onRevisionEntered?: () => void;
   onRevisionCleared?: () => void;
+  latestContentRef?: React.MutableRefObject<string>;
 }
 
 interface Section {
@@ -79,7 +80,7 @@ function toHtml(text: string): string {
   return htmlLines.join("");
 }
 
-export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRevisionCleared }: Props) {
+export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRevisionCleared, latestContentRef }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
@@ -96,11 +97,13 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRev
     setCalibText(calib);
     setCalibOpen(false);
     hadRevisionRef.current = calib.trim().length > 0;
-  }, [script]);
+    if (latestContentRef) latestContentRef.current = script;
+  }, [script, latestContentRef]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       const combined = combineScriptCalib(content, calibText);
+      if (latestContentRef) latestContentRef.current = combined;
       onSave(combined);
       setSaved(true);
 
@@ -115,14 +118,25 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRev
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [calibText, content, onSave, onRevisionEntered, onRevisionCleared]);
+  }, [calibText, content, latestContentRef, onSave, onRevisionEntered, onRevisionCleared]);
 
   const charCount = content.replace(/\s/g, "").length;
 
   const handleChange = useCallback((value: string) => {
     setContent(value);
     setSaved(false);
-  }, []);
+    if (latestContentRef) {
+      latestContentRef.current = combineScriptCalib(value, calibText);
+    }
+  }, [calibText, latestContentRef]);
+
+  const handleCalibChange = useCallback((value: string) => {
+    setCalibText(value);
+    setSaved(false);
+    if (latestContentRef) {
+      latestContentRef.current = combineScriptCalib(content, value);
+    }
+  }, [content, latestContentRef]);
 
   function handleSave() {
     const combined = combineScriptCalib(content, calibText);
@@ -285,7 +299,7 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRev
           <div className="bg-amber-50 border-t border-amber-100">
             <textarea
               value={calibText}
-              onChange={(e) => { setCalibText(e.target.value); setSaved(false); }}
+              onChange={(e) => handleCalibChange(e.target.value)}
               rows={8}
               placeholder="手直し後の台本をここに全文貼り付けてください…"
               className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus:outline-none placeholder:text-amber-300"
@@ -297,7 +311,7 @@ export function ScriptEditor({ script, onSave, outline, onRevisionEntered, onRev
                   {calibText.replace(/\s/g, "").length.toLocaleString()} 字
                 </span>
                 <button
-                  onClick={() => { setCalibText(""); setSaved(false); }}
+                  onClick={() => handleCalibChange("")}
                   className="text-[10px] text-amber-400 hover:text-amber-600 transition-colors"
                 >
                   クリア
