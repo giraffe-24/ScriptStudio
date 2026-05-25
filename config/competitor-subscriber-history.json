@@ -3,11 +3,19 @@
     {
       "date": "2026-05-23",
       "subscriberCount": 9110
+    },
+    {
+      "date": "2026-05-25",
+      "subscriberCount": 9230
     }
   ],
   "UCCIPlDofGZVef3HArQBRrEw": [
     {
       "date": "2026-05-23",
+      "subscriberCount": 108000
+    },
+    {
+      "date": "2026-05-25",
       "subscriberCount": 108000
     }
   ],
@@ -15,12 +23,26 @@
     {
       "date": "2026-05-23",
       "subscriberCount": 87600
+    },
+    {
+      "date": "2026-05-25",
+      "subscriberCount": 88200
     }
   ],
   "UCboaqA4fwGpljEKeUjO1iVQ": [
     {
       "date": "2026-05-23",
       "subscriberCount": 61400
+    },
+    {
+      "date": "2026-05-25",
+      "subscriberCount": 61600
+    }
+  ],
+  "UC4Cm8mh5_OlQlj5kJh0zY9A": [
+    {
+      "date": "2026-05-25",
+      "subscriberCount": 103000
     }
   ]
 }
