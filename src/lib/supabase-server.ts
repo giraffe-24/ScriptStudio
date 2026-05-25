@@ -18,7 +18,7 @@ export function getSupabaseConfigHint(): string | null {
     return "SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を Vercel に設定してください。";
   }
   if (key.startsWith("sb_publishable_")) {
-    return "SUPABASE_SERVICE_ROLE_KEY に publishable キーが入っています。Supabase の service_role（secret）キーに差し替えてください。";
+    return "SUPABASE_SERVICE_ROLE_KEY に Publishable キー（sb_publishable_）が入っています。Supabase の Secret keys（sb_secret_）または Legacy の service_role キーを入れてください。";
   }
   return null;
 }
