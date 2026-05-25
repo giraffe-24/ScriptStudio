@@ -5,6 +5,14 @@ import {
   combineScriptCalib,
   splitScriptCalib,
 } from "@/lib/script-calib";
+import { extractSelectionContext } from "@/lib/script-selection";
+
+export type SelectionRegeneratePayload = {
+  selection: string;
+  before: string;
+  after: string;
+  sectionHeading: string | null;
+};
 
 interface Props {
   script: string;
@@ -14,15 +22,17 @@ interface Props {
   onRevisionEntered?: () => void;
   onRevisionCleared?: () => void;
   latestContentRef?: React.MutableRefObject<string>;
-  onRegenerateSection?: (index: number) => void;
-  regeneratingSectionIndices?: number[];
+  onRegenerateSelection?: (payload: SelectionRegeneratePayload) => Promise<string>;
+  onSelectionRegenerated?: (beforeContent: string, afterContent: string) => void;
 }
 
 interface Section {
   label: string;
   content: string;
-  charOffset: number; // textarea 内の開始文字位置
+  charOffset: number;
 }
+
+const MIN_SELECTION_CHARS = 8;
 
 function parseSections(text: string, outline?: { section: string; content: string }[]): Section[] {
   if (!text.trim()) return outline?.map((item) => ({ label: item.section, content: "", charOffset: 0 })) ?? [];
@@ -50,7 +60,6 @@ function parseSections(text: string, outline?: { section: string; content: strin
 
   if (!outline?.length) return parsed.filter((s) => s.content.trim());
 
-  // 企画書の目次案をラベルに優先（台本 ## 見出しとインデックスで対応）
   return outline.map((item, i) => {
     const fromScript = parsed[i];
     if (fromScript) {
@@ -64,7 +73,6 @@ function splitCalib(raw: string): { main: string; calib: string } {
   return splitScriptCalib(raw);
 }
 
-/** Markdown → Google Docs に貼り付けたとき見出しになる HTML を生成 */
 function toHtml(text: string): string {
   const lines = text.split("\n");
   const htmlLines = lines.map((line) => {
@@ -89,8 +97,8 @@ export function ScriptEditor({
   onRevisionEntered,
   onRevisionCleared,
   latestContentRef,
-  onRegenerateSection,
-  regeneratingSectionIndices = [],
+  onRegenerateSelection,
+  onSelectionRegenerated,
 }: Props) {
   const { main: initMain, calib: initCalib } = splitCalib(script);
   const [content, setContent] = useState(initMain);
@@ -98,9 +106,11 @@ export function ScriptEditor({
   const [saved, setSaved] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [calibOpen, setCalibOpen] = useState(false);
+  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  const [selectionBusy, setSelectionBusy] = useState(false);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const selectionRef = useRef<{ start: number; end: number } | null>(null);
 
   useEffect(() => {
     const { main, calib } = splitCalib(script);
@@ -149,28 +159,43 @@ export function ScriptEditor({
     }
   }, [content, latestContentRef]);
 
+  function syncSelectionFromTextarea() {
+    const ta = textareaRef.current;
+    if (!ta) {
+      setSelectionRange(null);
+      selectionRef.current = null;
+      return;
+    }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    if (end - start >= MIN_SELECTION_CHARS) {
+      const next = { start, end };
+      setSelectionRange(next);
+      selectionRef.current = next;
+    } else {
+      setSelectionRange(null);
+      selectionRef.current = null;
+    }
+  }
+
   function handleSave() {
     const combined = combineScriptCalib(content, calibText);
     onSave(combined);
     setSaved(true);
   }
 
-  /** セクションボタンクリック → textarea 内の該当見出しへスクロール */
   function scrollToSection(sec: Section) {
     const ta = textareaRef.current;
     if (!ta) return;
     ta.focus();
     ta.setSelectionRange(sec.charOffset, sec.charOffset);
-
-    // 見出しが何行目かを計算してスクロール
     const textBefore = content.slice(0, sec.charOffset);
     const lineIndex = textBefore.split("\n").length - 1;
-    // lineHeight を測定（計算できないため固定値 + バッファ）
     const approxLineHeight = ta.scrollHeight / (content.split("\n").length || 1);
     ta.scrollTop = Math.max(0, (lineIndex - 1) * approxLineHeight);
+    syncSelectionFromTextarea();
   }
 
-  /** 全体コピー：HTML 形式で Clipboard に書き込み（Google Docs 見出し対応） */
   async function handleCopyAll() {
     try {
       const html = toHtml(content);
@@ -180,7 +205,6 @@ export function ScriptEditor({
         new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob }),
       ]);
     } catch {
-      // ClipboardItem 非対応ブラウザはプレーンテキストにフォールバック
       await navigator.clipboard.writeText(content);
     }
     setCopied("__all__");
@@ -202,7 +226,48 @@ export function ScriptEditor({
     setTimeout(() => setCopied(null), 1500);
   }
 
+  async function handleRegenerateSelectionClick() {
+    const range = selectionRef.current;
+    if (!range || !onRegenerateSelection || selectionBusy) return;
+
+    const payload = extractSelectionContext(content, range.start, range.end);
+    if (!payload.selection.trim()) return;
+
+    setSelectionBusy(true);
+    try {
+      const replacement = await onRegenerateSelection(payload);
+      if (!replacement.trim()) return;
+
+      const beforeCombined = combineScriptCalib(content, calibText);
+      const newContent =
+        content.slice(0, range.start) + replacement + content.slice(range.end);
+      const afterCombined = combineScriptCalib(newContent, calibText);
+
+      handleChange(newContent);
+      onSelectionRegenerated?.(beforeCombined, afterCombined);
+
+      requestAnimationFrame(() => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        ta.focus();
+        const newEnd = range.start + replacement.length;
+        ta.setSelectionRange(range.start, newEnd);
+        const next = { start: range.start, end: newEnd };
+        setSelectionRange(next);
+        selectionRef.current = next;
+      });
+    } catch {
+      window.alert("選択部分の再生成に失敗しました");
+    } finally {
+      setSelectionBusy(false);
+    }
+  }
+
   const sections = parseSections(content, outline);
+  const selectionLength = selectionRange ? selectionRange.end - selectionRange.start : 0;
+  const canRegenerateSelection =
+    !!onRegenerateSelection && !!selectionRange && selectionLength >= MIN_SELECTION_CHARS;
+
   const targetMin = 4000;
   const targetMax = 6000;
   const progress = Math.min((charCount / targetMax) * 100, 100);
@@ -213,21 +278,39 @@ export function ScriptEditor({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ツールバー */}
-      <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between bg-white shrink-0 gap-3">
+        <div className="flex items-center gap-4 min-w-0">
           <span className={`text-xs font-bold font-mono tabular-nums ${countColor}`}>
             {charCount.toLocaleString()} 字
           </span>
           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className={`h-full ${progressColor} transition-all`} style={{ width: `${progress}%` }} />
           </div>
-          <span className="text-[10px] text-gray-400">目標 4,000〜6,000 字</span>
-          <span className="text-[10px] text-gray-400 hidden sm:inline">· 軽い修正は直接編集</span>
+          <span className="text-[10px] text-gray-400 hidden md:inline">目標 4,000〜6,000 字</span>
+          <span className="text-[10px] text-gray-400 hidden lg:inline">· ドラッグで選択 → 部分再生成</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          {onRegenerateSelection && (
+            <button
+              type="button"
+              onClick={() => void handleRegenerateSelectionClick()}
+              disabled={!canRegenerateSelection || selectionBusy}
+              title={
+                canRegenerateSelection
+                  ? `選択中 ${selectionLength} 字を前後文脈を踏まえて書き直す`
+                  : "台本内の文字列をドラッグして選択してください"
+              }
+              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+                canRegenerateSelection && !selectionBusy
+                  ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-gray-200 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {selectionBusy ? "再生成中…" : "選択部分を再生成"}
+            </button>
+          )}
           <button
-            onClick={handleCopyAll}
+            onClick={() => void handleCopyAll()}
             className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
               copied === "__all__"
                 ? "bg-green-50 text-green-600 border-green-300"
@@ -246,55 +329,54 @@ export function ScriptEditor({
         </div>
       </div>
 
-      {/* 本体 */}
+      {selectionRange && canRegenerateSelection && !selectionBusy && (
+        <div className="px-4 py-1.5 border-b border-blue-100 bg-blue-50 shrink-0">
+          <p className="text-[10px] text-blue-700">
+            {selectionLength.toLocaleString()} 字を選択中 —「選択部分を再生成」で前後の文脈を踏まえて書き直します
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
-        {/* 左：セクション一覧 */}
         {sections.length > 0 && (
           <div className="w-44 shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50 py-3 px-2 space-y-1">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
               セクション
             </p>
-            {sections.map((sec, index) => (
-              <div key={sec.label} className="flex items-start gap-1">
-                <button
-                  onClick={() => scrollToSection(sec)}
-                  onContextMenu={(e) => { e.preventDefault(); handleCopySection(sec.label, sec.content); }}
-                  title={`クリック：ジャンプ　右クリック：コピー`}
-                  className={`flex-1 text-left rounded-lg px-2.5 py-2 transition-all group ${
-                    copied === sec.label
-                      ? "bg-green-100 text-green-700"
-                      : "hover:bg-white hover:shadow-sm text-gray-600"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
-                    <span className="shrink-0 text-[10px] opacity-0 group-hover:opacity-100 text-gray-400 transition-opacity">
-                      {copied === sec.label ? "✓" : "↑"}
-                    </span>
-                  </div>
-                </button>
-                {onRegenerateSection && (
-                  <button
-                    type="button"
-                    onClick={() => onRegenerateSection(index)}
-                    disabled={regeneratingSectionIndices.includes(index)}
-                    title="この章だけ AI 再生成"
-                    className="shrink-0 mt-1.5 w-7 h-7 rounded text-[10px] text-gray-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {regeneratingSectionIndices.includes(index) ? "…" : "↻"}
-                  </button>
-                )}
-              </div>
+            {sections.map((sec) => (
+              <button
+                key={sec.label}
+                onClick={() => scrollToSection(sec)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  void handleCopySection(sec.label, sec.content);
+                }}
+                title="クリック：ジャンプ　右クリック：コピー"
+                className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
+                  copied === sec.label
+                    ? "bg-green-100 text-green-700"
+                    : "hover:bg-white hover:shadow-sm text-gray-600"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
+                  <span className="shrink-0 text-[10px] opacity-0 group-hover:opacity-100 text-gray-400 transition-opacity">
+                    {copied === sec.label ? "✓" : "↑"}
+                  </span>
+                </div>
+              </button>
             ))}
           </div>
         )}
 
-        {/* 右：台本テキストエリア */}
         <div className="flex-1 overflow-hidden">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => handleChange(e.target.value)}
+            onSelect={syncSelectionFromTextarea}
+            onMouseUp={syncSelectionFromTextarea}
+            onKeyUp={syncSelectionFromTextarea}
             className="w-full h-full p-4 text-sm leading-relaxed text-gray-800 resize-none border-0 focus:outline-none font-mono"
             placeholder="台本をここに入力…"
             spellCheck={false}
@@ -302,7 +384,6 @@ export function ScriptEditor({
         </div>
       </div>
 
-      {/* 推敲比較セクション（全幅・初期状態：閉じ） */}
       <div className="border-t-2 border-dashed border-amber-200 shrink-0">
         <button
           onClick={() => setCalibOpen((v) => !v)}

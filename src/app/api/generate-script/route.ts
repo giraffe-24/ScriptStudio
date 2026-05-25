@@ -67,6 +67,64 @@ ${existingBody.trim() || "（新規セクション）"}
   return text.replace(/^##\s+.*\n?/m, "").trim();
 }
 
+async function generateSelectionBody(
+  client: Anthropic,
+  systemPrompt: string,
+  plan: PlanPayload,
+  input: {
+    selection: string;
+    before: string;
+    after: string;
+    sectionHeading?: string | null;
+  },
+): Promise<string> {
+  const keyPointsText = (plan.keyPoints ?? []).map((p) => `・${p}`).join("\n");
+  const sectionDetail =
+    input.sectionHeading &&
+    plan.outline?.find((item) => item.section === input.sectionHeading)?.content;
+
+  const prompt = `YouTube動画のトークスクリプトの「選択された一部だけ」を書き直してください。
+
+=== 企画書 ===
+タイトル：${plan.episodeTitle}
+想定視聴者：${plan.targetViewer ?? ""}
+視聴者の悩み：${plan.pain ?? ""}
+動画の約束：${plan.promise ?? ""}
+${keyPointsText ? `\nキーポイント：\n${keyPointsText}` : ""}
+${input.sectionHeading ? `\n現在のセクション見出し：${input.sectionHeading}` : ""}
+${sectionDetail ? `セクション詳細：${sectionDetail}` : ""}
+
+=== 執筆ルール ===
+1. 選択部分だけを出力する（前後の文は出力しない）
+2. 直前・直後の文脈と自然につながる語り口にする
+3. 視聴者は40〜60代向けに平易な語り口
+4. 選択範囲に ## 見出しが含まれない限り、見出し行は出力しない
+5. 不要な全面書き換えは避け、意味は保ちつつ改善する
+
+=== 直前の文（参考・出力に含めない） ===
+${input.before.trim() || "（なし）"}
+
+=== 書き直す選択部分 ===
+${input.selection}
+
+=== 直後の文（参考・出力に含めない） ===
+${input.after.trim() || "（なし）"}
+
+選択部分の置き換えテキストのみ出力：`;
+
+  const maxTokens = Math.min(2000, Math.max(256, Math.ceil(input.selection.length * 1.5)));
+
+  const message = await client.messages.create({
+    model: "claude-opus-4-5",
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  return text.trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
@@ -88,14 +146,22 @@ export async function POST(req: NextRequest) {
       mode,
       sectionIndices,
       sectionBodies,
+      selection,
+      before,
+      after,
+      sectionHeading,
     } = body as {
       plan: PlanPayload;
       streaming?: boolean;
       reconcile?: boolean;
       existingScript?: string;
-      mode?: "full" | "sections";
+      mode?: "full" | "sections" | "selection";
       sectionIndices?: number[];
       sectionBodies?: Record<string, string>;
+      selection?: string;
+      before?: string;
+      after?: string;
+      sectionHeading?: string | null;
     };
 
     if (!plan) return NextResponse.json({ error: "plan required" }, { status: 400 });
@@ -103,6 +169,20 @@ export async function POST(req: NextRequest) {
     const config = await loadChannelConfig();
     const systemPrompt = buildSystemPrompt(config);
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    if (mode === "selection") {
+      const selected = selection?.trim() ?? "";
+      if (!selected) {
+        return NextResponse.json({ error: "selection required" }, { status: 400 });
+      }
+      const replacement = await generateSelectionBody(client, systemPrompt, plan, {
+        selection: selected,
+        before: before ?? "",
+        after: after ?? "",
+        sectionHeading: sectionHeading ?? null,
+      });
+      return NextResponse.json({ replacement });
+    }
 
     if (mode === "sections") {
       const indices = Array.isArray(sectionIndices)

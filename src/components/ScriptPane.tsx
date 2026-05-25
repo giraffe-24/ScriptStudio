@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ScriptEditor } from "./ScriptEditor";
+import { ScriptEditor, type SelectionRegeneratePayload } from "./ScriptEditor";
 import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
 import type { ScriptMeta } from "@/lib/file-manager";
@@ -513,9 +513,42 @@ export function ScriptPane({
     await runIncrementalUpdate();
   }
 
-  async function handleRegenerateSection(index: number) {
-    if (!plan?.outline?.length || loading) return;
-    await runIncrementalUpdate([index]);
+  async function handleRegenerateSelection(payload: SelectionRegeneratePayload): Promise<string> {
+    if (!plan) throw new Error("企画書がありません");
+
+    const res = await fetch("/api/generate-script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "selection",
+        plan,
+        selection: payload.selection,
+        before: payload.before,
+        after: payload.after,
+        sectionHeading: payload.sectionHeading,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "選択部分の再生成に失敗しました");
+    }
+
+    const replacement = String(data.replacement ?? "").trim();
+    if (!replacement) {
+      throw new Error("再生成結果が空でした");
+    }
+    return replacement;
+  }
+
+  async function handleSelectionRegenerated(beforeContent: string, afterContent: string) {
+    setScript(cleanScript(afterContent));
+    latestScriptRef.current = afterContent;
+    setGenerated(true);
+    if (episodeNumber && episodeSlug) {
+      await handleSave(afterContent, "manual");
+      await autoRecordSnapshot(beforeContent, afterContent);
+    }
   }
 
   async function handleManualPlanSync() {
@@ -652,7 +685,7 @@ export function ScriptPane({
       {needsOutlineUpdate && !loading && (
         <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between gap-3">
           <p className="text-xs text-amber-800 flex-1">
-            構成（目次案）に変更があります。軽い修正は下の台本を直接編集し「手動で反映」を。大幅な変更は「再生成」で AI 更新（変更セクションのみ）。
+            構成（目次案）に変更があります。軽い修正は台本をドラッグ選択→「選択部分を再生成」、または直接編集→「手動で反映」。大幅な変更は「再生成」。
           </p>
           <button
             type="button"
@@ -686,8 +719,8 @@ export function ScriptPane({
             episodeTitle={plan.episodeTitle}
             outline={plan.outline}
             latestContentRef={latestScriptRef}
-            regeneratingSectionIndices={updatingSections}
-            onRegenerateSection={generated ? (index) => void handleRegenerateSection(index) : undefined}
+            onRegenerateSelection={generated ? handleRegenerateSelection : undefined}
+            onSelectionRegenerated={(before, after) => void handleSelectionRegenerated(before, after)}
             onSave={(content) => {
               latestScriptRef.current = content;
               handleSave(content);
