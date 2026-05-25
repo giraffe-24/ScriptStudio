@@ -1027,7 +1027,7 @@ export function ScriptPane({
             latestContentRef={latestScriptRef}
             generationStatus={generationStatus}
             onRegenerateSelection={
-              generated && !loading && canRegenerate ? handleRegenerateSelection : undefined
+              generated && !loading ? handleRegenerateSelection : undefined
             }
             onSelectionRegenerated={(before, after) => void handleSelectionRegenerated(before, after)}
             onSave={(content) => {
