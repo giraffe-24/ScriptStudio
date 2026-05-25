@@ -1,7 +1,61 @@
+export const SITE_ACCESS_SESSION_COOKIE = "scriptstudio_session";
+
 export type SiteAccessCredential = {
   username: string;
   password: string;
 };
+
+function getSessionSecret(): string {
+  const fromEnv = process.env.SITE_ACCESS_SECRET?.trim();
+  if (fromEnv) return fromEnv;
+  return getSiteAccessCredentials()
+    .map((c) => `${c.username}:${c.password}`)
+    .join("|");
+}
+
+async function importHmacKey(secret: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  );
+}
+
+export async function createSessionToken(username: string): Promise<string> {
+  const key = await importHmacKey(getSessionSecret());
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(username),
+  );
+  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  return `${encodeURIComponent(username)}.${sig}`;
+}
+
+export async function verifySessionToken(
+  token: string,
+): Promise<string | null> {
+  const dot = token.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const username = decodeURIComponent(token.slice(0, dot));
+  const sig = token.slice(dot + 1);
+  if (!username || !sig) return null;
+
+  const key = await importHmacKey(getSessionSecret());
+  try {
+    const valid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      Uint8Array.from(atob(sig), (c) => c.charCodeAt(0)),
+      new TextEncoder().encode(username),
+    );
+    return valid ? username : null;
+  } catch {
+    return null;
+  }
+}
 
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

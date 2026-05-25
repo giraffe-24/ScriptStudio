@@ -1,34 +1,48 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
+  SITE_ACCESS_SESSION_COOKIE,
   decodeBasicAuth,
   getSiteAccessCredentials,
   isSiteAccessEnabled,
+  verifySessionToken,
   verifySiteAccess,
 } from "@/lib/site-access";
 
-function unauthorized(): NextResponse {
-  return new NextResponse("認証が必要です", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="ScriptStudio", charset="UTF-8"',
-    },
-  });
+const PUBLIC_PATHS = ["/login", "/api/site-auth/login"];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   if (!isSiteAccessEnabled()) {
     return NextResponse.next();
   }
 
-  const credentials = getSiteAccessCredentials();
-  const auth = decodeBasicAuth(request.headers.get("authorization"));
-
-  if (!auth || !verifySiteAccess(auth.username, auth.password, credentials)) {
-    return unauthorized();
+  const { pathname } = request.nextUrl;
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  const credentials = getSiteAccessCredentials();
+
+  const session = request.cookies.get(SITE_ACCESS_SESSION_COOKIE)?.value;
+  if (session && (await verifySessionToken(session))) {
+    return NextResponse.next();
+  }
+
+  const auth = decodeBasicAuth(request.headers.get("authorization"));
+  if (auth && verifySiteAccess(auth.username, auth.password, credentials)) {
+    return NextResponse.next();
+  }
+
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  loginUrl.searchParams.set("next", pathname);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
