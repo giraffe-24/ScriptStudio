@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase-server";
+import { isSupabaseConfigured, getSupabaseConfigHint } from "@/lib/supabase-server";
 import {
   createScriptSnapshot,
   getLatestScriptSnapshot,
@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   const action = searchParams.get("action");
 
   if (action === "status") {
-    return NextResponse.json({ configured: isSupabaseConfigured() });
+    return NextResponse.json({
+      configured: isSupabaseConfigured(),
+      hint: getSupabaseConfigHint(),
+    });
   }
 
   if (!isSupabaseConfigured()) return notConfigured();

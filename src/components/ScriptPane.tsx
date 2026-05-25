@@ -91,6 +91,7 @@ export function ScriptPane({
   const [reconciling, setReconciling] = useState(false);
   const [scriptMeta, setScriptMeta] = useState<ScriptMeta | null>(null);
   const [versionsEnabled, setVersionsEnabled] = useState(false);
+  const [versionsHint, setVersionsHint] = useState("");
   const [commitOpen, setCommitOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previousSnapshotContent, setPreviousSnapshotContent] = useState("");
@@ -113,12 +114,26 @@ export function ScriptPane({
     setScriptMeta(data.scriptMeta ?? null);
   }
 
+  async function refreshVersionsStatus() {
+    try {
+      const res = await fetch("/api/script-versions?action=status");
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) return;
+      const data = (await res.json()) as { configured?: boolean; hint?: string | null };
+      setVersionsEnabled(Boolean(data.configured));
+      setVersionsHint(data.hint ?? "");
+    } catch {
+      setVersionsEnabled(false);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/script-versions?action=status")
-      .then((r) => r.json())
-      .then((d) => setVersionsEnabled(Boolean(d.configured)))
-      .catch(() => setVersionsEnabled(false));
+    void refreshVersionsStatus();
   }, []);
+
+  useEffect(() => {
+    if (generated) void refreshVersionsStatus();
+  }, [generated]);
 
   async function openCommitModal() {
     if (!episodeNumber || !episodeSlug || !latestScriptRef.current.trim()) return;
@@ -396,7 +411,7 @@ export function ScriptPane({
               {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
             </span>
           )}
-          {generated && versionsEnabled && (
+          {generated && versionsEnabled && episodeNumber && episodeSlug && (
             <>
               <button
                 type="button"
@@ -438,6 +453,12 @@ export function ScriptPane({
           </button>
         </div>
       </div>
+
+      {generated && !versionsEnabled && versionsHint && !loading && (
+        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2">
+          <p className="text-xs text-amber-700">{versionsHint}</p>
+        </div>
+      )}
 
       {outOfSync && !loading && (
         <div className="bg-red-50 border-b border-red-100 px-4 py-2">
