@@ -6,7 +6,17 @@ import {
 } from "@/lib/market-analysis/competitors-config";
 import { buildChannelSubscriberStats } from "@/lib/market-analysis/channel-stats";
 import { resolveYouTubeChannel } from "@/lib/youtube-channel-resolve";
+import { isPersistenceConfigurationError } from "@/lib/runtime-persistence";
 import type { CompetitorChannel } from "@/lib/types";
+
+function errorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("[competitors]", message);
+  return NextResponse.json(
+    { error: message },
+    { status: isPersistenceConfigurationError(error) ? 503 : 500 },
+  );
+}
 
 async function respondWithChannels(includeStats: boolean) {
   const channels = await readCompetitorsConfig();
@@ -72,9 +82,7 @@ export async function POST(req: NextRequest) {
     await appendCompetitorsConfig(channels);
     return respondWithChannels(false);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[competitors]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorResponse(err);
   }
 }
 
@@ -90,8 +98,6 @@ export async function PUT(req: NextRequest) {
     const channels = await readCompetitorsConfig();
     return NextResponse.json({ channels });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[competitors]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return errorResponse(err);
   }
 }

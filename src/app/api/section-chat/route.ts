@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import type { ChatMessage } from "@/lib/types";
 
@@ -24,26 +25,31 @@ ${sectionContent}
     { role: "user", content: userMessage },
   ];
 
-  const stream = client.messages.stream({
-    model: "claude-opus-4-5",
-    max_tokens: 1500,
-    system: systemPrompt,
-    messages,
-  });
+  try {
+    const stream = client.messages.stream({
+      model: getAnthropicModel("sectionChat"),
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages,
+    });
 
-  const encoder = new TextEncoder();
-  const readable = new ReadableStream({
-    async start(controller) {
-      for await (const chunk of stream) {
-        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
-          controller.enqueue(encoder.encode(chunk.delta.text));
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+            controller.enqueue(encoder.encode(chunk.delta.text));
+          }
         }
-      }
-      controller.close();
-    },
-  });
+        controller.close();
+      },
+    });
 
-  return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

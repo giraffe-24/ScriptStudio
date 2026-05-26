@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { computeScriptDiff } from "@/lib/script-diff";
 
 function buildFallbackSummary(
@@ -55,8 +56,7 @@ export async function POST(req: NextRequest) {
   }
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model =
-    process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-5";
+  const model = getAnthropicModel("summary");
 
   const userPrompt = `YouTube トーク台本の変更内容を、日本語で1〜2文に要約してください。箇条書きや Markdown は使わないでください。
 

@@ -1,5 +1,6 @@
 import type { CompetitorChannel } from "@/lib/types";
 import { getSupabaseServer, isSupabaseConfigured } from "@/lib/supabase-server";
+import { ensurePersistedRuntimeStoreConfigured } from "@/lib/runtime-persistence";
 
 const COMPETITORS_BUCKET = "scriptstudio-competitors-config";
 const COMPETITORS_OBJECT_PATH = "competitors.json";
@@ -91,6 +92,7 @@ async function uploadPersistedCompetitorsConfig(
 export async function writePersistedCompetitorsConfig(
   channels: CompetitorChannel[],
 ): Promise<CompetitorChannel[]> {
+  ensurePersistedRuntimeStoreConfigured("競合チャンネル設定");
   if (!isSupabaseConfigured()) return channels;
   try {
     await ensureCompetitorsBucket();

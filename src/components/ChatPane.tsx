@@ -29,29 +29,43 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
     const withAssistant = [...newHistory, assistantMsg];
     onHistoryUpdate(withAssistant);
 
-    const res = await fetch("/api/section-chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        theme,
-        sectionLabel,
-        sectionContent,
-        history: newHistory.slice(0, -1),
-        userMessage: input,
-      }),
-    });
+    try {
+      const res = await fetch("/api/section-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          theme,
+          sectionLabel,
+          sectionContent,
+          history: newHistory.slice(0, -1),
+          userMessage: input,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? "セクション相談に失敗しました");
+      }
 
-    const reader = res.body?.getReader();
-    const decoder = new TextDecoder();
-    let full = "";
-    while (reader) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      full += decoder.decode(value, { stream: true });
-      onHistoryUpdate([...newHistory, { role: "assistant", content: full }]);
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error("セクション相談の応答を受け取れませんでした");
+      }
+
+      const decoder = new TextDecoder();
+      let full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+        onHistoryUpdate([...newHistory, { role: "assistant", content: full }]);
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "セクション相談に失敗しました";
+      onHistoryUpdate([...newHistory, { role: "assistant", content: message }]);
+    } finally {
+      setStreaming(false);
     }
-    setStreaming(false);
   }
 
   return (

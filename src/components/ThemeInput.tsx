@@ -146,8 +146,13 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channelIds: ids }),
     })
-      .then((r) => r.json())
-      .then((d) => setCompetitorStats(d.stats ?? {}))
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          throw new Error((data as { error?: string }).error ?? "競合統計の取得に失敗しました");
+        }
+        setCompetitorStats((data as { stats?: Record<string, ChannelSubscriberStats> }).stats ?? {});
+      })
       .catch(() => setCompetitorStats({}));
   }, [showCompetitorModal, competitorSuggestions]);
 
@@ -214,7 +219,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     }
     setSavingCompetitors(true);
     try {
-      await fetch("/api/competitors", {
+      const res = await fetch("/api/competitors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -224,9 +229,14 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
           })),
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: string }).error ?? "競合チャンネルの保存に失敗しました");
+      }
       setShowCompetitorModal(false);
     } catch (e) {
       console.error("competitors save error:", e);
+      setError(e instanceof Error ? e.message : "競合チャンネルの保存に失敗しました");
     } finally {
       setSavingCompetitors(false);
     }

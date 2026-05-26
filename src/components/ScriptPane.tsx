@@ -536,7 +536,10 @@ export function ScriptPane({
         planFingerprint: shouldSyncPlan ? planGenerationFingerprint(savePlan) : undefined,
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error((data as { error?: string }).error ?? "台本の保存に失敗しました");
+    }
     if (episodeKey(episodeNumber, episodeSlug) === episodeKey(number, slug)) {
       latestScriptRef.current = content;
       if (data.scriptMeta) {
@@ -868,7 +871,6 @@ export function ScriptPane({
   async function handleManualPlanSync() {
     const content = latestScriptRef.current;
     if (!content.trim() || !plan) return;
-    confirmPlanScriptBaseline(plan);
 
     if (versionsEnabled && episodeNumber && episodeSlug) {
       const res = await fetch("/api/files", {
@@ -880,14 +882,18 @@ export function ScriptPane({
           slug: episodeSlug,
           planFingerprint: planGenerationFingerprint(plan),
         }),
-      }).catch(() => null);
-      const data = res ? await res.json().catch(() => ({})) : {};
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: string }).error ?? "企画と台本の反映に失敗しました");
+      }
       await refreshRecordBaseline({
         scriptMeta: ((data as { scriptMeta?: ScriptMeta | null }).scriptMeta ?? null) as ScriptMeta | null,
         planFingerprint: planGenerationFingerprint(plan),
         savePlan: plan,
       });
     }
+    confirmPlanScriptBaseline(plan);
   }
 
   async function handleSave(
@@ -1083,7 +1089,7 @@ export function ScriptPane({
             onSelectionRegenerated={(before, after) => void handleSelectionRegenerated(before, after)}
             onSave={(content) => {
               latestScriptRef.current = content;
-              handleSave(content);
+              return handleSave(content);
             }}
             onRevisionEntered={onRevisionEntered}
             onRevisionCleared={onRevisionCleared}

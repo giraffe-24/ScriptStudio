@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { EnrichedCandidate } from "@/lib/types";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { buildCandidateGeneratePrompt, loadMarketAnalysisRubric } from "../prompts";
 
 function extractJsonArray(text: string): EnrichedCandidate[] {
@@ -20,10 +21,7 @@ export async function runCandidateGenerateStage(
   const userPrompt = buildCandidateGeneratePrompt({ ...promptData, rubric });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const model =
-    process.env.ANTHROPIC_MODEL_STAGE2 ??
-    process.env.ANTHROPIC_MODEL ??
-    "claude-opus-4-5";
+  const model = getAnthropicModel("marketStage2");
 
   const message = await client.messages.create({
     model,

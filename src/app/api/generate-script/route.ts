@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import {
   buildScriptOutlineContext,
@@ -72,7 +73,7 @@ ${existingBody.trim() || "（新規セクション）"}
 本文のみ出力：`;
 
   const message = await client.messages.create({
-    model: "claude-opus-4-5",
+    model: getAnthropicModel("script"),
     max_tokens: 1800,
     system: systemPrompt,
     messages: [{ role: "user", content: prompt }],
@@ -130,7 +131,7 @@ ${input.after.trim() || "（なし）"}
   const maxTokens = Math.min(2000, Math.max(256, Math.ceil(input.selection.length * 1.5)));
 
   const message = await client.messages.create({
-    model: "claude-opus-4-5",
+    model: getAnthropicModel("script"),
     max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{ role: "user", content: prompt }],
@@ -299,7 +300,7 @@ ${outlineTemplate || "## 導入\n（本文）"}
 
     if (streaming) {
       const stream = client.messages.stream({
-        model: "claude-opus-4-5",
+        model: getAnthropicModel("script"),
         max_tokens: 6000,
         system: systemPrompt,
         messages: [{ role: "user", content: prompt }],
@@ -327,7 +328,7 @@ ${outlineTemplate || "## 導入\n（本文）"}
     }
 
     const message = await client.messages.create({
-      model: "claude-opus-4-5",
+      model: getAnthropicModel("script"),
       max_tokens: 6000,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }],

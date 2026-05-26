@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import { sanitizePlanOutline } from "@/lib/plan-outline";
 
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const message = await client.messages.create({
-      model: "claude-opus-4-5",
+      model: getAnthropicModel("inferPlan"),
       max_tokens: 2000,
       system: systemPrompt,
       messages: [

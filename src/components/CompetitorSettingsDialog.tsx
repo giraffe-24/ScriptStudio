@@ -112,25 +112,25 @@ export function CompetitorSettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        className="rounded-md border border-border bg-background/70 p-2 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+        className="rounded-xl border border-slate-300 bg-slate-100 p-2 text-slate-500 shadow-sm transition-colors hover:border-sky-300 hover:bg-white hover:text-sky-600 dark:border-slate-500 dark:bg-slate-700 dark:text-slate-200 dark:hover:border-sky-400 dark:hover:bg-slate-600 dark:hover:text-sky-200"
         aria-label="設定"
       >
         <Settings className="w-3.5 h-3.5" />
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="border border-slate-200 bg-slate-50 text-slate-900 shadow-2xl sm:max-w-2xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50">
         <DialogHeader className="space-y-1">
           <DialogTitle>競合チャンネル設定</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-slate-600 dark:text-slate-300">
             オンのチャンネルだけが、次回以降の市場分析に使われます。オフにすると候補生成から除外されます。
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <label className="block text-xs font-medium text-foreground">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-700/80">
+            <label className="block text-xs font-medium text-slate-800 dark:text-slate-100">
               URL から競合チャンネルを登録
             </label>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               YouTube のチャンネル URL を入れると、この一覧に追加できます。
             </p>
             <div className="mt-3 flex gap-2">
@@ -145,43 +145,43 @@ export function CompetitorSettingsDialog() {
                   if (e.key === "Enter") void handleRegisterByUrl();
                 }}
                 placeholder="https://www.youtube.com/@..."
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-primary/30"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-500/20"
               />
               <button
                 type="button"
                 onClick={() => void handleRegisterByUrl()}
                 disabled={registering || !registerUrl.trim()}
-                className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-sky-500 dark:hover:bg-sky-400 dark:disabled:bg-slate-600 dark:disabled:text-slate-300"
               >
                 {registering ? "登録中…" : "登録"}
               </button>
             </div>
             {registerError && (
-              <p className="mt-2 text-xs leading-relaxed text-red-500">{registerError}</p>
+              <p className="mt-2 text-xs leading-relaxed text-rose-600 dark:text-rose-300">{registerError}</p>
             )}
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
               例: `https://www.youtube.com/channel/UC...` または `https://www.youtube.com/@handle`
             </p>
           </div>
 
           {loadError ? (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-400">
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
               {loadError}
             </p>
           ) : null}
 
           {toggleError ? (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-400">
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
               {toggleError}
             </p>
           ) : null}
 
-          <div className="rounded-xl border border-border bg-background/60 p-2">
+          <div className="rounded-xl border border-slate-200 bg-white/90 p-2 shadow-sm dark:border-slate-700 dark:bg-slate-700/50">
             <div className="max-h-104 space-y-2 overflow-y-auto pr-1">
               {loading ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">読み込み中…</p>
+                <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-300">読み込み中…</p>
               ) : channels.length === 0 ? (
-                <p className="py-6 text-center text-sm leading-relaxed text-muted-foreground">
+                <p className="py-6 text-center text-sm leading-relaxed text-slate-500 dark:text-slate-300">
                   登録済みの競合チャンネルがありません。
                   <br />
                   上の URL 入力欄から追加できます。
@@ -194,10 +194,13 @@ export function CompetitorSettingsDialog() {
                     <div
                       key={ch.channelId}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                        "flex items-center gap-3 rounded-xl border px-4 py-3 shadow-sm transition-colors",
                         enabled
-                          ? "border-emerald-500/25 bg-emerald-500/5"
-                          : "border-border bg-muted/15",
+                          ? "border-sky-200 bg-sky-50"
+                          : "border-slate-200 bg-white",
+                        enabled
+                          ? "dark:border-sky-400/30 dark:bg-slate-700"
+                          : "dark:border-slate-600 dark:bg-slate-700/70",
                       )}
                     >
                       <button
@@ -208,10 +211,13 @@ export function CompetitorSettingsDialog() {
                         disabled={saving}
                         onClick={() => void handleToggle(ch.channelId, !enabled)}
                         className={cn(
-                          "inline-flex h-9 w-20 shrink-0 items-center rounded-full border px-1 transition",
+                          "inline-flex h-9 w-20 shrink-0 items-center rounded-full border px-1 transition shadow-inner",
                           enabled
-                            ? "justify-end border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
-                            : "justify-start border-border bg-muted text-muted-foreground",
+                            ? "justify-end border-sky-300 bg-sky-100 text-sky-700"
+                            : "justify-start border-slate-300 bg-slate-100 text-slate-500",
+                          enabled
+                            ? "dark:border-sky-400/30 dark:bg-sky-500/15 dark:text-sky-200"
+                            : "dark:border-slate-500 dark:bg-slate-600 dark:text-slate-200",
                           saving && "cursor-not-allowed opacity-60",
                         )}
                       >
@@ -220,8 +226,11 @@ export function CompetitorSettingsDialog() {
                           className={cn(
                             "flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold shadow-sm",
                             enabled
-                              ? "bg-white text-slate-900"
-                              : "border border-border bg-background text-muted-foreground",
+                              ? "bg-white text-sky-700"
+                              : "border border-slate-300 bg-white text-slate-500",
+                            enabled
+                              ? "dark:bg-slate-100 dark:text-sky-700"
+                              : "dark:border-slate-500 dark:bg-slate-200 dark:text-slate-700",
                           )}
                         >
                           {enabled ? "ON" : "OFF"}
@@ -241,7 +250,7 @@ export function CompetitorSettingsDialog() {
                             href={youtubeChannelUrl(ch.channelId)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="line-clamp-2 text-sm font-semibold leading-snug text-foreground hover:text-primary hover:underline"
+                            className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 hover:text-sky-700 hover:underline dark:text-slate-50 dark:hover:text-sky-200"
                           >
                             {ch.displayName}
                           </a>
@@ -249,15 +258,18 @@ export function CompetitorSettingsDialog() {
                             className={cn(
                               "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium",
                               enabled
-                                ? "border border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                                : "border border-border bg-muted text-muted-foreground",
+                                ? "border border-sky-200 bg-sky-100 text-sky-700"
+                                : "border border-slate-200 bg-slate-100 text-slate-500",
+                              enabled
+                                ? "dark:border-sky-400/30 dark:bg-sky-500/15 dark:text-sky-200"
+                                : "dark:border-slate-500 dark:bg-slate-600 dark:text-slate-200",
                             )}
                           >
                             {saving ? "保存中…" : enabled ? "分析対象" : "除外中"}
                           </span>
                         </div>
                         <CompetitorSubscriberStats stats={stats[ch.channelId]} className="mt-1" />
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                           {enabled
                             ? "次回の市場分析に含めます。"
                             : "次回の市場分析では除外します。"}

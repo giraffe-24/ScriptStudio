@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import {
   collectYouTubeWithRescue,
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       );
 
       const message = await client.messages.create({
-        model: "claude-opus-4-5",
+        model: getAnthropicModel("themeAdapt"),
         max_tokens: 2048,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }],

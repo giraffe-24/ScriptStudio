@@ -1,9 +1,17 @@
-import fs from "fs/promises";
 import path from "path";
 import type { Episode } from "./types";
 import { normalizeEpisodeStatus, resolveEpisodeStatus, type EpisodeStatus } from "./episode-status";
 import { hasRevision, hasScriptDraft } from "./script-calib";
 import { sortEpisodesByNumberDesc } from "./episode-sort";
+import {
+  episodeDirectoryExists,
+  listEpisodeDirectoryNames,
+  moveEpisodeDirectory,
+  readEpisodeText,
+  removeEpisodeDirectory,
+  writeEpisodeText,
+  type EpisodeStorageBase,
+} from "./episode-files-store";
 import {
   readPersistedScriptMeta,
   writePersistedScriptMeta,
@@ -42,6 +50,22 @@ function episodeDirPath(baseDir: string, identity: EpisodeIdentity): string {
   return dirPath;
 }
 
+function resolveStoreLocation(dirPath: string): { base: EpisodeStorageBase; dirName: string } {
+  const resolved = path.resolve(dirPath);
+  const resolvedArchive = path.resolve(ARCHIVE_DIR);
+  const resolvedOutputs = path.resolve(OUTPUTS_DIR);
+
+  if (resolved.startsWith(resolvedArchive + path.sep) || resolved === resolvedArchive) {
+    return { base: "archive", dirName: path.basename(resolved) };
+  }
+
+  if (resolved.startsWith(resolvedOutputs + path.sep) || resolved === resolvedOutputs) {
+    return { base: "outputs", dirName: path.basename(resolved) };
+  }
+
+  throw new Error("Invalid episode storage location");
+}
+
 function resolveEpisodeIdentity(number: number, slug: string): EpisodeIdentity {
   if (!isValidEpisodeIdentity(number, slug)) {
     throw new Error("Invalid episode number or slug");
@@ -56,8 +80,8 @@ function resolveEpisodeIdentity(number: number, slug: string): EpisodeIdentity {
 export type ScriptMeta = PersistedScriptMeta;
 
 async function readManifestAtDir(dirPath: string): Promise<Record<string, unknown>> {
-  const filePath = path.join(dirPath, "manifest.json");
-  const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
+  const { base, dirName } = resolveStoreLocation(dirPath);
+  const raw = await readEpisodeText(base, dirName, "manifest.json");
   if (!raw.trim()) return {};
   try {
     return JSON.parse(raw) as Record<string, unknown>;
@@ -67,7 +91,8 @@ async function readManifestAtDir(dirPath: string): Promise<Record<string, unknow
 }
 
 async function writeManifestAtDir(dirPath: string, manifest: Record<string, unknown>): Promise<void> {
-  await fs.writeFile(path.join(dirPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+  const { base, dirName } = resolveStoreLocation(dirPath);
+  await writeEpisodeText(base, dirName, "manifest.json", JSON.stringify(manifest, null, 2));
 }
 
 function extractScriptMetaFromManifest(manifest: Record<string, unknown>): ScriptMeta | null {
@@ -124,7 +149,8 @@ async function readCurrentScriptMeta(number: number, slug: string): Promise<Scri
 
 async function readPlanTitle(dirPath: string): Promise<string | undefined> {
   try {
-    const raw = await fs.readFile(path.join(dirPath, "plan.json"), "utf-8");
+    const { base, dirName } = resolveStoreLocation(dirPath);
+    const raw = await readEpisodeText(base, dirName, "plan.json");
     const plan = JSON.parse(raw) as { episodeTitle?: string };
     return typeof plan.episodeTitle === "string" ? plan.episodeTitle : undefined;
   } catch {
@@ -134,7 +160,7 @@ async function readPlanTitle(dirPath: string): Promise<string | undefined> {
 
 async function loadManifestForIdentity(
   identity: EpisodeIdentity,
-  options?: { repair?: boolean },
+  options?: { repair?: boolean; persistRepair?: boolean },
 ): Promise<Record<string, unknown>> {
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
   let manifest = await readManifestAtDir(dirPath);
@@ -159,14 +185,15 @@ async function loadManifestForIdentity(
       { id: "pane2", label: "台本", path: "01-script-draft.md" },
     ];
   }
-  await writeManifestAtDir(dirPath, manifest);
+  if (options.persistRepair) {
+    await writeManifestAtDir(dirPath, manifest);
+  }
   return manifest;
 }
 
 export async function readScriptMeta(number: number, slug: string): Promise<ScriptMeta | null> {
   const identity = resolveEpisodeIdentity(number, slug);
-  const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
-  const exists = await fs.access(dirPath).then(() => true).catch(() => false);
+  const exists = await episodeDirectoryExists("outputs", identity.dirName);
   if (!exists) return null;
   return readCurrentScriptMeta(number, slug);
 }
@@ -209,7 +236,7 @@ export async function updateScriptMeta(
 ): Promise<ScriptMeta> {
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
-  const exists = await fs.access(dirPath).then(() => true).catch(() => false);
+  const exists = await episodeDirectoryExists("outputs", identity.dirName);
   if (!exists) {
     throw new Error(`Episode folder not found: ${identity.dirName}`);
   }
@@ -227,29 +254,22 @@ export async function updateScriptMeta(
 }
 
 export async function listEpisodes(): Promise<Episode[]> {
-  const entries = await fs.readdir(OUTPUTS_DIR, { withFileTypes: true }).catch(() => []);
   const episodes: Episode[] = [];
+  const entries = await listEpisodeDirectoryNames("outputs");
 
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === "没") continue;
+  for (const entryName of entries) {
+    if (entryName.startsWith(".") || entryName === "没") continue;
 
-    const identity = parseEpisodeDirName(entry.name);
+    const identity = parseEpisodeDirName(entryName);
     if (!identity) continue;
 
     try {
-      const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
       const m = await loadManifestForIdentity(identity, { repair: true });
-      const scriptContent = await fs
-        .readFile(path.join(dirPath, "01-script-draft.md"), "utf-8")
-        .catch(() => "");
+      const scriptContent = await readEpisodeText("outputs", identity.dirName, "01-script-draft.md");
 
       const hasDraft = hasScriptDraft(scriptContent);
       const storedStatus = normalizeEpisodeStatus(typeof m.status === "string" ? m.status : undefined);
       const status = resolveEpisodeStatus(storedStatus, hasDraft);
-      if (status !== storedStatus) {
-        m.status = status;
-        await writeManifestAtDir(dirPath, m);
-      }
 
       episodes.push({
         id: String(identity.number),
@@ -288,12 +308,10 @@ export async function createEpisode(episode: Omit<Episode, "createdAt">): Promis
   const identity = resolveEpisodeIdentity(episode.number, slug);
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
 
-  const exists = await fs.access(dirPath).then(() => true).catch(() => false);
+  const exists = await episodeDirectoryExists("outputs", identity.dirName);
   if (exists) {
     throw new Error(`Episode folder already exists: ${identity.dirName}`);
   }
-
-  await fs.mkdir(dirPath, { recursive: true });
 
   const ep: Episode = { ...episode, number: identity.number, slug: identity.slug, createdAt: new Date().toISOString().slice(0, 10) };
   const manifest = {
@@ -317,7 +335,7 @@ export async function createEpisode(episode: Omit<Episode, "createdAt">): Promis
 
 async function assertEpisodeDirExists(identity: EpisodeIdentity): Promise<string> {
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
-  const exists = await fs.access(dirPath).then(() => true).catch(() => false);
+  const exists = await episodeDirectoryExists("outputs", identity.dirName);
   if (!exists) {
     throw new Error(`Episode folder not found: ${identity.dirName}`);
   }
@@ -326,8 +344,8 @@ async function assertEpisodeDirExists(identity: EpisodeIdentity): Promise<string
 
 export async function readEpisodeFile(number: number, slug: string, filename: string): Promise<string> {
   const identity = resolveEpisodeIdentity(number, slug);
-  const dirPath = await assertEpisodeDirExists(identity);
-  return fs.readFile(path.join(dirPath, filename), "utf-8").catch(() => "");
+  await assertEpisodeDirExists(identity);
+  return readEpisodeText("outputs", identity.dirName, filename);
 }
 
 export async function writeEpisodeFile(
@@ -343,7 +361,7 @@ export async function writeEpisodeFile(
 ): Promise<ScriptMeta | null> {
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = await assertEpisodeDirExists(identity);
-  await fs.writeFile(path.join(dirPath, filename), content, "utf-8");
+  await writeEpisodeText("outputs", identity.dirName, filename, content);
   if (filename === "01-script-draft.md") {
     const manifest = await loadManifestForIdentity(identity, { repair: true });
     const hasDraft = hasScriptDraft(content);
@@ -385,9 +403,7 @@ export async function updateManifestStatus(number: number, slug: string, status:
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = await assertEpisodeDirExists(identity);
   const m = await loadManifestForIdentity(identity, { repair: true });
-  const scriptContent = await fs
-    .readFile(path.join(dirPath, "01-script-draft.md"), "utf-8")
-    .catch(() => "");
+  const scriptContent = await readEpisodeText("outputs", identity.dirName, "01-script-draft.md");
   const resolved = resolveEpisodeStatus(normalizeEpisodeStatus(status), hasScriptDraft(scriptContent));
   m.status = resolved;
   await writeManifestAtDir(dirPath, m);
@@ -422,14 +438,13 @@ export async function updateEpisodeNumber(
   }
 
   const oldPath = episodeDirPath(OUTPUTS_DIR, oldIdentity);
-  const newPath = episodeDirPath(OUTPUTS_DIR, newIdentity);
 
-  const newExists = await fs.access(newPath).then(() => true).catch(() => false);
+  const newExists = await episodeDirectoryExists("outputs", newIdentity.dirName);
   if (newExists) {
     throw new Error(`#${newNumber} は既に使用されています`);
   }
 
-  const oldExists = await fs.access(oldPath).then(() => true).catch(() => false);
+  const oldExists = await episodeDirectoryExists("outputs", oldIdentity.dirName);
   if (!oldExists) {
     throw new Error("Episode folder not found");
   }
@@ -437,11 +452,9 @@ export async function updateEpisodeNumber(
   const m = await loadManifestForIdentity(oldIdentity, { repair: true });
   const updated = mergeManifestIdentity(newIdentity, { ...m, id: String(newNumber), slug });
   await writeManifestAtDir(oldPath, updated);
-  await fs.rename(oldPath, newPath);
+  await moveEpisodeDirectory("outputs", oldIdentity.dirName, "outputs", newIdentity.dirName);
 
-  const scriptContent = await fs
-    .readFile(path.join(newPath, "01-script-draft.md"), "utf-8")
-    .catch(() => "");
+  const scriptContent = await readEpisodeText("outputs", newIdentity.dirName, "01-script-draft.md");
   const hasDraft = hasScriptDraft(scriptContent);
   const storedStatus = normalizeEpisodeStatus(typeof updated.status === "string" ? updated.status : undefined);
   const status = resolveEpisodeStatus(storedStatus, hasDraft);
@@ -469,30 +482,24 @@ export async function deleteEpisodes(
   const deleted: EpisodeDeleteTarget[] = [];
   const errors: EpisodeDeleteResult["errors"] = [];
 
-  if (mode === "archive") {
-    await fs.mkdir(ARCHIVE_DIR, { recursive: true });
-  }
-
   for (const target of targets) {
     try {
       const identity = resolveEpisodeIdentity(target.number, target.slug);
-      const sourcePath = episodeDirPath(OUTPUTS_DIR, identity);
-      const sourceExists = await fs.access(sourcePath).then(() => true).catch(() => false);
+      const sourceExists = await episodeDirectoryExists("outputs", identity.dirName);
       if (!sourceExists) {
         errors.push({ target, error: "フォルダが見つかりません" });
         continue;
       }
 
       if (mode === "archive") {
-        const destPath = episodeDirPath(ARCHIVE_DIR, identity);
-        const destExists = await fs.access(destPath).then(() => true).catch(() => false);
+        const destExists = await episodeDirectoryExists("archive", identity.dirName);
         if (destExists) {
           errors.push({ target, error: "没フォルダに同名の案件が既にあります" });
           continue;
         }
-        await fs.rename(sourcePath, destPath);
+        await moveEpisodeDirectory("outputs", identity.dirName, "archive", identity.dirName);
       } else {
-        await fs.rm(sourcePath, { recursive: true, force: true });
+        await removeEpisodeDirectory("outputs", identity.dirName);
       }
 
       deleted.push({ number: identity.number, slug: identity.slug });

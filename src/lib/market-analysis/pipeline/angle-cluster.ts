@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropicModel } from "@/lib/anthropic-models";
 import { buildAngleClusterPrompt, loadMarketAnalysisRubric } from "../prompts";
 
 function extractJsonObject(text: string): string | null {
@@ -14,10 +15,7 @@ export async function runAngleClusterStage(
   const userPrompt = buildAngleClusterPrompt({ ...promptData, rubric });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const model =
-    process.env.ANTHROPIC_MODEL_STAGE1 ??
-    process.env.ANTHROPIC_MODEL ??
-    "claude-sonnet-4-20250514";
+  const model = getAnthropicModel("marketStage1");
 
   const message = await client.messages.create({
     model,

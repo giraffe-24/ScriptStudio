@@ -31,7 +31,7 @@ export type GenerationStatus = {
 
 interface Props {
   script: string;
-  onSave: (content: string) => void;
+  onSave: (content: string) => Promise<void> | void;
   episodeTitle: string;
   outline?: { section: string; content: string }[];
   onRevisionEntered?: () => void;
@@ -145,12 +145,14 @@ export function ScriptEditor({
   const [content, setContent] = useState(initMain);
   const [calibText, setCalibText] = useState(initCalib);
   const [saved, setSaved] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [calibOpen, setCalibOpen] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const [activeSectionOffset, setActiveSectionOffset] = useState<number | null>(null);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
+  const saveRequestRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
@@ -160,6 +162,8 @@ export function ScriptEditor({
     setContent(main);
     setCalibText(calib);
     setCalibOpen(false);
+    setSaved(true);
+    setSaveError(null);
     hadRevisionRef.current = calib.trim().length > 0;
     if (latestContentRef) latestContentRef.current = script;
   }, [script, latestContentRef]);
@@ -167,18 +171,28 @@ export function ScriptEditor({
   useEffect(() => {
     const timer = setTimeout(() => {
       const combined = combineScriptCalib(content, calibText);
+      const requestId = ++saveRequestRef.current;
       if (latestContentRef) latestContentRef.current = combined;
-      onSave(combined);
-      setSaved(true);
+      void Promise.resolve(onSave(combined))
+        .then(() => {
+          if (saveRequestRef.current !== requestId) return;
+          setSaved(true);
+          setSaveError(null);
 
-      const hasCalib = calibText.trim().length > 0;
-      if (hasCalib) {
-        hadRevisionRef.current = true;
-        onRevisionEntered?.();
-      } else if (hadRevisionRef.current) {
-        hadRevisionRef.current = false;
-        onRevisionCleared?.();
-      }
+          const hasCalib = calibText.trim().length > 0;
+          if (hasCalib) {
+            hadRevisionRef.current = true;
+            onRevisionEntered?.();
+          } else if (hadRevisionRef.current) {
+            hadRevisionRef.current = false;
+            onRevisionCleared?.();
+          }
+        })
+        .catch((error) => {
+          if (saveRequestRef.current !== requestId) return;
+          setSaved(false);
+          setSaveError(error instanceof Error ? error.message : "保存に失敗しました");
+        });
     }, 800);
 
     return () => clearTimeout(timer);
@@ -189,6 +203,7 @@ export function ScriptEditor({
   const handleChange = useCallback((value: string) => {
     setContent(value);
     setSaved(false);
+    setSaveError(null);
     if (latestContentRef) {
       latestContentRef.current = combineScriptCalib(value, calibText);
     }
@@ -198,6 +213,7 @@ export function ScriptEditor({
   const handleCalibChange = useCallback((value: string) => {
     setCalibText(value);
     setSaved(false);
+    setSaveError(null);
     if (latestContentRef) {
       latestContentRef.current = combineScriptCalib(content, value);
     }
@@ -387,6 +403,9 @@ export function ScriptEditor({
           {!saved && !editorLocked && (
             <span className="text-[10px] text-gray-400">自動保存中…</span>
           )}
+          {saveError && !editorLocked && (
+            <span className="text-[10px] text-red-500">保存失敗: {saveError}</span>
+          )}
         </div>
       </div>
 
@@ -456,7 +475,7 @@ export function ScriptEditor({
             <pre
               ref={highlightRef}
               aria-hidden
-              className="absolute inset-0 m-0 p-4 text-sm leading-relaxed font-mono whitespace-pre-wrap break-words overflow-hidden pointer-events-none text-gray-800"
+              className="absolute inset-0 m-0 p-4 text-sm leading-relaxed font-mono whitespace-pre-wrap wrap-break-word overflow-hidden pointer-events-none text-gray-800"
             >
               {renderHighlightedContent(content)}
             </pre>

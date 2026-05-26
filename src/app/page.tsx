@@ -56,6 +56,19 @@ export default function Home() {
     selectedEpisodeRef.current = selectedEpisode;
   }, [selectedEpisode]);
 
+  async function postFilesAction<T = unknown>(body: Record<string, unknown>): Promise<T> {
+    const res = await fetch("/api/files", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error((data as { error?: string }).error ?? "保存に失敗しました");
+    }
+    return data as T;
+  }
+
   function isActiveEpisodeSelection(requestId: number, episode: Pick<Episode, "number" | "slug">) {
     return (
       selectionRequestRef.current === requestId &&
@@ -65,10 +78,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (!newEpisodeMode || selectedEpisode) {
-      setNextEpisodeNumber(null);
-      return;
-    }
+    if (!newEpisodeMode || selectedEpisode) return;
     fetch("/api/files?action=list")
       .then((r) => r.json())
       .then((d) => {
@@ -81,17 +91,15 @@ export default function Home() {
   async function handlePlanReady(plan: EpisodePlan, title: string) {
     let episode = selectedEpisode;
 
-    if (!episode && !creatingEpisode) {
-      setCreatingEpisode(true);
-      const listRes = await fetch("/api/files?action=list");
-      const listData = await listRes.json();
-      const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
-      const assignNumber = nextEpisodeNumber ?? maxNumber + 1;
+    try {
+      if (!episode && !creatingEpisode) {
+        setCreatingEpisode(true);
+        const listRes = await fetch("/api/files?action=list");
+        const listData = await listRes.json();
+        const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
+        const assignNumber = nextEpisodeNumber ?? maxNumber + 1;
 
-      const res = await fetch("/api/files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        const data = await postFilesAction<{ episode: Episode }>({
           action: "create",
           episode: {
             id: String(assignNumber),
@@ -109,31 +117,29 @@ export default function Home() {
             targetPain: selectedCandidate?.targetPain,
             reason: selectedCandidate?.reason,
           },
-        }),
-      });
-      const data = await res.json();
-      episode = data.episode;
-      setSelectedEpisode(episode);
-      setEpisodeRefreshKey((k) => k + 1);
-      setCreatingEpisode(false);
-    }
+        });
+        episode = data.episode;
+        setSelectedEpisode(episode);
+        setEpisodeRefreshKey((k) => k + 1);
+      }
 
-    if (episode) {
-      await fetch("/api/files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (episode) {
+        await postFilesAction({
           action: "write-plan",
           number: episode.number,
           slug: episode.slug,
           plan,
-        }),
-      });
-    }
+        });
+      }
 
-    setCurrentPlan(plan);
-    setNewEpisodeMode(false);
-    setScriptGenerateKey((k) => k + 1);
+      setCurrentPlan(plan);
+      setNewEpisodeMode(false);
+      setScriptGenerateKey((k) => k + 1);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCreatingEpisode(false);
+    }
   }
 
   function resetPlanningAndScript() {
@@ -237,16 +243,16 @@ export default function Home() {
       if (inferData.plan) {
         setCurrentPlan(inferData.plan as EpisodePlan);
         // 次回以降のためにキャッシュ保存
-        await fetch("/api/files", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        try {
+          await postFilesAction({
             action: "write-plan",
             number: ep.number,
             slug: ep.slug,
             plan: inferData.plan,
-          }),
-        });
+          });
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : String(error));
+        }
       }
     } finally {
       if (isActiveEpisodeSelection(requestId, ep)) {
@@ -309,16 +315,16 @@ export default function Home() {
     if (planSaveTimer.current) clearTimeout(planSaveTimer.current);
 
     const savePlan = async () => {
-      await fetch("/api/files", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      try {
+        await postFilesAction({
           action: "write-plan",
           number: episode.number,
           slug: episode.slug,
           plan: currentPlanRef.current,
-        }),
-      });
+        });
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : String(error));
+      }
     };
 
     // 目次を空にしたときは即保存（デバウンス待ちで元に戻るのを防ぐ）
@@ -340,16 +346,17 @@ export default function Home() {
       // manifest への書き込みは 800ms デバウンス
       if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
       titleSaveTimer.current = setTimeout(async () => {
-        await fetch("/api/files", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        try {
+          await postFilesAction({
             action: "update-title",
             number: selectedEpisode.number,
             slug: selectedEpisode.slug,
             title,
-          }),
-        });
+          });
+        } catch (error) {
+          setTitleOverride(undefined);
+          window.alert(error instanceof Error ? error.message : String(error));
+        }
       }, 800);
     }
   }
@@ -393,21 +400,20 @@ export default function Home() {
   }
 
   async function handleStatusChange(ep: Episode, status: EpisodeStatus) {
-    const res = await fetch("/api/files", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    try {
+      const data = await postFilesAction<{ status?: EpisodeStatus }>({
         action: "update-status",
         number: ep.number,
         slug: ep.slug,
         status,
-      }),
-    });
-    const data = await res.json();
-    const resolved = (data.status ?? status) as EpisodeStatus;
-    setStatusOverride({ slug: ep.slug, status: resolved });
-    if (selectedEpisode?.slug === ep.slug) {
-      setSelectedEpisode({ ...selectedEpisode, status: resolved });
+      });
+      const resolved = (data.status ?? status) as EpisodeStatus;
+      setStatusOverride({ slug: ep.slug, status: resolved });
+      if (selectedEpisode?.slug === ep.slug) {
+        setSelectedEpisode({ ...selectedEpisode, status: resolved });
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
     }
   }
 
