@@ -20,7 +20,7 @@ export function CompetitorChannelAvatar({
       href={youtubeChannelUrl(channelId)}
       target="_blank"
       rel="noopener noreferrer"
-      className="shrink-0 rounded-full ring-1 ring-gray-200 overflow-hidden bg-gray-100"
+      className="shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-border"
       style={{ width: size, height: size }}
       aria-label={`${displayName} の YouTube チャンネル`}
     >
@@ -35,7 +35,7 @@ export function CompetitorChannelAvatar({
         />
       ) : (
         <span
-          className="flex h-full w-full items-center justify-center text-[10px] font-medium text-gray-400"
+          className="flex h-full w-full items-center justify-center text-[10px] font-medium text-muted-foreground"
           aria-hidden
         >
           YT

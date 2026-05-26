@@ -18,12 +18,12 @@ export function CompetitorSubscriberStats({ stats, className = "" }: Props) {
   const countLabel = formatSubscriberCount(stats.subscriberCount, stats.hidden);
 
   return (
-    <p className={`text-[10px] text-gray-500 leading-relaxed ${className}`}>
+    <p className={`text-xs leading-relaxed text-muted-foreground ${className}`}>
       <span>登録者 {countLabel}</span>
       {!stats.hidden && stats.trendAvailable && stats.change30d != null && (
         <span
           className={
-            stats.change30d >= 0 ? "text-green-600 ml-1" : "text-red-600 ml-1"
+            stats.change30d >= 0 ? "ml-1 text-emerald-400" : "ml-1 text-red-400"
           }
         >
           · 30日 {formatSubscriberChange(stats.change30d)}
@@ -32,7 +32,7 @@ export function CompetitorSubscriberStats({ stats, className = "" }: Props) {
         </span>
       )}
       {!stats.hidden && !stats.trendAvailable && stats.subscriberCount != null && (
-        <span className="text-gray-400 ml-1">· 30日推移: 収集中</span>
+        <span className="ml-1 text-muted-foreground">· 30日推移: 収集中</span>
       )}
     </p>
   );

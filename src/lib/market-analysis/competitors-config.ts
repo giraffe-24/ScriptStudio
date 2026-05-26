@@ -1,8 +1,13 @@
 import fs from "fs/promises";
 import path from "path";
 import type { CompetitorChannel } from "@/lib/types";
+import {
+  readPersistedCompetitorsConfig,
+  writePersistedCompetitorsConfig,
+} from "@/lib/market-analysis/competitors-store";
 
 const COMPETITORS_PATH = path.join(process.cwd(), "config", "competitors.md");
+const SHOULD_PREFER_PERSISTED_CONFIG = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 
 const TABLE_HEADER = `# 競合チャンネル（承認済み）
 
@@ -16,7 +21,7 @@ function parseEnabled(raw: string | undefined): boolean {
   return v !== "false" && v !== "off" && v !== "0";
 }
 
-export async function readCompetitorsConfig(): Promise<CompetitorChannel[]> {
+async function readFileCompetitorsConfig(): Promise<CompetitorChannel[]> {
   const raw = await fs.readFile(COMPETITORS_PATH, "utf-8").catch(() => "");
   const rows: CompetitorChannel[] = [];
   for (const line of raw.split("\n")) {
@@ -33,19 +38,52 @@ export async function readCompetitorsConfig(): Promise<CompetitorChannel[]> {
   return rows;
 }
 
+export async function readCompetitorsConfig(): Promise<CompetitorChannel[]> {
+  if (SHOULD_PREFER_PERSISTED_CONFIG) {
+    try {
+      const persisted = await readPersistedCompetitorsConfig();
+      if (persisted !== null) return persisted;
+    } catch (error) {
+      console.warn("[competitors-config] failed to read persisted config:", error);
+    }
+  }
+
+  const fileChannels = await readFileCompetitorsConfig();
+  if (fileChannels.length > 0) return fileChannels;
+
+  try {
+    const persisted = await readPersistedCompetitorsConfig();
+    if (persisted !== null) return persisted;
+  } catch (error) {
+    console.warn("[competitors-config] failed to read persisted config:", error);
+  }
+
+  return [];
+}
+
 export async function readEnabledCompetitorsConfig(): Promise<CompetitorChannel[]> {
   const all = await readCompetitorsConfig();
   return all.filter((c) => c.enabled !== false);
 }
 
-async function writeCompetitorsConfig(channels: CompetitorChannel[]): Promise<void> {
+async function writeCompetitorsFileBestEffort(channels: CompetitorChannel[]): Promise<void> {
   const rows = channels
     .map(
       (c) =>
         `| ${c.channelId} | ${c.displayName} | ${c.addedAt} | ${c.enabled !== false ? "true" : "false"} |`,
     )
     .join("\n");
-  await fs.writeFile(COMPETITORS_PATH, `${TABLE_HEADER}${rows}\n`, "utf-8");
+  try {
+    await fs.mkdir(path.dirname(COMPETITORS_PATH), { recursive: true });
+    await fs.writeFile(COMPETITORS_PATH, `${TABLE_HEADER}${rows}\n`, "utf-8");
+  } catch (error) {
+    console.warn("[competitors-config] skipped local file write:", error);
+  }
+}
+
+async function writeCompetitorsConfig(channels: CompetitorChannel[]): Promise<void> {
+  await writePersistedCompetitorsConfig(channels);
+  await writeCompetitorsFileBestEffort(channels);
 }
 
 export async function appendCompetitorsConfig(channels: CompetitorChannel[]): Promise<void> {
