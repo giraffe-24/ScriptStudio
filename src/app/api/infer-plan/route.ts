@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import { sanitizePlanOutline } from "@/lib/plan-outline";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,6 +58,6 @@ outline.section のルール（config/planning.md 厳守）：
     return NextResponse.json({ plan });
   } catch (e) {
     console.error("infer-plan error:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: toFriendlyApiError(e) }, { status: 500 });
   }
 }

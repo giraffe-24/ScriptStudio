@@ -3,15 +3,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import { sanitizePlanOutline } from "@/lib/plan-outline";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 export async function POST(req: NextRequest) {
   try {
-    const { theme, hook, targetPain, reason } = await req.json();
+    const { theme, hook, targetPain, reason, direction } = await req.json();
     if (!theme) return NextResponse.json({ error: "theme required" }, { status: 400 });
 
     const config = await loadChannelConfig();
     const systemPrompt = buildSystemPrompt(config);
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    // 方向性確認フェーズで承認された大枠概要・設計思想の軸を前提として渡す
+    const directionBlock =
+      direction && (direction.overview || direction.axes?.length)
+        ? `\n\n【承認済みの方向性（必ずこの方向で企画書を作成すること）】
+${direction.overview ? `大枠概要：\n${direction.overview}\n` : ""}${
+            Array.isArray(direction.axes) && direction.axes.length
+              ? `設計思想の柱：\n${direction.axes
+                  .map(
+                    (a: { title?: string; subtitle?: string; description?: string }, i: number) =>
+                      `${i + 1}. ${a.title ?? ""}（${a.subtitle ?? ""}）：${a.description ?? ""}`,
+                  )
+                  .join("\n")}`
+              : ""
+          }
+
+【方向性の反映ルール（厳守）】
+- 「コンテンツの核（keyPoints）」は、上記の設計思想の6本柱の見出しをそのまま反映する（言い換えず、6つすべてを順番どおり使う）
+- 「想定視聴者（targetViewer）」「視聴者の悩み（pain）」「動画で提供する価値（promise）」は、上記の大枠概要の内容を3つの観点に振り分けて記述する`
+        : "";
 
     const message = await client.messages.create({
       model: getAnthropicModel("planning"),
@@ -52,7 +73,7 @@ ${reason ? `選定理由：${reason}` : ""}
 - 「本題」「まとめ」「導入」「本題 - 〇〇」「【本題】」等は絶対に使わない
 - 時間・尺・タイムコードを入れない（「0:00」「5分」「（3:00〜）」等は禁止）
 - 尺の目安は estimatedLength にのみ書く
-- section には章のトピック名だけ。手順の詳細は content 欄へ`,
+- section には章のトピック名だけ。手順の詳細は content 欄へ${directionBlock}`,
         },
       ],
     });
@@ -63,8 +84,7 @@ ${reason ? `選定理由：${reason}` : ""}
     return NextResponse.json({ plan });
 
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[generate-plan]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[generate-plan]", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ error: toFriendlyApiError(err) }, { status: 500 });
   }
 }

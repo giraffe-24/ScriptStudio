@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketAnalysis } from "@/lib/market-analysis";
 import type { ThemeMode } from "@/lib/types";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 function parseThemeMode(value: unknown): ThemeMode {
   if (value === "A" || value === "B" || value === "C") return value;
@@ -25,8 +26,7 @@ export async function POST(req: NextRequest) {
     const result = await runMarketAnalysis({ category, themeMode });
     return NextResponse.json(result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[market-research]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[market-research]", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ error: toFriendlyApiError(err) }, { status: 500 });
   }
 }

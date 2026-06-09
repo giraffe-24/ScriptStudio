@@ -6,6 +6,7 @@ import {
   buildScriptOutlineContext,
   SECTION_INTERNAL_LINK_RULES,
 } from "@/lib/script-internal-links";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 export const maxDuration = 300;
 
@@ -338,8 +339,6 @@ ${outlineTemplate || "## 導入\n（本文）"}
     return NextResponse.json({ script });
   } catch (err) {
     console.error("generate-script error:", err);
-    const message =
-      err instanceof Error ? err.message : "台本生成中にサーバーエラーが発生しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: toFriendlyApiError(err) }, { status: 500 });
   }
 }

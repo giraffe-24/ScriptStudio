@@ -272,7 +272,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                 resetResults();
               }}
               placeholder="例：Gmail, Android, Google フォト"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
 
@@ -349,7 +349,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
               resetResults();
             }}
             placeholder="例：LINEの通知をまとめて管理する方法"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300"
           />
         </div>
       )}

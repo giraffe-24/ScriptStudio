@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getAnthropicModel } from "@/lib/anthropic-models";
 import { computeScriptDiff } from "@/lib/script-diff";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 function buildFallbackSummary(
   episodeTitle: string,
@@ -81,11 +82,10 @@ ${diff.diffExcerpt || "（差分テキストなし）"}`;
       stats: diff.stats,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({
       summary: buildFallbackSummary(episodeTitle, diff.stats),
       stats: diff.stats,
-      warning: message,
+      warning: toFriendlyApiError(err),
     });
   }
 }

@@ -70,6 +70,19 @@ export interface CompetitorSuggestion {
   source: "dynamic" | "approved";
 }
 
+/** 方向性確認フェーズ：設計思想の軸（柱） */
+export interface DirectionAxis {
+  title: string; // 日本語タイトル（例：安全な操作から危険な操作へ）
+  subtitle: string; // 英語サブタイトル（例：Safety-First Progression）
+  description: string; // 軸の説明
+}
+
+/** 方向性確認フェーズの成果物（大枠概要 + 設計思想の6本柱） */
+export interface PlanDirection {
+  overview: string; // 大枠概要（企画書の方向性）
+  axes: DirectionAxis[]; // 設計思想の6本柱
+}
+
 /** plan.json / 企画書 API の共通型 */
 export interface EpisodePlan {
   episodeTitle: string;

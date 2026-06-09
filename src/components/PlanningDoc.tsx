@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
-import type { ChatMessage, EpisodePlan, ThemeCandidate } from "@/lib/types";
+import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
+import { DirectionPhase } from "./DirectionPhase";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
 
 /* ── 編集フィールド共通スタイル ── */
@@ -35,6 +36,7 @@ export function PlanningDoc({
   onPlanChange,
 }: Props) {
   const [draftPlan, setDraftPlan] = useState<EpisodePlan | null>(null);
+  const [approvedDirection, setApprovedDirection] = useState<PlanDirection | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -49,6 +51,7 @@ export function PlanningDoc({
     planLoadKeyRef.current = planLoadKey;
     planRequestRef.current += 1;
     setDraftPlan(null);
+    setApprovedDirection(null);
     setChatSection(null);
     setChatHistory([]);
     setLoading(false);
@@ -56,17 +59,11 @@ export function PlanningDoc({
 
   const plan = initialPlan ?? draftPlan;
 
-  useEffect(() => {
-    if (!candidate) return;
-    void generatePlan();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidate]);
-
   function isActivePlanRequest(requestId: number, requestKey: string) {
     return planRequestRef.current === requestId && planLoadKeyRef.current === requestKey;
   }
 
-  async function generatePlan() {
+  async function generatePlan(direction?: PlanDirection) {
     if (!candidate) return;
     const targetCandidate = candidate;
     const requestKey = planLoadKey;
@@ -85,6 +82,7 @@ export function PlanningDoc({
           hook: targetCandidate.hook,
           targetPain: targetCandidate.targetPain,
           reason: targetCandidate.reason,
+          direction: direction ?? approvedDirection ?? undefined,
         }),
       });
 
@@ -97,7 +95,14 @@ export function PlanningDoc({
         return;
       }
 
-      setDraftPlan(sanitizePlanOutline(data.plan ?? null));
+      const sanitized = sanitizePlanOutline(data.plan ?? null);
+      // 承認された設計思想の6本柱を「コンテンツの核」として確定反映（編集内容をそのまま使う）
+      const dir = direction ?? approvedDirection;
+      if (sanitized && dir?.axes?.length) {
+        const pillars = dir.axes.map((a) => a.title.trim()).filter(Boolean);
+        if (pillars.length) sanitized.keyPoints = pillars;
+      }
+      setDraftPlan(sanitized);
     } catch (error) {
       if (!isActivePlanRequest(requestId, requestKey)) return;
       console.error("[PlanningDoc] generate-plan error:", error);
@@ -140,6 +145,20 @@ export function PlanningDoc({
           <p className="text-xs text-gray-400 mt-1">10〜20 秒かかります</p>
         </div>
       </div>
+    );
+  }
+
+  // 新規テーマで企画書がまだ無い場合は、まず方向性確認フェーズを表示する
+  if (candidate && !plan) {
+    return (
+      <DirectionPhase
+        candidate={candidate}
+        resetKey={planLoadKey}
+        onApproved={(direction) => {
+          setApprovedDirection(direction);
+          void generatePlan(direction);
+        }}
+      />
     );
   }
 

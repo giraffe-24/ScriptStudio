@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAnthropicModel } from "@/lib/anthropic-models";
 import { loadChannelConfig, buildSystemPrompt } from "@/lib/config-loader";
 import type { ChatMessage } from "@/lib/types";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 export async function POST(req: NextRequest) {
   const { theme, sectionLabel, sectionContent, history, userMessage } = await req.json();
@@ -49,7 +50,7 @@ ${sectionContent}
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[section-chat]", error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ error: toFriendlyApiError(error) }, { status: 500 });
   }
 }

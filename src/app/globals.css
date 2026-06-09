@@ -229,6 +229,17 @@
   html {
     @apply font-sans;
   }
+  /* フォームコントロールが OS のダークモード既定色（白文字）を継承して
+     見えなくなるのを防ぐ。テーマに合わせた文字色を明示する。 */
+  input,
+  textarea,
+  select {
+    color: var(--foreground);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted-foreground);
+  }
 }
 
 @keyframes analysis-panel-shimmer {

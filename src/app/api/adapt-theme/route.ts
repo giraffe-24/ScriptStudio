@@ -8,6 +8,7 @@ import {
 } from "@/lib/market-analysis/guaranteed-search";
 import type { ThemeCandidate } from "@/lib/types";
 import { buildThemeSearchUserPrompt, runThemeSearch } from "@/lib/theme-search";
+import { toFriendlyApiError } from "@/lib/api-error";
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,8 +90,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[adapt-theme]", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[adapt-theme]", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ error: toFriendlyApiError(err) }, { status: 500 });
   }
 }
