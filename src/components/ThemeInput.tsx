@@ -370,11 +370,11 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
           ? "AI が分析中…"
           : pattern === "market"
           ? "📊 トレンド分析する"
-          : "✨ テーマを改変する"}
+          : "✨ テーマを分析する"}
       </button>
       )}
 
-      {loading && pattern === "market" && (
+      {loading && (
         <div className="analysis-loading-panel bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">
           {PROGRESS_LABELS.map((label, i) => (
             <div key={label} className="flex items-center gap-2">
@@ -604,7 +604,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                   : "bg-gray-100 text-gray-400 cursor-not-allowed"
               }`}
             >
-              {pickedIndex !== null ? "企画書を作成する →" : "候補を選んでください"}
+              {pickedIndex !== null ? "6本の柱を作成する →" : "候補を選んでください"}
             </button>
           </div>
         </div>

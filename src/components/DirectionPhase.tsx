@@ -6,22 +6,18 @@ import type { DirectionAxis, PlanDirection, ThemeCandidate } from "@/lib/types";
 
 interface Props {
   candidate: ThemeCandidate;
-  /** 概要・軸の両方が承認されたら確定した方向性を返す */
+  /** 6本柱が承認されたら確定した方向性を返す */
   onApproved: (direction: PlanDirection) => void;
   /** リセット判定用のキー（テーマが変わったら作り直す） */
   resetKey?: string;
 }
 
-type Stage = "overview" | "axes";
-
 /**
- * 企画書を生成する前の「方向性確認フェーズ」。
- * まず大枠概要を出して承認 → 設計思想の6本柱を出して承認 → 企画書生成へ。
- * いずれの段階でも「要修正」で修正指示を入れて再出力できる。
+ * 企画書を生成する前の「設計思想（6本柱）の確認フェーズ」。
+ * 選んだテーマに対してのみ6本柱を生成し、テキストエリアで自由に編集して、
+ * 「企画書として出力」で企画書生成へ進む。「要修正」で修正指示を入れて再出力もできる。
  */
 export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
-  const [stage, setStage] = useState<Stage>("overview");
-  const [overview, setOverview] = useState<string | null>(null);
   const [axes, setAxes] = useState<DirectionAxis[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [revising, setRevising] = useState(false);
@@ -31,10 +27,7 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
   const loadedKeyRef = useRef("");
 
   const generate = useCallback(
-    async (
-      target: Stage,
-      opts?: { feedback?: string; overviewForAxes?: string },
-    ) => {
+    async (opts?: { feedback?: string }) => {
       const requestId = ++reqRef.current;
       setLoading(true);
       try {
@@ -42,53 +35,45 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            stage: target,
+            stage: "axes",
             theme: candidate.title,
             hook: candidate.hook,
             targetPain: candidate.targetPain,
             reason: candidate.reason,
             feedback: opts?.feedback,
-            overview: target === "axes" ? opts?.overviewForAxes ?? overview : undefined,
-            previousOverview: target === "overview" ? overview ?? undefined : undefined,
-            previousAxes: target === "axes" ? axes ?? undefined : undefined,
+            previousAxes: axes ?? undefined,
           }),
         });
         const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
         if (reqRef.current !== requestId) return;
 
         if (!res.ok) {
-          alert(`方向性の生成に失敗しました。\n${data.error ?? res.statusText}`);
+          alert(`6本柱の生成に失敗しました。\n${data.error ?? res.statusText}`);
           return;
         }
 
-        if (target === "overview") {
-          setOverview(data.overview ?? "");
-        } else {
-          setAxes(Array.isArray(data.axes) ? data.axes : []);
-        }
+        setAxes(Array.isArray(data.axes) ? data.axes : []);
         setRevising(false);
         setFeedback("");
       } catch {
         if (reqRef.current !== requestId) return;
-        alert("方向性の生成に失敗しました。\n通信状況を確認して再試行してください。");
+        alert("6本柱の生成に失敗しました。\n通信状況を確認して再試行してください。");
       } finally {
         if (reqRef.current === requestId) setLoading(false);
       }
     },
-    [candidate, overview, axes],
+    [candidate, axes],
   );
 
-  // テーマが変わったら最初から（大枠概要の生成）やり直す
+  // テーマが変わったら6本柱を生成し直す
   useEffect(() => {
     const key = resetKey ?? candidate.title;
     if (loadedKeyRef.current === key) return;
     loadedKeyRef.current = key;
-    setStage("overview");
-    setOverview(null);
     setAxes(null);
     setRevising(false);
     setFeedback("");
-    void generate("overview");
+    void generate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey, candidate.title]);
 
@@ -98,140 +83,85 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
     );
   }
 
-  function approveOverview() {
-    if (!overview) return;
-    setStage("axes");
-    setRevising(false);
-    setFeedback("");
-    void generate("axes", { overviewForAxes: overview });
-  }
-
   function approveAxes() {
-    if (!overview || !axes?.length) return;
-    onApproved({ overview, axes });
+    if (!axes?.length) return;
+    onApproved({ overview: "", axes });
   }
 
   function submitRevision() {
     const fb = feedback.trim();
     if (!fb) return;
-    void generate(stage, { feedback: fb, overviewForAxes: overview ?? undefined });
+    void generate({ feedback: fb });
   }
-
-  const busyLabel =
-    stage === "overview" ? "方向性（大枠概要）を作成中…" : "設計思想の6本柱を作成中…";
 
   return (
     <div className="h-full overflow-y-auto bg-white">
       <div className="max-w-2xl mx-auto px-8 py-6 space-y-6">
         <div className="text-center">
-          <p className="text-xs font-semibold text-purple-600">方向性の確認</p>
+          <p className="text-xs font-semibold text-purple-600">設計思想の確認</p>
           <p className="text-[11px] text-gray-400 mt-1">
-            企画書を作る前に方向性をすり合わせます。承認すると次に進みます。
+            選んだテーマの「6本柱」を作成します。自由に編集し、納得したら企画書として出力します。
           </p>
-          {/* ステップインジケータ */}
-          <div className="flex items-center justify-center gap-2 mt-3 text-[11px]">
-            <StepDot active={stage === "overview"} done={stage === "axes"} label="大枠概要" />
-            <span className="text-gray-300">→</span>
-            <StepDot active={stage === "axes"} done={false} label="設計思想の柱" />
-            <span className="text-gray-300">→</span>
-            <span className="text-gray-400">企画書</span>
-          </div>
         </div>
 
-        {/* 大枠概要 */}
+        {/* 設計思想の6本柱 */}
         <section>
-          <h3 className="text-sm font-semibold text-gray-800 mb-2">{candidate.title}</h3>
-          {overview === null && loading && stage === "overview" ? (
-            <LoadingCard label={busyLabel} />
-          ) : overview !== null ? (
-            <div className="rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-3">
-              <AutoTextarea
-                value={overview}
-                onChange={setOverview}
-                placeholder="大枠概要を記述…"
-                className="text-sm text-gray-700 leading-relaxed"
-              />
-            </div>
+          <div className="flex items-center gap-2 pb-2 border-b border-gray-200 mb-3">
+            <FlaskConical className="w-4 h-4 text-gray-500" />
+            <h3 className="text-sm font-semibold text-gray-700">{candidate.title}</h3>
+          </div>
+
+          {axes === null && loading ? (
+            <LoadingCard label="設計思想の6本柱を作成中…" />
+          ) : axes !== null ? (
+            <ol className="space-y-3">
+              {axes.map((axis, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="shrink-0 w-7 h-7 rounded-md bg-gray-100 text-gray-500 text-xs font-semibold flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <AutoTextarea
+                      value={axis.title}
+                      onChange={(v) => updateAxis(i, "title", v)}
+                      placeholder="見出し（日本語）…"
+                      className="text-sm font-semibold text-gray-800 leading-snug"
+                    />
+                    <AutoTextarea
+                      value={axis.subtitle}
+                      onChange={(v) => updateAxis(i, "subtitle", v)}
+                      placeholder="English Label"
+                      className="text-[11px] font-mono text-gray-400"
+                    />
+                    <AutoTextarea
+                      value={axis.description}
+                      onChange={(v) => updateAxis(i, "description", v)}
+                      placeholder="詳細を記述…"
+                      className="text-xs text-gray-600 leading-relaxed"
+                    />
+                  </div>
+                </li>
+              ))}
+            </ol>
           ) : null}
 
-          {/* 大枠概要の承認操作（軸ステージに進む前のみ） */}
-          {stage === "overview" && overview !== null && !loading && (
+          {axes !== null && !loading && (
             <ApprovalControls
               revising={revising}
               feedback={feedback}
               onFeedbackChange={setFeedback}
-              onApprove={approveOverview}
+              approveLabel="企画書として出力"
+              onApprove={approveAxes}
               onStartRevise={() => setRevising(true)}
               onCancelRevise={() => {
                 setRevising(false);
                 setFeedback("");
               }}
               onSubmitRevise={submitRevision}
-              revisePlaceholder="例：もっと初心者向けに / 〇〇の観点を加えて"
+              revisePlaceholder="例：〇本目の軸を△△に差し替えて / 表現をやさしく"
             />
           )}
         </section>
-
-        {/* 設計思想の6本柱 */}
-        {stage === "axes" && (
-          <section>
-            <div className="flex items-center gap-2 pb-2 border-b border-gray-200 mb-3">
-              <FlaskConical className="w-4 h-4 text-gray-500" />
-              <h3 className="text-sm font-semibold text-gray-700">設計思想（6本柱）</h3>
-            </div>
-
-            {axes === null && loading ? (
-              <LoadingCard label={busyLabel} />
-            ) : axes !== null ? (
-              <ol className="space-y-3">
-                {axes.map((axis, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="shrink-0 w-7 h-7 rounded-md bg-gray-100 text-gray-500 text-xs font-semibold flex items-center justify-center mt-0.5">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <AutoTextarea
-                        value={axis.title}
-                        onChange={(v) => updateAxis(i, "title", v)}
-                        placeholder="見出し（日本語）…"
-                        className="text-sm font-semibold text-gray-800 leading-snug"
-                      />
-                      <AutoTextarea
-                        value={axis.subtitle}
-                        onChange={(v) => updateAxis(i, "subtitle", v)}
-                        placeholder="English Label"
-                        className="text-[11px] font-mono text-gray-400"
-                      />
-                      <AutoTextarea
-                        value={axis.description}
-                        onChange={(v) => updateAxis(i, "description", v)}
-                        placeholder="詳細を記述…"
-                        className="text-xs text-gray-600 leading-relaxed"
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : null}
-
-            {axes !== null && !loading && (
-              <ApprovalControls
-                revising={revising}
-                feedback={feedback}
-                onFeedbackChange={setFeedback}
-                approveLabel="承認して企画書を作成"
-                onApprove={approveAxes}
-                onStartRevise={() => setRevising(true)}
-                onCancelRevise={() => {
-                  setRevising(false);
-                  setFeedback("");
-                }}
-                onSubmitRevise={submitRevision}
-                revisePlaceholder="例：〇本目の軸を△△に差し替えて / 表現をやさしく"
-              />
-            )}
-          </section>
-        )}
       </div>
     </div>
   );
@@ -275,30 +205,6 @@ function AutoTextarea({
       }`}
       style={{ overflow: "hidden" }}
     />
-  );
-}
-
-function StepDot({
-  active,
-  done,
-  label,
-}: {
-  active: boolean;
-  done: boolean;
-  label: string;
-}) {
-  return (
-    <span
-      className={`px-2 py-0.5 rounded-full font-medium ${
-        active
-          ? "bg-purple-100 text-purple-700"
-          : done
-            ? "bg-green-100 text-green-700"
-            : "bg-gray-100 text-gray-400"
-      }`}
-    >
-      {label}
-    </span>
   );
 }
 

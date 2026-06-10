@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import YouTubeIcon from "@image/YouTubeIcon.svg";
+import AppIcon from "@image/ScriptStudioIcon.svg";
 import { CompetitorSettingsDialog } from "@/components/CompetitorSettingsDialog";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
@@ -82,8 +82,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
       {/* 上部バー */}
       <header className="h-12 shrink-0 px-3 border-b border-gray-200 bg-white flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={YouTubeIcon.src} alt="ScriptStudio" width={22} height={19} className="shrink-0" />
-        <span className="text-sm font-bold text-gray-700 shrink-0">ScriptStudio</span>
+        <img src={AppIcon.src} alt="ScriptStudio" width={116} height={22} className="shrink-0" />
         {episodeNumber != null && (
           <span className="text-xs text-gray-400 shrink-0">#{episodeNumber}</span>
         )}

@@ -69,7 +69,7 @@ function buildAxesPrompt(body: {
   hook?: string;
   targetPain?: string;
   reason?: string;
-  overview: string;
+  overview?: string;
   feedback?: string;
   previousAxes?: DirectionAxis[];
 }): string {
@@ -88,13 +88,17 @@ ${body.feedback}
 上記の修正指示を反映して、${AXIS_COUNT}本柱を作り直してください。`
       : "";
 
-  return `以下のテーマと承認済みの大枠概要をもとに、この企画を貫く「設計思想の${AXIS_COUNT}本柱」を作成してください。
+  const overviewBlock = body.overview
+    ? `
+
+【企画の大枠概要】
+${body.overview}`
+    : "";
+
+  return `以下のテーマをもとに、この企画を貫く「設計思想の${AXIS_COUNT}本柱」を作成してください。
 各柱は、企画書・構成・台本のすべての判断基準となる軸です。
 
-${themeBlock(body)}
-
-【承認済みの大枠概要】
-${body.overview}${revision}
+${themeBlock(body)}${overviewBlock}${revision}
 
 ルール：
 - 必ずちょうど ${AXIS_COUNT} 個の軸を作る
@@ -118,9 +122,6 @@ export async function POST(req: NextRequest) {
 
     if (!body.theme) {
       return NextResponse.json({ error: "theme required" }, { status: 400 });
-    }
-    if (stage === "axes" && !body.overview) {
-      return NextResponse.json({ error: "overview required" }, { status: 400 });
     }
 
     const config = await loadChannelConfig();

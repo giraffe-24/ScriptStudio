@@ -1,6 +1,6 @@
 "use client";
 
-import YouTubeIcon from "@image/YouTubeIcon.svg";
+import AppIcon from "@image/ScriptStudioIcon.svg";
 import { CompetitorSettingsDialog } from "@/components/CompetitorSettingsDialog";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
@@ -68,13 +68,12 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
           <div className="text-center max-w-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={YouTubeIcon.src}
+              src={AppIcon.src}
               alt="ScriptStudio"
-              width={80}
-              height={68}
-              className="mx-auto mb-6"
+              width={248}
+              height={48}
+              className="mx-auto mb-5"
             />
-            <h2 className="text-xl font-bold text-gray-700 mb-2">ScriptStudio</h2>
             <p className="text-sm text-gray-400 mb-6 leading-relaxed">
               企画から台本まで、ひとつの画面で
             </p>
