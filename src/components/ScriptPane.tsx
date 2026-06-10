@@ -974,6 +974,35 @@ export function ScriptPane({
       ? "完了するまで編集は一時停止されます"
       : "AIが企画書から台本を書いています";
 
+  const generateLabel = loading
+    ? updatingSections.length > 0
+      ? `再生成中（${updatingSections.length}件）…`
+      : script.trim()
+      ? "執筆中…"
+      : "生成中…"
+    : needsPlanRegenerate
+    ? `再生成（${pendingSectionUpdates.length || 1}セクション）`
+    : generated
+    ? "再生成"
+    : "台本を生成";
+
+  const generateClassName = regenerateDisabled
+    ? scriptBtnDisabled
+    : needsPlanRegenerate
+    ? scriptBtnPrimaryOrange
+    : generated
+    ? scriptBtnPrimaryOrange
+    : scriptBtnPrimaryBlueFill;
+
+  const generateTitle =
+    regenerateDisabled && generated && !loading
+      ? "構成（目次案と詳細）に変更がないため再生成できません"
+      : undefined;
+
+  // モバイルのハンバーガーメニューに出す操作があるか
+  const showRecordActions = generated && versionsEnabled && Boolean(episodeNumber) && Boolean(episodeSlug);
+  const showManualSync = generated && showOutlineNotice && !loading;
+
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
@@ -981,13 +1010,14 @@ export function ScriptPane({
         <h2 className="text-sm font-semibold text-gray-700 shrink-0">台本</h2>
         <span className="text-gray-300 text-sm shrink-0">/</span>
         <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{plan.episodeTitle}</p>
-        <div className="flex items-center gap-2 shrink-0">
+        {/* md以上: 操作を横並び表示 */}
+        <div className="hidden md:flex items-center gap-2 shrink-0">
           {scriptMeta && generated && (
             <span className="text-[10px] text-gray-400 whitespace-nowrap">
               {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
             </span>
           )}
-          {generated && versionsEnabled && episodeNumber && episodeSlug && (
+          {showRecordActions && (
             <>
               <button
                 type="button"
@@ -1012,7 +1042,7 @@ export function ScriptPane({
               </button>
             </>
           )}
-          {generated && showOutlineNotice && !loading && (
+          {showManualSync && (
             <button
               type="button"
               onClick={() => void handleManualPlanSync()}
@@ -1025,34 +1055,60 @@ export function ScriptPane({
           <button
             onClick={() => handleGenerate()}
             disabled={regenerateDisabled}
-            title={
-              regenerateDisabled && generated && !loading
-                ? "構成（目次案と詳細）に変更がないため再生成できません"
-                : undefined
-            }
-            className={
-              regenerateDisabled
-                ? scriptBtnDisabled
-                : needsPlanRegenerate
-                ? scriptBtnPrimaryOrange
-                : generated
-                ? scriptBtnPrimaryOrange
-                : scriptBtnPrimaryBlueFill
-            }
+            title={generateTitle}
+            className={generateClassName}
           >
-            {loading
-              ? updatingSections.length > 0
-                ? `再生成中（${updatingSections.length}件）…`
-                : script.trim()
-                ? "執筆中…"
-                : "生成中…"
-              : needsPlanRegenerate
-              ? `再生成（${pendingSectionUpdates.length || 1}セクション）`
-              : generated
-              ? "再生成"
-              : "台本を生成"}
+            {generateLabel}
           </button>
         </div>
+
+      </div>
+
+      {/* スマホ: 操作バー（タブ） */}
+      <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-white overflow-x-auto">
+        <button
+          onClick={() => handleGenerate()}
+          disabled={regenerateDisabled}
+          title={generateTitle}
+          className={`${generateClassName} shrink-0 whitespace-nowrap`}
+        >
+          {generateLabel}
+        </button>
+        {showManualSync && (
+          <button
+            type="button"
+            onClick={() => void handleManualPlanSync()}
+            className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+          >
+            手動で反映
+          </button>
+        )}
+        {showRecordActions && (
+          <>
+            <button
+              type="button"
+              onClick={() => void openCommitModal()}
+              disabled={loading || !latestScriptRef.current.trim()}
+              className={`${scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+              title={scriptUnrecorded ? "前回の記録から変更があります" : "現在の台本をバージョンとして記録"}
+            >
+              記録{scriptUnrecorded ? " *" : ""}
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              disabled={loading}
+              className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+            >
+              履歴
+            </button>
+          </>
+        )}
+        {scriptMeta && generated && (
+          <span className="shrink-0 text-[10px] text-gray-400 whitespace-nowrap pl-1">
+            {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
+          </span>
+        )}
       </div>
 
       {generated && !versionsEnabled && versionsHint && !loading && (

@@ -69,7 +69,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
   }
 
   return (
-    <div className="w-72 border-l border-gray-200 flex flex-col bg-white">
+    <div className="fixed inset-0 z-40 w-full flex flex-col bg-white md:static md:inset-auto md:z-auto md:w-72 md:border-l md:border-gray-200">
       <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
         <div>
           <p className="text-xs font-bold text-gray-700">AI と深掘り</p>

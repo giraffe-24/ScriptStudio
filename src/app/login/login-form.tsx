@@ -48,9 +48,12 @@ export function LoginForm() {
           <label className="block space-y-1.5 text-sm">
             <span className="text-zinc-400">ユーザー名</span>
             <input
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none ring-red-500/40 focus:ring-2"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 scheme-dark outline-none ring-red-500/40 focus:ring-2"
               name="username"
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -60,10 +63,13 @@ export function LoginForm() {
           <label className="block space-y-1.5 text-sm">
             <span className="text-zinc-400">パスワード</span>
             <input
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none ring-red-500/40 focus:ring-2"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 scheme-dark outline-none ring-red-500/40 focus:ring-2"
               name="password"
               type="password"
               autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Menu } from "lucide-react";
 import {
   combineScriptCalib,
   splitScriptCalib,
@@ -151,6 +152,7 @@ export function ScriptEditor({
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const [activeSectionOffset, setActiveSectionOffset] = useState<number | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
   const saveRequestRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -400,6 +402,16 @@ export function ScriptEditor({
           >
             {copied === "__all__" ? "コピー済み ✓" : "全体をコピー"}
           </button>
+          {sections.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setNavOpen(true)}
+              aria-label="セクション目次"
+              className="md:hidden shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
           {!saved && !editorLocked && (
             <span className="text-[10px] text-gray-400">自動保存中…</span>
           )}
@@ -408,6 +420,46 @@ export function ScriptEditor({
           )}
         </div>
       </div>
+
+      {navOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex" onClick={() => setNavOpen(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="relative ml-auto w-72 max-w-[80%] h-full bg-white shadow-xl border-l border-gray-200 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">セクション</p>
+              <button
+                type="button"
+                onClick={() => setNavOpen(false)}
+                className="text-gray-400 active:text-gray-600 text-xl leading-none"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sections.map((sec) => (
+                <button
+                  key={`nav-${sec.charOffset}-${sec.label}`}
+                  onClick={() => {
+                    scrollToSection(sec);
+                    setNavOpen(false);
+                  }}
+                  className={`w-full text-left rounded-lg px-3 py-2.5 text-sm leading-snug transition-colors ${
+                    activeSectionOffset === sec.charOffset
+                      ? "bg-blue-100 text-blue-800"
+                      : "text-gray-700 active:bg-gray-100"
+                  }`}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectionRange && canRegenerateSelection && !selectionBusy && !isGenerating && (
         <div className="px-4 py-1.5 border-b border-blue-100 bg-blue-50 shrink-0">
@@ -430,7 +482,7 @@ export function ScriptEditor({
 
       <div className="flex flex-1 overflow-hidden">
         {sections.length > 0 && (
-          <div className="w-44 shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50 py-3 px-2 space-y-1">
+          <div className="hidden md:block w-44 shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50 py-3 px-2 space-y-1">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
               セクション
             </p>

@@ -19,8 +19,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "入力が不正です" }, { status: 400 });
   }
 
-  const username = body.username?.trim() ?? "";
-  const password = body.password ?? "";
+  // モバイルのIME/全角入力やスマート記号で混入する非ASCII表記を半角ASCIIへ正規化（NFKC）。
+  // PC とモバイルで「同じつもりの文字」がバイト不一致になり弾かれる問題を境界で解消する。
+  const username = body.username?.normalize("NFKC").trim() ?? "";
+  const password = body.password?.normalize("NFKC") ?? "";
   const credentials = getSiteAccessCredentials();
 
   if (!username || !password || !verifySiteAccess(username, password, credentials)) {

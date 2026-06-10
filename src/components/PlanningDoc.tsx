@@ -168,7 +168,7 @@ export function PlanningDoc({
     <div className="flex h-full overflow-hidden">
       {/* 企画書本体 */}
       <div className="flex-1 overflow-y-auto bg-white">
-        <div className="max-w-2xl mx-auto px-8 py-6 space-y-6">
+        <div className="max-w-2xl mx-auto px-4 md:px-8 py-6 space-y-6">
 
           {/* タイトル */}
           <DocSection label="タイトル">
@@ -643,12 +643,15 @@ function OutlineEditor({
       {/* 列見出し + 戻す/進む */}
       <div className="flex items-start gap-2">
         <div className="w-7 shrink-0" />
-        <div className="w-40 shrink-0">
+        <div className="hidden md:block w-40 shrink-0">
           <span className="text-xs font-medium text-gray-500">目次案</span>
         </div>
         <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
-          <span className="text-xs font-medium text-gray-500">詳細</span>
-          <span className="text-[10px] text-gray-400 shrink-0">ドラッグで並べ替え</span>
+          <span className="text-xs font-medium text-gray-500 shrink-0">
+            <span className="md:hidden">目次案・詳細</span>
+            <span className="hidden md:inline">詳細</span>
+          </span>
+          <span className="text-[10px] text-gray-400 shrink-0 hidden md:inline">ドラッグで並べ替え</span>
           <div className="flex gap-1 shrink-0">
             <button
               type="button"
@@ -704,24 +707,26 @@ function OutlineEditor({
                   <GripVertical className="w-3.5 h-3.5 pointer-events-none" />
                 </div>
               </div>
-              <div className="w-40 shrink-0">
-                <AutoResizeTextarea
-                  value={item.section}
-                  onChange={(v) => updateField(i, "section", v)}
-                  onFocus={handleFieldFocus}
-                  onBlur={() => handleSectionBlur(i)}
-                  placeholder="セクション名…"
-                  className="text-xs text-gray-600"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <AutoResizeTextarea
-                  value={item.content}
-                  onChange={(v) => updateField(i, "content", v)}
-                  onFocus={handleFieldFocus}
-                  onBlur={handleFieldBlur}
-                  placeholder="内容を記述…"
-                />
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5 md:flex-row md:gap-2">
+                <div className="md:w-40 md:shrink-0">
+                  <AutoResizeTextarea
+                    value={item.section}
+                    onChange={(v) => updateField(i, "section", v)}
+                    onFocus={handleFieldFocus}
+                    onBlur={() => handleSectionBlur(i)}
+                    placeholder="セクション名…"
+                    className="text-xs text-gray-600"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <AutoResizeTextarea
+                    value={item.content}
+                    onChange={(v) => updateField(i, "content", v)}
+                    onFocus={handleFieldFocus}
+                    onBlur={handleFieldBlur}
+                    placeholder="内容を記述…"
+                  />
+                </div>
               </div>
               <div className="w-7 shrink-0 flex pt-1 items-start justify-center">
                 <button
