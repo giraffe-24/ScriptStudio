@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppIcon from "@image/ScriptStudioIcon.svg";
 import { setStudioAuthorName } from "@/lib/studio-author";
-import { TypingText } from "@/components/TypingText";
 import { LOGIN_BACKGROUND_SAGA } from "./saga-text";
 
 export function LoginForm() {
@@ -43,20 +42,21 @@ export function LoginForm() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white">
-      {/* レイヤー1：背景の縦書きタイピングアニメーション */}
+      {/* レイヤー1：背景の縦書き小説テキスト（一方向の自動横スクロール） */}
       <div
         className="pointer-events-none absolute inset-0 select-none overflow-hidden"
         aria-hidden="true"
       >
-        <TypingText
-          text={LOGIN_BACKGROUND_SAGA}
-          speed={13}
-          startDelay={400}
-          caretLingerMs={0}
-          decorative
-          caretClassName="typing-caret--vertical"
-          className="login-vertical-text login-bg-scroll absolute right-0 top-0 h-full px-10 py-12 text-[30px] text-zinc-400/45"
-        />
+        <div className="login-marquee absolute left-0 top-0">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="login-vertical-text h-dvh shrink-0 px-10 py-12 text-[30px] text-zinc-400/45"
+            >
+              {LOGIN_BACKGROUND_SAGA}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* レイヤー2：グラデーションレイヤー（白基調） */}
@@ -81,7 +81,6 @@ export function LoginForm() {
             height={58}
             className="mx-auto mb-1.5 h-9 w-auto"
           />
-          <p className="text-center text-xs text-gray-400">動作確認用のログイン</p>
 
           <form className="mt-7 space-y-4" onSubmit={onSubmit}>
             <label className="block space-y-1.5 text-sm">

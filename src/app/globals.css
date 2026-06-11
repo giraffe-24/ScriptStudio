@@ -353,38 +353,41 @@
   vertical-align: baseline;
 }
 
-/* ── ログイン背景の縦書きテキスト ── */
+/* ── ログイン背景の縦書き小説テキスト（明朝体） ── */
 .login-vertical-text {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  font-family: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "YuMincho",
+    "Yu Mincho", "Yu Mincho", "MS PMincho", serif;
   font-feature-settings: "palt";
-  letter-spacing: 0.08em;
-  line-height: 2.2;
+  letter-spacing: 0.1em;
+  line-height: 2.3;
   white-space: normal;
   word-break: normal;
 }
 
-/* 背景をゆっくり横へパンさせる（内容を右へ流す＝縦書きを右→左に読む向き）。
-   translateX は vw 基準にして要素幅に依存せず確実に動かす。 */
-@keyframes login-bg-scroll {
-  from {
-    transform: translateX(-14vw);
-  }
-  to {
-    transform: translateX(14vw);
-  }
-}
-
-.login-bg-scroll {
-  animation: login-bg-scroll 36s ease-in-out infinite alternate;
+/* 背景を一方向へ自動スクロール。同一テキストを2枚並べ、
+   -50% 移動でシームレスにループさせる（マーキー）。
+   各コピーは h-dvh で高さを確定させ、縦書きが列に折り返して
+   幅が広がることで横スクロールが成立する。 */
+.login-marquee {
+  display: flex;
+  width: max-content;
+  animation: login-marquee 90s linear infinite;
   will-change: transform;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .login-bg-scroll {
-    animation: none;
+@keyframes login-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
+
+/* 注: この背景スクロールは緩やかな装飾パンのため、OS の
+   「視差効果を減らす」設定下でも意図的に動かす（ゲートを設けない）。 */
 
 /* ── スプラッシュのロゴ登場 ── */
 @keyframes splash-logo-in {
