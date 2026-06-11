@@ -29,7 +29,9 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
     selectedCandidate,
     setSelectedCandidate,
     currentPlan,
-    episodeRefreshKey,
+    episodes,
+    episodesLoading,
+    loadEpisodes,
     inferringPlan,
     titleOverride,
     numberOverride,
@@ -109,6 +111,9 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <EpisodeList
+                episodes={episodes}
+                loading={episodesLoading}
+                onRefresh={loadEpisodes}
                 selectedId={selectedEpisode?.id ?? null}
                 selectedSlug={selectedEpisode?.slug ?? null}
                 titleOverride={titleOverride}
@@ -117,7 +122,6 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
                 onSelect={onSelectEpisode}
                 onStatusChange={handleStatusChange}
                 onDeleted={handleEpisodesDeleted}
-                refreshKey={episodeRefreshKey}
               />
             </div>
           </div>

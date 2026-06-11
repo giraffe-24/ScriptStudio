@@ -10,6 +10,7 @@ import type {
 } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
 import { hasPlanChangesSinceRecord } from "@/lib/record-state";
+import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
 
 /**
  * 企画〜台本ワークスペースの状態・ハンドラを集約した共有フック。
@@ -20,7 +21,11 @@ export function useStudio() {
   const [pattern, setPattern] = useState<ThemePattern | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<ThemeCandidate | null>(null);
   const [currentPlan, setCurrentPlan] = useState<EpisodePlan | null>(null);
-  const [episodeRefreshKey, setEpisodeRefreshKey] = useState(0);
+  // エピソード一覧の単一の真実源。初回1回だけ読み込み、以降は
+  // 「リフレッシュ／エピソード追加／台本執筆」の3トリガーでのみ再取得する。
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [episodesLoading, setEpisodesLoading] = useState(true);
+  const didInitialLoadRef = useRef(false);
   // 起動直後からワークスペース（4ペイン）を表示する。
   // ウェルカム画面は出さず、未選択でも 企画書/台本 は空状態のプレースホルダを見せる。
   const [newEpisodeMode, setNewEpisodeMode] = useState(true);
@@ -31,7 +36,8 @@ export function useStudio() {
   const numberSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const planSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [scriptGenerateKey, setScriptGenerateKey] = useState(0);
-  const [nextEpisodeNumber, setNextEpisodeNumber] = useState<number | null>(null);
+  // 新規エピソードで番号を手入力したときの上書き値（未指定なら一覧から導出）。
+  const [customNewNumber, setCustomNewNumber] = useState<number | null>(null);
   const [numberOverride, setNumberOverride] = useState<{ slug: string; number: number } | undefined>(undefined);
   const [statusOverride, setStatusOverride] = useState<{ slug: string; status: EpisodeStatus } | undefined>(undefined);
   const [workspaceResetKey, setWorkspaceResetKey] = useState(0);
@@ -75,16 +81,29 @@ export function useStudio() {
     );
   }
 
-  useEffect(() => {
-    if (!newEpisodeMode || selectedEpisode) return;
-    fetch("/api/files?action=list")
+  // エピソード一覧を取得する唯一の経路。3トリガー（初回・リフレッシュ・
+  // エピソード追加・台本執筆）からのみ呼ぶ。
+  const loadEpisodes = useCallback(() => {
+    setEpisodesLoading(true);
+    return fetch("/api/files?action=list")
       .then((r) => r.json())
-      .then((d) => {
-        const max = Math.max(0, ...(d.episodes ?? []).map((e: Episode) => e.number));
-        setNextEpisodeNumber(max + 1);
-      })
-      .catch(() => setNextEpisodeNumber(null));
-  }, [newEpisodeMode, selectedEpisode]);
+      .then((d) => setEpisodes(sortEpisodesByNumberDesc(d.episodes ?? [])))
+      .catch(() => {})
+      .finally(() => setEpisodesLoading(false));
+  }, []);
+
+  // 初回アクセス時に1回だけ読み込む。
+  useEffect(() => {
+    if (didInitialLoadRef.current) return;
+    didInitialLoadRef.current = true;
+    void loadEpisodes();
+  }, [loadEpisodes]);
+
+  // 次のエピソード番号は一覧から導出（追加の fetch をしない）。手入力があれば優先。
+  const nextEpisodeNumber = useMemo(
+    () => customNewNumber ?? Math.max(0, ...episodes.map((e) => e.number)) + 1,
+    [customNewNumber, episodes],
+  );
 
   // エピソードを（未作成なら）作成し、企画書を保存して selectedEpisode を返す。
   // 台本生成は行わない。失敗時は例外を投げる。
@@ -100,7 +119,7 @@ export function useStudio() {
         const listRes = await fetch("/api/files?action=list");
         const listData = await listRes.json();
         const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
-        const assignNumber = nextEpisodeNumber ?? maxNumber + 1;
+        const assignNumber = customNewNumber ?? maxNumber + 1;
 
         const data = await postFilesAction<{ episode: Episode }>({
           action: "create",
@@ -123,7 +142,7 @@ export function useStudio() {
         });
         episode = data.episode;
         setSelectedEpisode(episode);
-        setEpisodeRefreshKey((k) => k + 1);
+        setCustomNewNumber(null);
       } finally {
         setCreatingEpisode(false);
       }
@@ -149,6 +168,7 @@ export function useStudio() {
       setCurrentPlan(plan);
       setNewEpisodeMode(false);
       setScriptGenerateKey((k) => k + 1);
+      void loadEpisodes(); // 台本執筆トリガー
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
     }
@@ -161,6 +181,7 @@ export function useStudio() {
       if (!episode) return;
       setCurrentPlan(plan);
       setNewEpisodeMode(false);
+      void loadEpisodes(); // エピソード追加トリガー
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
     }
@@ -179,6 +200,7 @@ export function useStudio() {
     setTitleOverride(undefined);
     setNumberOverride(undefined);
     setStatusOverride(undefined);
+    setCustomNewNumber(null);
     setPlanningScriptResetKey((k) => k + 1);
   }
 
@@ -285,16 +307,30 @@ export function useStudio() {
     }
   }
 
-  function handleScriptSaved() {
-    setEpisodeRefreshKey((k) => k + 1);
-  }
+  // 自動保存ごとに発火する。一覧の再取得はしない（再取得ループの原因だった）。
+  function handleScriptSaved() {}
 
+  // 台本が初めて作成されたとき。再取得せず、選択中エピソードの行だけ
+  // ローカルに「下書きあり」へ更新する。
   function handleScriptCreated() {
-    setEpisodeRefreshKey((k) => k + 1);
+    const ep = selectedEpisodeRef.current;
+    if (!ep) return;
+    setEpisodes((prev) =>
+      prev.map((e) =>
+        e.slug === ep.slug
+          ? {
+              ...e,
+              hasScriptDraft: true,
+              status: e.status === "planning" ? "scripting" : e.status,
+            }
+          : e,
+      ),
+    );
   }
 
   function handleEpisodesDeleted(deletedSlugs: string[]) {
-    setEpisodeRefreshKey((k) => k + 1);
+    // 再取得せずローカルから除外する。
+    setEpisodes((prev) => prev.filter((e) => !deletedSlugs.includes(e.slug)));
 
     if (selectedEpisode && deletedSlugs.includes(selectedEpisode.slug)) {
       selectionRequestRef.current += 1;
@@ -319,14 +355,12 @@ export function useStudio() {
     if (!selectedEpisode) return;
     if (selectedEpisode.status === "done") return;
     await handleStatusChange(selectedEpisode, "done");
-    setEpisodeRefreshKey((k) => k + 1);
   }
 
   async function handleRevisionCleared() {
     if (!selectedEpisode) return;
     if (selectedEpisode.status === "scripting") return;
     await handleStatusChange(selectedEpisode, "scripting");
-    setEpisodeRefreshKey((k) => k + 1);
   }
 
   function handlePlanChange(plan: EpisodePlan) {
@@ -377,6 +411,10 @@ export function useStudio() {
             slug: selectedEpisode.slug,
             title,
           });
+          // 一覧（SSOT）も再取得せずローカル更新する。
+          setEpisodes((prev) =>
+            prev.map((e) => (e.slug === selectedEpisode.slug ? { ...e, title } : e)),
+          );
         } catch (error) {
           setTitleOverride(undefined);
           window.alert(error instanceof Error ? error.message : String(error));
@@ -414,13 +452,21 @@ export function useStudio() {
         }
         const data = await res.json();
         setSelectedEpisode(data.episode);
+        // 一覧（SSOT）も再取得せずローカル更新する。
+        setEpisodes((prev) =>
+          sortEpisodesByNumberDesc(
+            prev.map((e) =>
+              e.slug === slug ? { ...e, number: newNumber, id: String(newNumber) } : e,
+            ),
+          ),
+        );
         setNumberOverride(undefined);
-        setEpisodeRefreshKey((k) => k + 1);
       }, 800);
       return;
     }
 
-    setNextEpisodeNumber(newNumber);
+    // 新規エピソード（未作成）の番号を手入力で上書き。
+    setCustomNewNumber(newNumber);
   }
 
   async function handleStatusChange(ep: Episode, status: EpisodeStatus) {
@@ -433,6 +479,10 @@ export function useStudio() {
       });
       const resolved = (data.status ?? status) as EpisodeStatus;
       setStatusOverride({ slug: ep.slug, status: resolved });
+      // 一覧（SSOT）も再取得せずローカル更新する。
+      setEpisodes((prev) =>
+        prev.map((e) => (e.slug === ep.slug ? { ...e, status: resolved } : e)),
+      );
       if (selectedEpisode?.slug === ep.slug) {
         setSelectedEpisode({ ...selectedEpisode, status: resolved });
       }
@@ -451,7 +501,8 @@ export function useStudio() {
     selectedCandidate,
     setSelectedCandidate,
     currentPlan,
-    episodeRefreshKey,
+    episodes,
+    episodesLoading,
     newEpisodeMode,
     inferringPlan,
     titleOverride,
@@ -465,6 +516,7 @@ export function useStudio() {
     planUnrecorded,
     showWorkspace,
     // handlers
+    loadEpisodes,
     handlePlanReady,
     handlePlanSave,
     handleNewEpisode,

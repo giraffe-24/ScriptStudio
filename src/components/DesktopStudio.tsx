@@ -18,7 +18,9 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
     selectedCandidate,
     setSelectedCandidate,
     currentPlan,
-    episodeRefreshKey,
+    episodes,
+    episodesLoading,
+    loadEpisodes,
     inferringPlan,
     titleOverride,
     numberOverride,
@@ -51,6 +53,9 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
       {/* Pane 1: エピソード一覧 */}
       <div className="w-52 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
         <EpisodeList
+          episodes={episodes}
+          loading={episodesLoading}
+          onRefresh={loadEpisodes}
           selectedId={selectedEpisode?.id ?? null}
           selectedSlug={selectedEpisode?.slug ?? null}
           titleOverride={titleOverride}
@@ -59,7 +64,6 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
           onSelect={handleEpisodeSelect}
           onStatusChange={handleStatusChange}
           onDeleted={handleEpisodesDeleted}
-          refreshKey={episodeRefreshKey}
         />
       </div>
 

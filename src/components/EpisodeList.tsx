@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import type { Episode, EpisodeStatus } from "@/lib/types";
 import {
   EPISODE_STATUSES,
@@ -10,7 +11,6 @@ import {
   showUnrevisedBadge,
   UNREVISED_BADGE,
 } from "@/lib/episode-status";
-import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,9 @@ import {
 import { Button } from "@/components/ui/button";
 
 interface Props {
+  episodes: Episode[];
+  loading: boolean;
+  onRefresh: () => void;
   selectedId: string | null;
   selectedSlug?: string | null;
   titleOverride?: { slug: string; title: string };
@@ -30,10 +33,12 @@ interface Props {
   onSelect: (episode: Episode) => void;
   onStatusChange?: (episode: Episode, status: EpisodeStatus) => void;
   onDeleted?: (deletedSlugs: string[]) => void;
-  refreshKey?: number;
 }
 
 export function EpisodeList({
+  episodes,
+  loading,
+  onRefresh,
   selectedId,
   selectedSlug,
   titleOverride,
@@ -42,38 +47,12 @@ export function EpisodeList({
   onSelect,
   onStatusChange,
   onDeleted,
-  refreshKey,
 }: Props) {
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    fetch("/api/files?action=list")
-      .then((r) => r.json())
-      .then((d) => setEpisodes(sortEpisodesByNumberDesc(d.episodes ?? [])))
-      .finally(() => setLoading(false));
-  }, [refreshKey]);
-
-  useEffect(() => {
-    if (!numberOverride) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEpisodes((prev) =>
-      sortEpisodesByNumberDesc(
-        prev.map((ep) =>
-          ep.slug === numberOverride.slug
-            ? { ...ep, number: numberOverride.number, id: String(numberOverride.number) }
-            : ep,
-        ),
-      ),
-    );
-  }, [numberOverride]);
 
   const selectedEpisodes = useMemo(
     () => episodes.filter((ep) => selectedSlugs.has(ep.slug)),
@@ -127,7 +106,6 @@ export function EpisodeList({
         throw new Error(firstError);
       }
 
-      setEpisodes((prev) => prev.filter((ep) => !deletedSlugs.includes(ep.slug)));
       onDeleted?.(deletedSlugs);
       setConfirmOpen(false);
       exitDeleteMode();
@@ -148,44 +126,56 @@ export function EpisodeList({
     <div className="flex flex-col h-full bg-gray-50">
       <div className="h-[52px] px-3 border-b border-gray-200 flex items-center justify-between gap-2">
         <h1 className="text-sm font-semibold text-gray-700 shrink-0">エピソード</h1>
-        {!loading && episodes.length > 0 && (
-          <div className="flex items-center gap-1.5 min-w-0">
-            {deleteMode ? (
-              <>
-                <span className="text-[10px] text-gray-500 truncate">
-                  {selectedSlugs.size}件
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={selectedSlugs.size === 0}
-                  className="text-[10px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  削除する
-                </button>
-                <button
-                  type="button"
-                  onClick={exitDeleteMode}
-                  className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                >
-                  取消
-                </button>
-              </>
-            ) : (
+        <div className="flex items-center gap-1.5 min-w-0">
+          {deleteMode ? (
+            <>
+              <span className="text-[10px] text-gray-500 truncate">
+                {selectedSlugs.size}件
+              </span>
               <button
                 type="button"
-                onClick={() => setDeleteMode(true)}
+                onClick={() => setConfirmOpen(true)}
+                disabled={selectedSlugs.size === 0}
+                className="text-[10px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                削除する
+              </button>
+              <button
+                type="button"
+                onClick={exitDeleteMode}
                 className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
               >
-                削除
+                取消
               </button>
-            )}
-          </div>
-        )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={loading}
+                title="一覧を再読み込み"
+                aria-label="一覧を再読み込み"
+                className="p-1 rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              </button>
+              {episodes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteMode(true)}
+                  className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                >
+                  削除
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
-        {loading ? (
+        {loading && episodes.length === 0 ? (
           <div className="px-3 py-4 text-xs text-gray-400 animate-pulse">読み込み中…</div>
         ) : episodes.length === 0 ? (
           <div className="px-3 py-4 text-xs text-gray-400">
