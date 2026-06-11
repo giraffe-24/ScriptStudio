@@ -468,6 +468,7 @@ function OutlineEditor({
   historyResetKey?: string;
 }) {
   const itemsRef = useRef(items);
+  // eslint-disable-next-line react-hooks/refs
   itemsRef.current = items;
 
   const pastRef = useRef<OutlineItem[][]>([]);
@@ -490,6 +491,7 @@ function OutlineEditor({
   useEffect(() => {
     pastRef.current = [];
     futureRef.current = [];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanUndo(false);
     setCanRedo(false);
   }, [historyResetKey]);

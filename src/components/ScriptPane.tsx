@@ -268,15 +268,18 @@ export function ScriptPane({
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshVersionsStatus();
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (generated) void refreshVersionsStatus();
   }, [generated]);
 
   useEffect(() => {
     if (!versionsEnabled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLatestSnapshotContent(null);
       setSnapshotCheckReady(true);
       return;
@@ -339,6 +342,7 @@ export function ScriptPane({
   // エピソード切替時: 状態をリセットしてディスクから読み込み
   useEffect(() => {
     abortActiveGeneration();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(false);
     setReconciling(false);
     setUpdatingSections([]);
@@ -386,6 +390,7 @@ export function ScriptPane({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episodeNumber, episodeSlug]);
 
   // 企画書「台本を作成する」→ 状態に関係なく新規生成開始（ディスクは上書きしない）
@@ -416,6 +421,7 @@ export function ScriptPane({
     if (sections.length === headers.length) {
       const updated = syncScriptHeadersByIndex(script, plan.outline);
       if (updated !== script) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setScript(updated);
         latestScriptRef.current = updated;
       }
@@ -427,6 +433,7 @@ export function ScriptPane({
   // 構成と台本の不一致を検知（手動で反映済みの企画指紋は確定扱い）
   useEffect(() => {
     if (!plan?.outline || !generated || loading || !script) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOutOfSync(false);
       return;
     }

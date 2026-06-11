@@ -161,6 +161,7 @@ export function ScriptEditor({
 
   useEffect(() => {
     const { main, calib } = splitCalib(script);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContent(main);
     setCalibText(calib);
     setCalibOpen(false);

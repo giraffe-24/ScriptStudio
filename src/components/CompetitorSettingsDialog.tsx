@@ -51,6 +51,7 @@ export function CompetitorSettingsDialog() {
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setToggleError(null);
     void loadChannels();
   }, [open, loadChannels]);

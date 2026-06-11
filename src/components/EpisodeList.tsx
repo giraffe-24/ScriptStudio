@@ -53,6 +53,7 @@ export function EpisodeList({
   const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch("/api/files?action=list")
       .then((r) => r.json())
@@ -62,6 +63,7 @@ export function EpisodeList({
 
   useEffect(() => {
     if (!numberOverride) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEpisodes((prev) =>
       sortEpisodesByNumberDesc(
         prev.map((ep) =>

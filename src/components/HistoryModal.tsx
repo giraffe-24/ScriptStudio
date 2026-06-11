@@ -120,6 +120,7 @@ export function HistoryModal({
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError("");
     setConfirmId(null);

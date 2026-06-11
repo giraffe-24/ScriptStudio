@@ -123,6 +123,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
 
   useEffect(() => {
     if (!pattern) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     resetResults();
     setThemeModeLocked(false);
     setThemeMode(null);

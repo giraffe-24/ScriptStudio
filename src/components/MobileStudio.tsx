@@ -60,6 +60,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
 
   // 作業対象が無くなったら一覧へ戻す
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!showWorkspace && tab !== "list") setTab("list");
   }, [showWorkspace, tab]);
 

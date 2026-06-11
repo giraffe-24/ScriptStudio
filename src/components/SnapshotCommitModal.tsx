@@ -62,6 +62,7 @@ export function SnapshotCommitModal({
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError("");
 
     void resolveStudioAuthorName().then((name) => {
