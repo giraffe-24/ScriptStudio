@@ -22,6 +22,11 @@ interface Props {
    * 横スクロール（マーキー）と併用してもガタつかない。
    */
   reserveLayout?: boolean;
+  /**
+   * 1tick（speed間隔）あたりに進める文字数。ブラウザは setInterval を
+   * 約4msに丸めるため、それより速くしたい場合はここを増やす。
+   */
+  charsPerTick?: number;
 }
 
 /**
@@ -37,6 +42,7 @@ export function TypingText({
   caretClassName,
   decorative = false,
   reserveLayout = false,
+  charsPerTick = 1,
 }: Props) {
   const chars = Array.from(text);
   const [count, setCount] = useState(0);
@@ -46,9 +52,10 @@ export function TypingText({
     const total = Array.from(text).length;
     let i = 0;
     let interval: ReturnType<typeof setInterval> | undefined;
+    const step = Math.max(1, charsPerTick);
     const start = setTimeout(() => {
       interval = setInterval(() => {
-        i += 1;
+        i = Math.min(i + step, total);
         setCount(i);
         if (i >= total) {
           if (interval) clearInterval(interval);
@@ -61,7 +68,7 @@ export function TypingText({
       clearTimeout(start);
       if (interval) clearInterval(interval);
     };
-  }, [text, speed, startDelay]);
+  }, [text, speed, startDelay, charsPerTick]);
 
   // 打ち終わったらカーソルを少し点滅させてからフェードアウト
   const [caretHidden, setCaretHidden] = useState(false);

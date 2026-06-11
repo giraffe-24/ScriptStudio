@@ -58,6 +58,7 @@ export function LoginForm() {
               caretLingerMs={0}
               decorative
               reserveLayout
+              charsPerTick={3}
               caretClassName="typing-caret--vertical"
               className="login-vertical-text h-dvh shrink-0 px-10 py-12 text-[30px] text-zinc-400/45"
             />
