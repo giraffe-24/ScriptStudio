@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppIcon from "@image/ScriptStudioIcon.svg";
 import { setStudioAuthorName } from "@/lib/studio-author";
+import { TypingText } from "@/components/TypingText";
 import { LOGIN_BACKGROUND_SAGA } from "./saga-text";
 
 export function LoginForm() {
@@ -49,12 +50,17 @@ export function LoginForm() {
       >
         <div className="login-marquee absolute left-0 top-0">
           {[0, 1].map((i) => (
-            <div
+            <TypingText
               key={i}
+              text={LOGIN_BACKGROUND_SAGA}
+              speed={13}
+              startDelay={400}
+              caretLingerMs={0}
+              decorative
+              reserveLayout
+              caretClassName="typing-caret--vertical"
               className="login-vertical-text h-dvh shrink-0 px-10 py-12 text-[30px] text-zinc-400/45"
-            >
-              {LOGIN_BACKGROUND_SAGA}
-            </div>
+            />
           ))}
         </div>
       </div>

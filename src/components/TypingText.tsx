@@ -16,6 +16,12 @@ interface Props {
   caretClassName?: string;
   /** 装飾目的：読み上げ対象から除外する（背景アニメ等） */
   decorative?: boolean;
+  /**
+   * 全文ぶんのレイアウトを最初から確保し、未入力部分を visibility:hidden で
+   * 不可視にしながら1文字ずつ可視化する。要素幅が一定になるため、
+   * 横スクロール（マーキー）と併用してもガタつかない。
+   */
+  reserveLayout?: boolean;
 }
 
 /**
@@ -30,6 +36,7 @@ export function TypingText({
   className,
   caretClassName,
   decorative = false,
+  reserveLayout = false,
 }: Props) {
   const chars = Array.from(text);
   const [count, setCount] = useState(0);
@@ -76,6 +83,11 @@ export function TypingText({
           caretClassName ? ` ${caretClassName}` : ""
         }`}
       />
+      {reserveLayout ? (
+        <span aria-hidden="true" style={{ visibility: "hidden" }}>
+          {chars.slice(count).join("")}
+        </span>
+      ) : null}
     </span>
   );
 }

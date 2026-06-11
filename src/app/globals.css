@@ -373,16 +373,19 @@
 .login-marquee {
   display: flex;
   width: max-content;
-  animation: login-marquee 90s linear infinite;
+  animation: login-marquee 270s linear infinite;
   will-change: transform;
 }
 
+/* from: コピー1枚目の右端を画面右端にピン（100vw - 1枚分の幅）。
+   縦書きは左へ伸びるため、タイピング開始点は常に画面右端に固定される。
+   to へ向けて 1枚分（=50%）だけ左へ流し、2枚目が同位置に来てシームレス。 */
 @keyframes login-marquee {
   from {
-    transform: translateX(0);
+    transform: translateX(calc(100vw - 50%));
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(calc(100vw - 100%));
   }
 }
 
