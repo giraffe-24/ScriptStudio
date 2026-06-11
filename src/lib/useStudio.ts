@@ -31,6 +31,8 @@ export function useStudio() {
   const [newEpisodeMode, setNewEpisodeMode] = useState(true);
   const [creatingEpisode, setCreatingEpisode] = useState(false);
   const [inferringPlan, setInferringPlan] = useState(false);
+  // エピソード選択後、企画書（plan.json）を読み込み中かどうか。
+  const [planLoading, setPlanLoading] = useState(false);
   const [titleOverride, setTitleOverride] = useState<{ slug: string; title: string } | undefined>(undefined);
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const numberSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -259,50 +261,59 @@ export function useStudio() {
     setTitleOverride(undefined);
     setNumberOverride(undefined);
     setStatusOverride(undefined);
+    setPlanLoading(true);
 
-    // plan.json を読み込む。なければ台本から推論して保存
-    const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
-    const planData = await planRes.json();
-    if (!isActiveEpisodeSelection(requestId, ep)) return;
-    if (planData.plan) {
-      setCurrentPlan(planData.plan as EpisodePlan);
-      return;
-    }
-
-    // plan.json が存在しない場合、台本から推論
-    const scriptRes = await fetch(
-      `/api/files?action=read&number=${ep.number}&slug=${ep.slug}&filename=01-script-draft.md`
-    );
-    const scriptData = await scriptRes.json();
-    if (!isActiveEpisodeSelection(requestId, ep)) return;
-    if (!scriptData.content) return;
-
-    setInferringPlan(true);
     try {
-      const inferRes = await fetch("/api/infer-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ script: scriptData.content, title: ep.title }),
-      });
-      const inferData = await inferRes.json();
+      // plan.json を読み込む。なければ台本から推論して保存
+      const planRes = await fetch(`/api/files?action=read-plan&number=${ep.number}&slug=${ep.slug}`);
+      const planData = await planRes.json();
       if (!isActiveEpisodeSelection(requestId, ep)) return;
-      if (inferData.plan) {
-        setCurrentPlan(inferData.plan as EpisodePlan);
-        // 次回以降のためにキャッシュ保存
-        try {
-          await postFilesAction({
-            action: "write-plan",
-            number: ep.number,
-            slug: ep.slug,
-            plan: inferData.plan,
-          });
-        } catch (error) {
-          window.alert(error instanceof Error ? error.message : String(error));
+      if (planData.plan) {
+        setCurrentPlan(planData.plan as EpisodePlan);
+        return;
+      }
+
+      // plan.json が存在しない場合、台本から推論
+      const scriptRes = await fetch(
+        `/api/files?action=read&number=${ep.number}&slug=${ep.slug}&filename=01-script-draft.md`
+      );
+      const scriptData = await scriptRes.json();
+      if (!isActiveEpisodeSelection(requestId, ep)) return;
+      if (!scriptData.content) return;
+
+      // 推論は時間がかかるので専用インジケータ（inferringPlan）に切り替える
+      setPlanLoading(false);
+      setInferringPlan(true);
+      try {
+        const inferRes = await fetch("/api/infer-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ script: scriptData.content, title: ep.title }),
+        });
+        const inferData = await inferRes.json();
+        if (!isActiveEpisodeSelection(requestId, ep)) return;
+        if (inferData.plan) {
+          setCurrentPlan(inferData.plan as EpisodePlan);
+          // 次回以降のためにキャッシュ保存
+          try {
+            await postFilesAction({
+              action: "write-plan",
+              number: ep.number,
+              slug: ep.slug,
+              plan: inferData.plan,
+            });
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : String(error));
+          }
+        }
+      } finally {
+        if (isActiveEpisodeSelection(requestId, ep)) {
+          setInferringPlan(false);
         }
       }
     } finally {
       if (isActiveEpisodeSelection(requestId, ep)) {
-        setInferringPlan(false);
+        setPlanLoading(false);
       }
     }
   }
@@ -505,6 +516,7 @@ export function useStudio() {
     episodesLoading,
     newEpisodeMode,
     inferringPlan,
+    planLoading,
     titleOverride,
     numberOverride,
     statusOverride,

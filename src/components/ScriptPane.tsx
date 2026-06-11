@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Loader2 } from "lucide-react";
 import {
   ScriptEditor,
   type GenerationStatus,
@@ -116,6 +117,8 @@ export function ScriptPane({
 }: Props) {
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
+  // エピソード切替時にディスクから台本を読み込み中かどうか。
+  const [scriptLoading, setScriptLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [outOfSync, setOutOfSync] = useState(false);
   const [reconciling, setReconciling] = useState(false);
@@ -360,10 +363,12 @@ export function ScriptPane({
       setScript("");
       latestScriptRef.current = "";
       setGenerated(false);
+      setScriptLoading(false);
       return;
     }
 
     let cancelled = false;
+    setScriptLoading(true);
 
     fetch(`/api/files?action=read&number=${episodeNumber}&slug=${episodeSlug}&filename=01-script-draft.md`)
       .then((r) => r.json())
@@ -379,6 +384,9 @@ export function ScriptPane({
           latestScriptRef.current = "";
           setGenerated(false);
         }
+      })
+      .finally(() => {
+        if (!cancelled) setScriptLoading(false);
       });
 
     void loadScriptMeta().then((meta) => {
@@ -1137,7 +1145,14 @@ export function ScriptPane({
       )}
 
       <div className="flex-1 overflow-hidden">
-        {script || loading ? (
+        {scriptLoading && !script && !loading ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center text-gray-400">
+              <Loader2 className="size-7 mb-3 mx-auto animate-spin text-blue-400" />
+              <p className="text-sm">台本を読み込んでいます…</p>
+            </div>
+          </div>
+        ) : script || loading ? (
           <ScriptEditor
             script={script}
             episodeTitle={plan.episodeTitle}

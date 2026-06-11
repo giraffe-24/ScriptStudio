@@ -1,6 +1,7 @@
 "use client";
 
 import AppIcon from "@image/ScriptStudioIcon.svg";
+import { Loader2 } from "lucide-react";
 import { CompetitorSettingsDialog } from "@/components/CompetitorSettingsDialog";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
@@ -22,6 +23,7 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
     episodesLoading,
     loadEpisodes,
     inferringPlan,
+    planLoading,
     titleOverride,
     numberOverride,
     statusOverride,
@@ -136,9 +138,11 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
                 </>
               )}
               {planUnrecorded && <UnrecordedBadge />}
-              {inferringPlan && (
+              {inferringPlan ? (
                 <span className="ml-auto text-xs text-blue-400 animate-pulse shrink-0">台本から企画書を復元中…</span>
-              )}
+              ) : planLoading ? (
+                <span className="ml-auto text-xs text-blue-400 animate-pulse shrink-0">読み込み中…</span>
+              ) : null}
             </div>
             <div className="flex-1 overflow-hidden">
               {inferringPlan ? (
@@ -146,6 +150,13 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
                   <div className="text-center text-gray-400">
                     <div className="text-3xl mb-3 animate-pulse">📋</div>
                     <p className="text-sm">台本から企画書を復元しています…</p>
+                  </div>
+                </div>
+              ) : planLoading ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <Loader2 className="size-7 mb-3 mx-auto animate-spin text-blue-400" />
+                    <p className="text-sm">企画書を読み込んでいます…</p>
                   </div>
                 </div>
               ) : (
