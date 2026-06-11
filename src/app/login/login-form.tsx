@@ -53,7 +53,7 @@ export function LoginForm() {
             <TypingText
               key={i}
               text={LOGIN_BACKGROUND_SAGA}
-              speed={13}
+              speed={4}
               startDelay={400}
               caretLingerMs={0}
               decorative
