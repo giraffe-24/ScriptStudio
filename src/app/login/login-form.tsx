@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppIcon from "@image/ScriptStudioIcon.svg";
 import { setStudioAuthorName } from "@/lib/studio-author";
@@ -11,11 +11,39 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/";
+  const safeNext = nextPath.startsWith("/") ? nextPath : "/";
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // 認証済み判定が済むまではフォームを出さず、ローディング（背景＋ロゴ）を表示する。
+  const [authChecked, setAuthChecked] = useState(false);
+  const [alreadyAuthed, setAlreadyAuthed] = useState(false);
+
+  // 既ログインのユーザーがログイン画面に来た場合は、フォームを見せずにそのままアプリへ送る。
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/site-auth/me")
+      .then((r) => r.json())
+      .then((data: { authEnabled?: boolean; username?: string | null }) => {
+        if (cancelled) return;
+        const authed = !data?.authEnabled || Boolean(data?.username);
+        if (authed) {
+          setAlreadyAuthed(true);
+          router.replace(safeNext);
+          router.refresh();
+        } else {
+          setAuthChecked(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAuthChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router, safeNext]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +65,12 @@ export function LoginForm() {
     }
 
     setStudioAuthorName(username.trim());
-    router.replace(nextPath.startsWith("/") ? nextPath : "/");
+    router.replace(safeNext);
     router.refresh();
   }
+
+  // 認証チェック中、または既ログインで遷移待ちのときは、フォームを隠してロゴだけ見せる。
+  const showLoading = !authChecked || alreadyAuthed;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white">
@@ -76,8 +107,21 @@ export function LoginForm() {
         aria-hidden="true"
       />
 
-      {/* レイヤー3：ログインフォーム */}
+      {/* レイヤー3：ログインフォーム（既ログイン時はロゴだけのローディング） */}
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 text-gray-800">
+        {showLoading ? (
+          // 認証済み（または判定中）：入力カードは出さず、背景アニメ＋ロゴのみ。
+          <div className="splash-logo-in text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={AppIcon.src}
+              alt="ScriptStudio"
+              width={258}
+              height={58}
+              className="mx-auto h-9 w-auto"
+            />
+          </div>
+        ) : (
         <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white/75 p-8 shadow-xl backdrop-blur-xl">
           {/* ロゴ */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -136,6 +180,7 @@ export function LoginForm() {
             </button>
           </form>
         </div>
+        )}
       </div>
     </div>
   );
