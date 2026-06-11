@@ -82,7 +82,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
       {/* 上部バー */}
       <header className="h-12 shrink-0 px-3 border-b border-gray-200 bg-white flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={AppIcon.src} alt="ScriptStudio" width={116} height={22} className="shrink-0" />
+        <img src={AppIcon.src} alt="ScriptStudio" width={98} height={22} className="shrink-0" />
         {episodeNumber != null && (
           <span className="text-xs text-gray-400 shrink-0">#{episodeNumber}</span>
         )}

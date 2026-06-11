@@ -314,3 +314,96 @@
   background-size: 200% 100%;
   animation: analysis-panel-shimmer 1.6s ease-in-out infinite;
 }
+
+/* ── タイピングアニメーションのカーソル ── */
+@keyframes typing-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.typing-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  background: currentColor;
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  animation: typing-caret-blink 1s steps(1, end) infinite;
+  transition: opacity 0.4s ease;
+}
+
+.typing-caret--hidden {
+  opacity: 0;
+  animation: none;
+}
+
+/* 縦書き用カーソル（最後の文字の下に出る横棒） */
+.typing-caret--vertical {
+  width: 1em;
+  height: 2px;
+  margin-left: 0;
+  margin-top: 4px;
+  vertical-align: baseline;
+}
+
+/* ── ログイン背景の縦書きテキスト ── */
+.login-vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-feature-settings: "palt";
+  letter-spacing: 0.08em;
+  line-height: 2.2;
+  white-space: normal;
+  word-break: normal;
+}
+
+/* 背景をゆっくり横へパンさせる（内容を右へ流す＝縦書きを右→左に読む向き）。
+   translateX は vw 基準にして要素幅に依存せず確実に動かす。 */
+@keyframes login-bg-scroll {
+  from {
+    transform: translateX(-14vw);
+  }
+  to {
+    transform: translateX(14vw);
+  }
+}
+
+.login-bg-scroll {
+  animation: login-bg-scroll 36s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-bg-scroll {
+    animation: none;
+  }
+}
+
+/* ── スプラッシュのロゴ登場 ── */
+@keyframes splash-logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.splash-logo-in {
+  animation: splash-logo-in 0.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo-in {
+    animation: none;
+  }
+}

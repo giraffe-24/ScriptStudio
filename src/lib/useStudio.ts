@@ -21,7 +21,9 @@ export function useStudio() {
   const [selectedCandidate, setSelectedCandidate] = useState<ThemeCandidate | null>(null);
   const [currentPlan, setCurrentPlan] = useState<EpisodePlan | null>(null);
   const [episodeRefreshKey, setEpisodeRefreshKey] = useState(0);
-  const [newEpisodeMode, setNewEpisodeMode] = useState(false);
+  // 起動直後からワークスペース（4ペイン）を表示する。
+  // ウェルカム画面は出さず、未選択でも 企画書/台本 は空状態のプレースホルダを見せる。
+  const [newEpisodeMode, setNewEpisodeMode] = useState(true);
   const [creatingEpisode, setCreatingEpisode] = useState(false);
   const [inferringPlan, setInferringPlan] = useState(false);
   const [titleOverride, setTitleOverride] = useState<{ slug: string; title: string } | undefined>(undefined);

@@ -70,7 +70,7 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
             <img
               src={AppIcon.src}
               alt="ScriptStudio"
-              width={248}
+              width={214}
               height={48}
               className="mx-auto mb-5"
             />
