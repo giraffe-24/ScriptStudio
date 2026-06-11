@@ -28,7 +28,9 @@ export function LoginForm() {
       .then((r) => r.json())
       .then((data: { authEnabled?: boolean; username?: string | null }) => {
         if (cancelled) return;
-        const authed = !data?.authEnabled || Boolean(data?.username);
+        // 認証が有効で、かつ実際にセッションがあるときだけログイン済みとみなす。
+        // 認証無効環境（ローカル等）ではフォームをそのまま表示する。
+        const authed = Boolean(data?.authEnabled) && Boolean(data?.username);
         if (authed) {
           setAlreadyAuthed(true);
           router.replace(safeNext);
