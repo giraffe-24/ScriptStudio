@@ -41,6 +41,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
     planUnrecorded,
     showWorkspace,
     handlePlanReady,
+    handlePlanSave,
     handleNewEpisode,
     handleAnalysisStart,
     handleRecordStateChange,
@@ -179,6 +180,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
                     episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
                     episodeSlug={selectedEpisode?.slug}
                     onPlanReady={handlePlanReady}
+                    onPlanSave={handlePlanSave}
                     onTitleChange={handleTitleChange}
                     onEpisodeNumberChange={handleEpisodeNumberChange}
                     onPlanChange={handlePlanChange}

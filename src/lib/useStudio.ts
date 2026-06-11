@@ -86,12 +86,17 @@ export function useStudio() {
       .catch(() => setNextEpisodeNumber(null));
   }, [newEpisodeMode, selectedEpisode]);
 
-  async function handlePlanReady(plan: EpisodePlan, title: string) {
+  // エピソードを（未作成なら）作成し、企画書を保存して selectedEpisode を返す。
+  // 台本生成は行わない。失敗時は例外を投げる。
+  async function saveEpisodeAndPlan(
+    plan: EpisodePlan,
+    title: string,
+  ): Promise<Episode | null> {
     let episode = selectedEpisode;
 
-    try {
-      if (!episode && !creatingEpisode) {
-        setCreatingEpisode(true);
+    if (!episode && !creatingEpisode) {
+      setCreatingEpisode(true);
+      try {
         const listRes = await fetch("/api/files?action=list");
         const listData = await listRes.json();
         const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
@@ -119,24 +124,45 @@ export function useStudio() {
         episode = data.episode;
         setSelectedEpisode(episode);
         setEpisodeRefreshKey((k) => k + 1);
+      } finally {
+        setCreatingEpisode(false);
       }
+    }
 
-      if (episode) {
-        await postFilesAction({
-          action: "write-plan",
-          number: episode.number,
-          slug: episode.slug,
-          plan,
-        });
-      }
+    if (episode) {
+      await postFilesAction({
+        action: "write-plan",
+        number: episode.number,
+        slug: episode.slug,
+        plan,
+      });
+    }
 
+    return episode;
+  }
+
+  // 「台本を作成する」: 企画書を保存し、台本生成を開始する
+  async function handlePlanReady(plan: EpisodePlan, title: string) {
+    try {
+      const episode = await saveEpisodeAndPlan(plan, title);
+      if (!episode) return;
       setCurrentPlan(plan);
       setNewEpisodeMode(false);
       setScriptGenerateKey((k) => k + 1);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : String(error));
-    } finally {
-      setCreatingEpisode(false);
+    }
+  }
+
+  // 「エピソードに追加」: 企画段階のまま保存し、一覧に追加する（台本生成はしない）
+  async function handlePlanSave(plan: EpisodePlan, title: string) {
+    try {
+      const episode = await saveEpisodeAndPlan(plan, title);
+      if (!episode) return;
+      setCurrentPlan(plan);
+      setNewEpisodeMode(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -440,6 +466,7 @@ export function useStudio() {
     showWorkspace,
     // handlers
     handlePlanReady,
+    handlePlanSave,
     handleNewEpisode,
     handleAnalysisStart,
     handleRecordStateChange,

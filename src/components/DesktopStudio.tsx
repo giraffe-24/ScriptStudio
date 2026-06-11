@@ -30,6 +30,7 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
     planUnrecorded,
     showWorkspace,
     handlePlanReady,
+    handlePlanSave,
     handleNewEpisode,
     handleAnalysisStart,
     handleRecordStateChange,
@@ -151,6 +152,7 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
                   episodeNumber={selectedEpisode?.number ?? nextEpisodeNumber}
                   episodeSlug={selectedEpisode?.slug}
                   onPlanReady={handlePlanReady}
+                  onPlanSave={handlePlanSave}
                   onTitleChange={handleTitleChange}
                   onEpisodeNumberChange={handleEpisodeNumberChange}
                   onPlanChange={handlePlanChange}

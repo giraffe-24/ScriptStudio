@@ -20,6 +20,7 @@ interface Props {
   episodeNumber?: number | null;
   episodeSlug?: string;
   onPlanReady: (plan: EpisodePlan, title: string) => void;
+  onPlanSave?: (plan: EpisodePlan, title: string) => void;
   onTitleChange?: (title: string) => void;
   onEpisodeNumberChange?: (number: number) => void;
   onPlanChange?: (plan: EpisodePlan) => void;
@@ -31,6 +32,7 @@ export function PlanningDoc({
   episodeNumber,
   episodeSlug,
   onPlanReady,
+  onPlanSave,
   onTitleChange,
   onEpisodeNumberChange,
   onPlanChange,
@@ -304,16 +306,24 @@ export function PlanningDoc({
             />
           </DocSection>
 
-          {/* 台本作成ボタン */}
-          <div className="pt-2 pb-6">
+          {/* アクションボタン */}
+          <div className="pt-2 pb-6 space-y-2">
             <button
               onClick={() => onPlanReady(plan, plan.episodeTitle)}
               className="w-full bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm py-3 rounded-xl transition-all shadow-sm"
             >
               台本を作成する →
             </button>
+            {onPlanSave && (
+              <button
+                onClick={() => onPlanSave(plan, plan.episodeTitle)}
+                className="w-full bg-white hover:bg-gray-50 active:scale-[0.98] text-gray-700 font-semibold text-sm py-3 rounded-xl border border-gray-200 transition-all"
+              >
+                ＋ エピソードに追加
+              </button>
+            )}
             <p className="text-center text-[10px] text-gray-400 mt-1.5">
-              押すとエピソードを作成し、台本の生成を開始します
+              「追加」は台本を生成せず、企画のまま一覧に保存します
             </p>
           </div>
         </div>
