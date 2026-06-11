@@ -12,7 +12,6 @@ import {
   scriptBtnDisabled,
   scriptBtnPrimaryBlueFill,
   scriptBtnPrimaryOrange,
-  scriptBtnPrimaryRed,
   scriptBtnSecondary,
 } from "./script-toolbar-styles";
 import type { ScriptMeta } from "@/lib/file-manager";
@@ -675,7 +674,7 @@ export function ScriptPane({
         );
         onScriptCreated?.();
       }
-    } catch (err) {
+    } catch {
       if (signal.aborted) return;
       window.alert("台本生成中に通信エラーが発生しました。ネットワークを確認して再試行してください。");
       restorePreviousScript();
@@ -694,7 +693,6 @@ export function ScriptPane({
     const targetNumber = episodeNumber;
     const targetSlug = episodeSlug;
     const targetPlan = plan;
-    const sessionKey = episodeKey(targetNumber, targetSlug);
     const signal = beginGenerationSession();
     const isActive = () => isGenerationSessionActive(signal, targetNumber, targetSlug);
 
@@ -804,7 +802,7 @@ export function ScriptPane({
         );
         onScriptCreated?.();
       }
-    } catch (err) {
+    } catch {
       if (signal.aborted) return;
       window.alert("セクション更新中に通信エラーが発生しました。");
     } finally {

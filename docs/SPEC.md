@@ -352,4 +352,4 @@ npm run dev
 
 - インタラクティブモックアップ: `docs/prototype/mockup.html`（ブラウザで直接開く）
 - 参考UI: `docs/prototype/mockup.html`（ContentStudio モック）
-- 台本データ例（YT_TalkScript 兄弟リポジトリ）: `outputs/54-sticky-windows-android/01-script-draft.md`
+- 台本データ例（ScriptStudio 兄弟リポジトリ）: `outputs/54-sticky-windows-android/01-script-draft.md`

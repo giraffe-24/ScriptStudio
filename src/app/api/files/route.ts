@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta, deleteEpisodes, syncScriptRecordBaseline } from "@/lib/file-manager";
-import { normalizeEpisodeStatus, type EpisodeStatus } from "@/lib/episode-status";
+import { normalizeEpisodeStatus } from "@/lib/episode-status";
 import { isPersistenceConfigurationError } from "@/lib/runtime-persistence";
 import { getSessionUsernameFromRequest } from "@/lib/studio-session";
 import { getStudioUserName } from "@/lib/studio-user";

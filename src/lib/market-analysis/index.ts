@@ -235,5 +235,3 @@ export async function runMarketAnalysis(
     angleAnalysis,
   };
 }
-
-export { appendCompetitorsConfig, readCompetitorsConfig } from "./competitors-config";

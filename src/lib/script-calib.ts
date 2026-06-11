@@ -1,4 +1,4 @@
-export const CALIB_MARKER = "<<<YT_TALKSCRIPT_CALIB_SPLIT>>>";
+export const CALIB_MARKER = "<<<SCRIPTSTUDIO_CALIB_SPLIT>>>";
 
 export function splitScriptCalib(raw: string): { main: string; calib: string } {
   const idx = raw.indexOf(CALIB_MARKER);

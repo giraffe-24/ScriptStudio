@@ -18,13 +18,6 @@ export type ScriptDiffResult = {
   diffExcerpt: string;
 };
 
-function countLines(value: string): number {
-  if (!value) return 0;
-  const parts = value.split("\n");
-  if (value.endsWith("\n")) return Math.max(0, parts.length - 1);
-  return parts.length;
-}
-
 export function computeScriptDiff(oldText: string, newText: string): ScriptDiffResult {
   const isFirstRecord = oldText.trim().length === 0;
   const parts = diffLines(oldText, newText);

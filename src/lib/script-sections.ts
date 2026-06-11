@@ -70,16 +70,3 @@ export function replaceScriptSections(
       : sections.map((s, i) => s.scriptHeader ?? outline[i]?.section ?? "");
   return buildScriptFromSections(outline, sections, headers);
 }
-
-export function removeScriptSectionsByName(
-  script: string,
-  outline: OutlineItem[],
-  removeNames: string[],
-): string {
-  const removeSet = new Set(removeNames);
-  const filteredOutline = outline.filter((item) => !removeSet.has(item.section));
-  const sections = splitScriptIntoSections(script, outline).filter(
-    (s) => !removeSet.has(s.section),
-  );
-  return buildScriptFromSections(filteredOutline, sections);
-}

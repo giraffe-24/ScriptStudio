@@ -110,5 +110,3 @@ export function isOwnChannelName(name: string): boolean {
   const lower = name.toLowerCase();
   return OWN_CHANNEL_NAMES.some((n) => lower.includes(n.toLowerCase()));
 }
-
-export { resolveOwnChannelId };

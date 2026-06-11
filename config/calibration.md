@@ -10,7 +10,7 @@
 次の1行を、台本 Markdown の「上＝AI原稿（A）」「下＝手元の確定稿（B）」の境界として使う。スペース・全角半角を含め、この行と完全一致させること。
 
 ```
-<<<YT_TALKSCRIPT_CALIB_SPLIT>>>
+<<<SCRIPTSTUDIO_CALIB_SPLIT>>>
 ```
 
 ---
@@ -27,7 +27,7 @@
 ```markdown
 ---
 
-<<<YT_TALKSCRIPT_CALIB_SPLIT>>>
+<<<SCRIPTSTUDIO_CALIB_SPLIT>>>
 
 （推敲比較用）この行より下に、手直し後の確定稿を全文貼り付けてください。再執筆で本文を置き換えるときは、このマーカー行より下は可能な限りそのまま残し、利用者の貼り付けを消さない。
 ```

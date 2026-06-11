@@ -58,12 +58,3 @@ export function collectSectionIndicesToRegenerate(
 
   return [...new Set(indices)].sort((a, b) => a - b);
 }
-
-export function hasOutlineStructureChange(
-  previousOutline: OutlineItem[] | undefined,
-  currentOutline: OutlineItem[],
-): boolean {
-  if (!previousOutline) return false;
-  if (previousOutline.length !== currentOutline.length) return true;
-  return previousOutline.some((item, index) => item.section !== currentOutline[index]?.section);
-}

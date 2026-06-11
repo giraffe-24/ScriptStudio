@@ -217,14 +217,6 @@ export async function syncScriptRecordBaseline(
   return meta;
 }
 
-export async function updateRecordedPlanFingerprint(
-  number: number,
-  slug: string,
-  planFingerprint: string,
-): Promise<void> {
-  await syncScriptRecordBaseline(number, slug, planFingerprint);
-}
-
 export async function updateScriptMeta(
   number: number,
   slug: string,

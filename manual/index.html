@@ -232,7 +232,7 @@
 
     <section id="start" aria-labelledby="start-title">
       <h2 id="start-title">最短で始める</h2>
-      <p>パソコンにこのフォルダ（YT_TalkScript）を用意し、その中でAIアシスタント（例：Cursorのチャットなど）と会話する想定です。特別なインストール作業は不要です。<code>CLAUDE.md</code> が運用への入口になり、コマンド表やワークフロー一覧は <code>docs/orchestration.md</code> にあります。</p>
+      <p>パソコンにこのフォルダ（ScriptStudio）を用意し、その中でAIアシスタント（例：Cursorのチャットなど）と会話する想定です。特別なインストール作業は不要です。<code>CLAUDE.md</code> が運用への入口になり、コマンド表やワークフロー一覧は <code>docs/orchestration.md</code> にあります。</p>
 
       <h3>やりたいこと：決まっている</h3>
       <pre><code>/全工程 あなたのテーマをここに書く</code></pre>
@@ -394,7 +394,7 @@
           </tr>
           <tr>
             <td>6（任意）</td>
-            <td><code>/推敲比較</code>（台本内に <code>&lt;&lt;&lt;YT_TALKSCRIPT_CALIB_SPLIT&gt;&gt;&gt;</code> で確定稿を区切っていること）</td>
+            <td><code>/推敲比較</code>（台本内に <code>&lt;&lt;&lt;SCRIPTSTUDIO_CALIB_SPLIT&gt;&gt;&gt;</code> で確定稿を区切っていること）</td>
             <td>差分から学び・SSOT への改善提案（チャット。ファイルに残すときは「<code>06-calibration.md に保存</code>」と明示）</td>
           </tr>
         </tbody>
@@ -404,7 +404,7 @@
 
     <section id="calibration" aria-labelledby="calibration-title">
       <h2 id="calibration-title">推敲比較・仕様の参照先・開発ツール</h2>
-      <p><strong>推敲比較</strong>（<code>/推敲比較</code>）は、台本ファイルの中で <code>&lt;&lt;&lt;YT_TALKSCRIPT_CALIB_SPLIT&gt;&gt;&gt;</code> より上をAI原稿、下を手元の確定稿として並べたうえで依頼します。マーカーは <code>config/calibration.md</code>、手順は <code>agents/calibrator.md</code>、ルールは <code>config/quality.md</code> の「推敲比較」の節を参照してください。Cursor では <code>.cursor/commands/推敲比較.md</code> からも同じ意図で呼び出せます。</p>
+      <p><strong>推敲比較</strong>（<code>/推敲比較</code>）は、台本ファイルの中で <code>&lt;&lt;&lt;SCRIPTSTUDIO_CALIB_SPLIT&gt;&gt;&gt;</code> より上をAI原稿、下を手元の確定稿として並べたうえで依頼します。マーカーは <code>config/calibration.md</code>、手順は <code>agents/calibrator.md</code>、ルールは <code>config/quality.md</code> の「推敲比較」の節を参照してください。Cursor では <code>.cursor/commands/推敲比較.md</code> からも同じ意図で呼び出せます。</p>
       <p><strong>仕様を深く読むとき</strong>：表形式のコマンド一覧と全体フローは <code>docs/orchestration.md</code>。運用の短文入口は <code>CLAUDE.md</code>。ブランド・文体・品質のSSOTは <code>config/README.md</code> を手がかりに各 <code>config/*.md</code> へ。</p>
       <p><strong>開発用ツール</strong>（任意）：タイトル案のローカルUIは <code>npm run title-studio</code>（手順は <code>docs/orchestration.md</code>）。台本を印刷向けHTMLにするには <code>npm run script-doc -- outputs/03-script.md</code> のようにパスを渡します。</p>
     </section>
