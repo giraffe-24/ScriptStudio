@@ -11,8 +11,10 @@ import type {
 import type { ThemeSearchSources } from "@/lib/theme-search";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
+import type { ApiErrorCode } from "@/lib/api-error";
 import { CompetitorSubscriberStats } from "@/components/CompetitorSubscriberStats";
 import { CompetitorChannelAvatar } from "@/components/CompetitorChannelAvatar";
+import { ErrorBox } from "@/components/ui/ErrorBox";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -105,6 +107,8 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const [loading, setLoading] = useState(false);
   const [progressIndex, setProgressIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<ApiErrorCode | undefined>(undefined);
+  const [errorDetail, setErrorDetail] = useState<string | undefined>(undefined);
   const [candidates, setCandidates] = useState<EnrichedCandidate[]>([]);
   const [searchSources, setSearchSources] = useState<ThemeSearchSources | null>(null);
   const [competitorSuggestions, setCompetitorSuggestions] = useState<CompetitorSuggestion[]>([]);
@@ -131,6 +135,8 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     setCompetitorError(null);
     setAnalyzed(false);
     setError(null);
+    setErrorCode(undefined);
+    setErrorDetail(undefined);
     setProgressIndex(0);
   }
 
@@ -203,6 +209,8 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
 
       if (!res.ok) {
         setError(data.error ?? "分析に失敗しました。しばらくしてから再試行してください。");
+        setErrorCode(data.code as ApiErrorCode | undefined);
+        setErrorDetail(data.detail as string | undefined);
         return;
       }
 
@@ -220,6 +228,8 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     } catch (e) {
       console.error("ThemeInput fetch error:", e);
       setError("通信エラーが発生しました。ネットワークを確認して再試行してください。");
+      setErrorCode("upstream");
+      setErrorDetail(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
       setProgressIndex(PROGRESS_LABELS.length - 1);
@@ -436,21 +446,14 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       )}
 
       {error && (
-        <div
-          role="alert"
-          className="flex items-start justify-between gap-2 text-xs text-destructive leading-relaxed bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
-        >
-          <span className="min-w-0">{error}</span>
-          <Button
-            variant="destructive"
-            size="xs"
-            onClick={handleResearch}
-            disabled={!canAnalyze}
-            className="shrink-0"
-          >
-            再試行
-          </Button>
-        </div>
+        <ErrorBox
+          error={error}
+          code={errorCode}
+          detail={errorDetail}
+          onRetry={handleResearch}
+          retrying={loading}
+          retryDisabled={!canAnalyze}
+        />
       )}
 
       {analyzed && !loading && !error && candidates.length === 0 && (

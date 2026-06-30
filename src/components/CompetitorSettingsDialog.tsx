@@ -6,9 +6,13 @@ import type { CompetitorChannel } from "@/lib/types";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { cn } from "@/lib/utils";
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
+import type { ApiErrorCode } from "@/lib/api-error";
 import { CompetitorSubscriberStats } from "@/components/CompetitorSubscriberStats";
 import { CompetitorChannelAvatar } from "@/components/CompetitorChannelAvatar";
+import { ErrorBox } from "@/components/ui/ErrorBox";
 import { Button } from "@/components/ui/button";
+
+type UiError = { msg: string; code?: ApiErrorCode; detail?: string } | null;
 import {
   Dialog,
   DialogContent,
@@ -26,25 +30,36 @@ export function CompetitorSettingsDialog() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [registerUrl, setRegisterUrl] = useState("");
   const [registering, setRegistering] = useState(false);
-  const [registerError, setRegisterError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<UiError>(null);
+  const [loadError, setLoadError] = useState<UiError>(null);
+  const [toggleError, setToggleError] = useState<UiError>(null);
 
   const loadChannels = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
       const res = await fetch("/api/competitors");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? "競合チャンネルを読み込めませんでした");
+        setChannels([]);
+        setStats({});
+        setLoadError({
+          msg: data.error ?? "競合チャンネルを読み込めませんでした",
+          code: data.code,
+          detail: data.detail,
+        });
+        return;
       }
       setChannels(data.channels ?? []);
       setStats(data.stats ?? {});
     } catch (error) {
       setChannels([]);
       setStats({});
-      setLoadError(error instanceof Error ? error.message : String(error));
+      setLoadError({
+        msg: "通信エラーが発生しました。ネットワークを確認してください。",
+        code: "upstream",
+        detail: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setLoading(false);
     }
@@ -73,11 +88,19 @@ export function CompetitorSettingsDialog() {
       if (res.ok) {
         setChannels(data.channels ?? []);
       } else {
-        setToggleError(data.error ?? "設定を更新できませんでした");
+        setToggleError({
+          msg: data.error ?? "設定を更新できませんでした",
+          code: data.code,
+          detail: data.detail,
+        });
         await loadChannels();
       }
     } catch (error) {
-      setToggleError(error instanceof Error ? error.message : "通信エラーが発生しました");
+      setToggleError({
+        msg: "通信エラーが発生しました",
+        code: "upstream",
+        detail: error instanceof Error ? error.message : String(error),
+      });
       await loadChannels();
     } finally {
       setSavingId(null);
@@ -96,16 +119,24 @@ export function CompetitorSettingsDialog() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setRegisterError(data.error ?? "登録に失敗しました");
+        setRegisterError({
+          msg: data.error ?? "登録に失敗しました",
+          code: data.code,
+          detail: data.detail,
+        });
         return;
       }
       setChannels(data.channels ?? []);
       setStats(data.stats ?? {});
       setRegisterUrl("");
-    } catch {
-      setRegisterError("通信エラーが発生しました");
+    } catch (error) {
+      setRegisterError({
+        msg: "通信エラーが発生しました",
+        code: "upstream",
+        detail: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setRegistering(false);
     }
@@ -161,7 +192,16 @@ export function CompetitorSettingsDialog() {
               </Button>
             </div>
             {registerError && (
-              <p className="mt-2 text-xs leading-relaxed text-destructive">{registerError}</p>
+              <ErrorBox
+                className="mt-2"
+                error={registerError.msg}
+                code={registerError.code}
+                detail={registerError.detail}
+                onRetry={() => void handleRegisterByUrl()}
+                retrying={registering}
+                retryDisabled={!registerUrl.trim()}
+                retryLabel="再登録"
+              />
             )}
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
               例: `https://www.youtube.com/channel/UC...` または `https://www.youtube.com/@handle`
@@ -169,15 +209,21 @@ export function CompetitorSettingsDialog() {
           </div>
 
           {loadError ? (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive">
-              {loadError}
-            </p>
+            <ErrorBox
+              error={loadError.msg}
+              code={loadError.code}
+              detail={loadError.detail}
+              onRetry={() => void loadChannels()}
+              retrying={loading}
+            />
           ) : null}
 
           {toggleError ? (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive">
-              {toggleError}
-            </p>
+            <ErrorBox
+              error={toggleError.msg}
+              code={toggleError.code}
+              detail={toggleError.detail}
+            />
           ) : null}
 
           <div className="rounded-xl border border-border bg-card p-2 shadow-sm">

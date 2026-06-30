@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketAnalysis } from "@/lib/market-analysis";
 import type { ThemeMode } from "@/lib/types";
-import { toFriendlyApiError } from "@/lib/api-error";
+import { httpStatusForCode, toErrorPayload } from "@/lib/api-error";
 
 function parseThemeMode(value: unknown): ThemeMode {
   if (value === "A" || value === "B" || value === "C") return value;
@@ -15,10 +15,10 @@ export async function POST(req: NextRequest) {
 
     if (!process.env.YOUTUBE_DATA_API_KEY) {
       return NextResponse.json(
-        {
-          error:
-            "YOUTUBE_DATA_API_KEY が未設定です。テーマ選定には YouTube 検索が必要です（.env を確認してください）。",
-        },
+        toErrorPayload(
+          "YOUTUBE_DATA_API_KEY が未設定です。テーマ選定には YouTube 検索が必要です（.env を確認してください）。",
+          { code: "config" },
+        ),
         { status: 503 },
       );
     }
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[market-research]", err instanceof Error ? err.message : String(err));
-    return NextResponse.json({ error: toFriendlyApiError(err) }, { status: 500 });
+    const payload = toErrorPayload(err);
+    return NextResponse.json(payload, { status: httpStatusForCode(payload.code) });
   }
 }

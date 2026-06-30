@@ -7,15 +7,16 @@ import {
 import { buildChannelSubscriberStats } from "@/lib/market-analysis/channel-stats";
 import { resolveYouTubeChannel } from "@/lib/youtube-channel-resolve";
 import { isPersistenceConfigurationError } from "@/lib/runtime-persistence";
+import { httpStatusForCode, toErrorPayload } from "@/lib/api-error";
 import type { CompetitorChannel } from "@/lib/types";
 
 function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error("[competitors]", message);
-  return NextResponse.json(
-    { error: message },
-    { status: isPersistenceConfigurationError(error) ? 503 : 500 },
-  );
+  console.error("[competitors]", error instanceof Error ? error.message : String(error));
+  if (isPersistenceConfigurationError(error)) {
+    return NextResponse.json(toErrorPayload(error, { code: "config" }), { status: 503 });
+  }
+  const payload = toErrorPayload(error);
+  return NextResponse.json(payload, { status: httpStatusForCode(payload.code) });
 }
 
 async function respondWithChannels(includeStats: boolean) {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (typeof body.url === "string" && body.url.trim()) {
       if (!process.env.YOUTUBE_DATA_API_KEY) {
         return NextResponse.json(
-          { error: "YOUTUBE_DATA_API_KEY が未設定です" },
+          toErrorPayload("YOUTUBE_DATA_API_KEY が未設定です", { code: "config" }),
           { status: 503 },
         );
       }
@@ -50,7 +51,13 @@ export async function POST(req: NextRequest) {
       const resolved = await resolveYouTubeChannel(body.url);
       if (!resolved) {
         return NextResponse.json(
-          { error: "チャンネル URL を解釈できませんでした。YouTube のチャンネルページ URL を入力してください。" },
+          {
+            error:
+              "チャンネル URL を解釈できませんでした。YouTube のチャンネルページ URL を入力してください。",
+            code: "unknown",
+            retryable: false,
+            detail: "",
+          },
           { status: 422 },
         );
       }
