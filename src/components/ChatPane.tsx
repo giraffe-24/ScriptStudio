@@ -18,6 +18,8 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  // md 未満はオーバーレイ（モーダル）、md 以上は常設のドッキングパネル。
+  const [isOverlay, setIsOverlay] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -27,7 +29,18 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Esc クローズ＋簡易フォーカストラップ（開いた時に先頭へフォーカス、Tab を内部に閉じ込め）
+  // md 未満をオーバーレイ扱いにする（Tailwind md=768px）。リサイズにも追従。
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsOverlay(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // Esc クローズは常時。初期フォーカスと Tab トラップはオーバーレイ（モバイル）時のみ。
+  // デスクトップは隣にエディタが並ぶ常設パネルなので、トラップするとキーボードが
+  // チャットから出られず（WCAG 2.1.2 違反）、aria-modal も虚偽セマンティクスになる。
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -38,7 +51,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
         ),
       ).filter((el) => el.offsetParent !== null);
 
-    getFocusable()[0]?.focus();
+    if (isOverlay) getFocusable()[0]?.focus();
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -46,7 +59,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
         onCloseRef.current();
         return;
       }
-      if (e.key !== "Tab") return;
+      if (!isOverlay || e.key !== "Tab") return;
       const items = getFocusable();
       if (items.length === 0) return;
       const first = items[0];
@@ -62,7 +75,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
 
     container.addEventListener("keydown", handleKeyDown);
     return () => container.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isOverlay]);
 
   async function runRequest(baseHistory: ChatMessage[], message: string) {
     const newHistory: ChatMessage[] = [...baseHistory, { role: "user", content: message }];
@@ -101,7 +114,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
         if (done) break;
         full += decoder.decode(value, { stream: true });
         onHistoryUpdate([...newHistory, { role: "assistant", content: full }]);
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        bottomRef.current?.scrollIntoView({ behavior: "auto" });
       }
       setLastUserMessage(null);
     } catch (err) {
@@ -132,9 +145,9 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
   return (
     <div
       ref={containerRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={headingId}
+      role={isOverlay ? "dialog" : undefined}
+      aria-modal={isOverlay ? true : undefined}
+      aria-labelledby={isOverlay ? headingId : undefined}
       className="fixed inset-0 z-40 w-full flex flex-col bg-white md:static md:inset-auto md:z-auto md:w-72 md:border-l md:border-gray-200"
     >
       <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
@@ -159,6 +172,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
         role="log"
         aria-live="polite"
         aria-relevant="additions text"
+        aria-busy={streaming}
       >
         {history.length === 0 && (
           <div className="text-xs text-muted-foreground bg-gray-50 rounded-lg p-2 leading-relaxed">

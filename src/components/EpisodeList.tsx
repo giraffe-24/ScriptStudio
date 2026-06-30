@@ -53,6 +53,8 @@ export function EpisodeList({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  // 削除の部分失敗など、ダイアログを閉じた後に出す軽い通知（window.alert の置き換え）
+  const [notice, setNotice] = useState("");
 
   const selectedEpisodes = useMemo(
     () => episodes.filter((ep) => selectedSlugs.has(ep.slug)),
@@ -111,7 +113,7 @@ export function EpisodeList({
       exitDeleteMode();
 
       if (errors.length > 0) {
-        window.alert(
+        setNotice(
           `${deletedSlugs.length} 件を削除しました。${errors.length} 件は失敗しました。`,
         );
       }
@@ -173,6 +175,23 @@ export function EpisodeList({
           )}
         </div>
       </div>
+
+      {notice ? (
+        <div
+          role="status"
+          className="mx-2 mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800"
+        >
+          <span className="min-w-0 flex-1">{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice("")}
+            aria-label="閉じる"
+            className="shrink-0 text-amber-700 hover:text-amber-900 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto py-1">
         {loading && episodes.length === 0 ? (
