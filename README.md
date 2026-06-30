@@ -7,7 +7,7 @@ YouTube トーク台本の企画・執筆を一画面で行うローカル Studi
 ```bash
 cp .env.example .env   # API キーを設定
 npm install
-npm run studio         # http://localhost:3001
+npm run studio         # http://localhost:3300
 ```
 
 ## 関連ドキュメント
