@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
@@ -9,10 +10,10 @@ import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-o
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
-  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 leading-relaxed placeholder:text-gray-300 transition-colors";
+  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 leading-relaxed placeholder:text-gray-400 transition-colors";
 
 const EDITABLE_INPUT =
-  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 placeholder:text-gray-300 transition-colors";
+  "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 placeholder:text-gray-400 transition-colors";
 
 interface Props {
   candidate: ThemeCandidate | null;
@@ -40,6 +41,8 @@ export function PlanningDoc({
   const [draftPlan, setDraftPlan] = useState<EpisodePlan | null>(null);
   const [approvedDirection, setApprovedDirection] = useState<PlanDirection | null>(null);
   const [loading, setLoading] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const planLoadKeyRef = useRef("");
@@ -57,6 +60,7 @@ export function PlanningDoc({
     setChatSection(null);
     setChatHistory([]);
     setLoading(false);
+    setPlanError(null);
   }, [planLoadKey]);
 
   const plan = initialPlan ?? draftPlan;
@@ -71,6 +75,7 @@ export function PlanningDoc({
     const requestKey = planLoadKey;
     const requestId = ++planRequestRef.current;
     setLoading(true);
+    setPlanError(null);
     setDraftPlan(null);
     setChatSection(null);
     setChatHistory([]);
@@ -93,7 +98,7 @@ export function PlanningDoc({
 
       if (!res.ok) {
         console.error("[PlanningDoc] generate-plan error:", data);
-        alert(`企画書の生成に失敗しました。\n${data.error ?? res.statusText}`);
+        setPlanError(`企画書の生成に失敗しました。${data.error ?? res.statusText ?? ""}`);
         return;
       }
 
@@ -108,7 +113,7 @@ export function PlanningDoc({
     } catch (error) {
       if (!isActivePlanRequest(requestId, requestKey)) return;
       console.error("[PlanningDoc] generate-plan error:", error);
-      alert("企画書の生成に失敗しました。\n通信状況を確認して再試行してください。");
+      setPlanError("企画書の生成に失敗しました。通信状況を確認して再試行してください。");
     } finally {
       if (isActivePlanRequest(requestId, requestKey)) {
         setLoading(false);
@@ -130,8 +135,8 @@ export function PlanningDoc({
   if (!candidate && !plan) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-300">
-          <div className="text-5xl mb-3">📋</div>
+        <div className="text-center text-muted-foreground">
+          <div className="text-5xl mb-3" aria-hidden>📋</div>
           <p className="text-sm">テーマを選択すると企画書を生成します</p>
         </div>
       </div>
@@ -141,10 +146,10 @@ export function PlanningDoc({
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-3 animate-bounce">✍️</div>
+        <div role="status" aria-live="polite" className="text-center">
+          <div className="text-4xl mb-3 animate-bounce" aria-hidden>✍️</div>
           <p className="text-sm text-gray-500">企画書を生成中…</p>
-          <p className="text-xs text-gray-400 mt-1">10〜20 秒かかります</p>
+          <p className="text-xs text-gray-500 mt-1">10〜20 秒かかります</p>
         </div>
       </div>
     );
@@ -153,14 +158,34 @@ export function PlanningDoc({
   // 新規テーマで企画書がまだ無い場合は、まず方向性確認フェーズを表示する
   if (candidate && !plan) {
     return (
-      <DirectionPhase
-        candidate={candidate}
-        resetKey={planLoadKey}
-        onApproved={(direction) => {
-          setApprovedDirection(direction);
-          void generatePlan(direction);
-        }}
-      />
+      <div className="h-full flex flex-col overflow-hidden">
+        {planError && (
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-2 m-4 mb-0 text-xs text-destructive leading-relaxed bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
+          >
+            <span className="min-w-0">{planError}</span>
+            <Button
+              variant="destructive"
+              size="xs"
+              onClick={() => void generatePlan(approvedDirection ?? undefined)}
+              className="shrink-0"
+            >
+              再試行
+            </Button>
+          </div>
+        )}
+        <div className="flex-1 min-h-0">
+          <DirectionPhase
+            candidate={candidate}
+            resetKey={planLoadKey}
+            onApproved={(direction) => {
+              setApprovedDirection(direction);
+              void generatePlan(direction);
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -308,21 +333,31 @@ export function PlanningDoc({
 
           {/* アクションボタン */}
           <div className="pt-2 pb-6 space-y-2">
-            <button
-              onClick={() => onPlanReady(plan, plan.episodeTitle)}
-              className="w-full bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white font-semibold text-sm py-3 rounded-xl transition-all shadow-sm"
+            <Button
+              onClick={() => {
+                if (submitting) return;
+                setSubmitting(true);
+                onPlanReady(plan, plan.episodeTitle);
+              }}
+              disabled={submitting}
+              aria-busy={submitting}
+              size="lg"
+              className="w-full py-3 rounded-xl font-semibold shadow-sm"
             >
-              台本を作成する →
-            </button>
+              {submitting ? "作成中…" : "台本を作成する →"}
+            </Button>
             {onPlanSave && (
-              <button
+              <Button
                 onClick={() => onPlanSave(plan, plan.episodeTitle)}
-                className="w-full bg-white hover:bg-gray-50 active:scale-[0.98] text-gray-700 font-semibold text-sm py-3 rounded-xl border border-gray-200 transition-all"
+                disabled={submitting}
+                variant="outline"
+                size="lg"
+                className="w-full py-3 rounded-xl font-semibold"
               >
                 ＋ エピソードに追加
-              </button>
+              </Button>
             )}
-            <p className="text-center text-[10px] text-gray-400 mt-1.5">
+            <p className="text-center text-xs text-gray-500 mt-1.5">
               「追加」は台本を生成せず、企画のまま一覧に保存します
             </p>
           </div>
@@ -359,10 +394,13 @@ function DocSection({
         <h3 className="text-sm font-semibold text-gray-800">{label}</h3>
         {onChat && (
           <button
+            type="button"
             onClick={onChat}
-            className="text-[10px] text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-0.5 rounded-full transition-colors shrink-0 ml-2"
+            title="AI と深掘り"
+            aria-label="AI と深掘り"
+            className="inline-flex items-center justify-center text-gray-600 hover:text-foreground hover:bg-muted border border-border hover:border-ring p-1.5 rounded-full transition-colors shrink-0 ml-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
-            AI と深掘り
+            <Sparkles className="w-4 h-4" aria-hidden />
           </button>
         )}
       </div>
@@ -400,7 +438,7 @@ function KeyPointList({
     <ul className="space-y-2">
       {items.map((point, i) => (
         <li key={i} className="flex items-start gap-2.5">
-          <span className="text-gray-500 text-[10px] shrink-0 mt-3">●</span>
+          <span className="text-gray-500 text-xs shrink-0 mt-3">●</span>
           <input
             ref={(el) => { refs.current[i] = el; }}
             value={point}
@@ -600,7 +638,17 @@ function OutlineEditor({
     setIndicatorTop(computeIndicatorTop(slot, rows, listRef.current));
   }
 
-  function handleGripPointerDown(e: React.PointerEvent<HTMLDivElement>, index: number) {
+  function handleGripKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      reorderItems(index, index - 1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      reorderItems(index, index + 1);
+    }
+  }
+
+  function handleGripPointerDown(e: React.PointerEvent<HTMLButtonElement>, index: number) {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
@@ -663,13 +711,13 @@ function OutlineEditor({
             <span className="md:hidden">目次案・詳細</span>
             <span className="hidden md:inline">詳細</span>
           </span>
-          <span className="text-[10px] text-gray-400 shrink-0 hidden md:inline">ドラッグで並べ替え</span>
+          <span className="text-xs text-gray-500 shrink-0 hidden md:inline">ドラッグ／矢印キーで並べ替え</span>
           <div className="flex gap-1 shrink-0">
             <button
               type="button"
               onClick={undo}
               disabled={!canUndo}
-              className="text-[10px] px-2 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="text-xs px-2 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               ↩ 戻す
             </button>
@@ -677,7 +725,7 @@ function OutlineEditor({
               type="button"
               onClick={redo}
               disabled={!canRedo}
-              className="text-[10px] px-2 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="text-xs px-2 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               ↪ 進む
             </button>
@@ -698,7 +746,7 @@ function OutlineEditor({
           </div>
         )}
         {items.length === 0 && (
-          <p className="text-xs text-gray-400 px-2 py-3">目次案がありません。「＋ 行を追加」から追加できます。</p>
+          <p className="text-xs text-gray-500 px-2 py-3">目次案がありません。「＋」から行を追加できます。</p>
         )}
         {items.map((item, i) => (
           <div key={`outline-row-${i}`}>
@@ -709,15 +757,15 @@ function OutlineEditor({
               }`}
             >
               <div className="w-7 shrink-0 flex pt-1 items-center justify-center">
-                <div
+                <button
+                  type="button"
                   onPointerDown={(e) => handleGripPointerDown(e, i)}
-                  className="w-7 h-7 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center touch-none select-none"
-                  aria-label="ドラッグして並べ替え"
-                  role="button"
-                  tabIndex={0}
+                  onKeyDown={(e) => handleGripKeyDown(e, i)}
+                  className="w-7 h-7 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  aria-label={`${i + 1}行目を移動（ドラッグまたは上下矢印キー）`}
                 >
                   <GripVertical className="w-3.5 h-3.5 pointer-events-none" />
-                </div>
+                </button>
               </div>
               <div className="flex-1 min-w-0 flex flex-col gap-1.5 md:flex-row md:gap-2">
                 <div className="md:w-40 md:shrink-0">
@@ -744,8 +792,8 @@ function OutlineEditor({
                 <button
                   type="button"
                   onClick={() => removeItem(i)}
-                  className="w-7 h-7 rounded text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                  aria-label="削除"
+                  className="w-7 h-7 rounded text-sm text-gray-500 hover:text-destructive hover:bg-destructive/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  aria-label={`${i + 1}行目を削除`}
                 >
                   ×
                 </button>

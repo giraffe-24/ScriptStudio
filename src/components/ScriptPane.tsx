@@ -1,20 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Loader2 } from "lucide-react";
 import {
   ScriptEditor,
+  ScriptSpinner,
   type GenerationStatus,
   type SelectionRegeneratePayload,
 } from "./ScriptEditor";
 import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
 import {
+  scriptBtnAbort,
   scriptBtnDisabled,
   scriptBtnPrimaryBlueFill,
   scriptBtnPrimaryOrange,
   scriptBtnSecondary,
 } from "./script-toolbar-styles";
+import { cn } from "@/lib/utils";
 import type { ScriptMeta } from "@/lib/file-manager";
 import type { EpisodePlan } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
@@ -139,6 +141,12 @@ export function ScriptPane({
   const confirmedPlanFingerprintRef = useRef<string | null>(null);
   const lastGenerateKeyRef = useRef(0);
   const generationAbortRef = useRef<AbortController | null>(null);
+  // 生成系の失敗・通知をインライン表示するバナー（window.alert の置き換え）
+  const [genAlert, setGenAlert] = useState<{
+    message: string;
+    tone: "error" | "info";
+    retry?: () => void;
+  } | null>(null);
 
   function episodeKey(number: number | null, slug: string): string {
     return number && slug ? `${number}-${slug}` : "";
@@ -147,6 +155,13 @@ export function ScriptPane({
   function abortActiveGeneration() {
     generationAbortRef.current?.abort();
     generationAbortRef.current = null;
+  }
+
+  function handleAbortGeneration() {
+    abortActiveGeneration();
+    setLoading(false);
+    setReconciling(false);
+    setUpdatingSections([]);
   }
 
   function beginGenerationSession(): AbortSignal {
@@ -325,7 +340,7 @@ export function ScriptPane({
     );
     const data = await res.json();
     if (!res.ok) {
-      window.alert(data.error ?? "最新の記録を取得できませんでした");
+      setGenAlert({ message: data.error ?? "最新の記録を取得できませんでした", tone: "error" });
       return;
     }
     setPreviousSnapshotContent(data.snapshot?.content ?? "");
@@ -349,6 +364,7 @@ export function ScriptPane({
     setLoading(false);
     setReconciling(false);
     setUpdatingSections([]);
+    setGenAlert(null);
     prevOutlineRef.current = null;
     alertedOutlineRef.current = "";
     setOutOfSync(false);
@@ -588,6 +604,7 @@ export function ScriptPane({
       !isScriptOutlineInSync(script, plan.outline);
 
     setLoading(true);
+    setGenAlert(null);
     if (isActive()) {
       setScript("");
       setGenerated(false);
@@ -627,7 +644,7 @@ export function ScriptPane({
         } catch {
           if (errText && !looksLikeHtmlErrorPage(errText)) message = errText.slice(0, 200);
         }
-        window.alert(message);
+        setGenAlert({ message, tone: "error", retry: () => void runFullGeneration(options) });
         restorePreviousScript();
         return;
       }
@@ -635,7 +652,11 @@ export function ScriptPane({
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("text/plain")) {
         if (!signal.aborted) {
-          window.alert("台本生成の応答形式が不正です。しばらく待ってから再試行してください。");
+          setGenAlert({
+            message: "台本生成の応答形式が不正です。しばらく待ってから再試行してください。",
+            tone: "error",
+            retry: () => void runFullGeneration(options),
+          });
           restorePreviousScript();
         }
         return;
@@ -657,9 +678,12 @@ export function ScriptPane({
       if (signal.aborted) return;
 
       if (!full.trim() || looksLikeHtmlErrorPage(full)) {
-        window.alert(
-          "台本生成中にサーバーエラーが発生しました。Vercel の ANTHROPIC_API_KEY 設定と Redeploy を確認してください。",
-        );
+        setGenAlert({
+          message:
+            "台本生成中にサーバーエラーが発生しました。Vercel の ANTHROPIC_API_KEY 設定と Redeploy を確認してください。",
+          tone: "error",
+          retry: () => void runFullGeneration(options),
+        });
         restorePreviousScript();
         return;
       }
@@ -691,7 +715,11 @@ export function ScriptPane({
       }
     } catch {
       if (signal.aborted) return;
-      window.alert("台本生成中に通信エラーが発生しました。ネットワークを確認して再試行してください。");
+      setGenAlert({
+        message: "台本生成中に通信エラーが発生しました。ネットワークを確認して再試行してください。",
+        tone: "error",
+        retry: () => void runFullGeneration(options),
+      });
       restorePreviousScript();
     } finally {
       if (isActive()) {
@@ -704,6 +732,8 @@ export function ScriptPane({
 
   async function runIncrementalUpdate(forcedIndices?: number[]) {
     if (!plan?.outline?.length || !script.trim()) return;
+
+    setGenAlert(null);
 
     const targetNumber = episodeNumber;
     const targetSlug = episodeSlug;
@@ -750,7 +780,10 @@ export function ScriptPane({
           onScriptCreated?.();
         }
       } else {
-        window.alert("構成（目次案と詳細）に変更がないため、更新対象がありません。");
+        setGenAlert({
+          message: "構成（目次案と詳細）に変更がないため、更新対象がありません。",
+          tone: "info",
+        });
       }
       return;
     }
@@ -788,7 +821,11 @@ export function ScriptPane({
 
       const data = await res.json();
       if (!res.ok) {
-        window.alert(data.error ?? "セクション更新に失敗しました");
+        setGenAlert({
+          message: data.error ?? "セクション更新に失敗しました",
+          tone: "error",
+          retry: () => void runIncrementalUpdate(forcedIndices),
+        });
         return;
       }
 
@@ -819,7 +856,11 @@ export function ScriptPane({
       }
     } catch {
       if (signal.aborted) return;
-      window.alert("セクション更新中に通信エラーが発生しました。");
+      setGenAlert({
+        message: "セクション更新中に通信エラーが発生しました。",
+        tone: "error",
+        retry: () => void runIncrementalUpdate(forcedIndices),
+      });
     } finally {
       if (isActive()) {
         setLoading(false);
@@ -922,10 +963,15 @@ export function ScriptPane({
     return (
       <div className="flex flex-col h-full">
         <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
-          <h2 className="text-sm font-semibold text-gray-700 shrink-0">台本</h2>
+          <h2 className="text-sm font-semibold text-gray-700 shrink-0 flex items-center gap-1.5">
+            <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+              3
+            </span>
+            台本
+          </h2>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-gray-400">
+          <div className="text-center text-gray-500">
             <div className="text-4xl mb-3">📝</div>
             <p className="text-sm">企画書を作成すると台本を生成できます</p>
           </div>
@@ -1026,7 +1072,7 @@ export function ScriptPane({
         {/* md以上: 操作を横並び表示 */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
           {scriptMeta && generated && (
-            <span className="text-[10px] text-gray-400 whitespace-nowrap">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
               {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
             </span>
           )}
@@ -1043,7 +1089,7 @@ export function ScriptPane({
                     : "現在の台本をバージョンとして記録"
                 }
               >
-                記録{scriptUnrecorded ? " *" : ""}
+                記録{scriptUnrecorded ? "（未記録）" : ""}
               </button>
               <button
                 type="button"
@@ -1062,38 +1108,54 @@ export function ScriptPane({
               className={scriptBtnSecondary}
               title="台本を手直し済みとして、目次案と詳細とのズレ通知を消す"
             >
-              手動で反映
+              手直し済みにする
             </button>
           )}
-          <button
-            onClick={() => handleGenerate()}
-            disabled={regenerateDisabled}
-            title={generateTitle}
-            className={generateClassName}
-          >
-            {generateLabel}
-          </button>
+          {loading ? (
+            <button type="button" onClick={handleAbortGeneration} className={scriptBtnAbort}>
+              中止
+            </button>
+          ) : (
+            <button
+              onClick={() => handleGenerate()}
+              disabled={regenerateDisabled}
+              title={generateTitle}
+              className={generateClassName}
+            >
+              {generateLabel}
+            </button>
+          )}
         </div>
 
       </div>
 
       {/* スマホ: 操作バー（タブ） */}
       <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-white overflow-x-auto">
-        <button
-          onClick={() => handleGenerate()}
-          disabled={regenerateDisabled}
-          title={generateTitle}
-          className={`${generateClassName} shrink-0 whitespace-nowrap`}
-        >
-          {generateLabel}
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            onClick={handleAbortGeneration}
+            className={`${scriptBtnAbort} shrink-0 whitespace-nowrap`}
+          >
+            中止
+          </button>
+        ) : (
+          <button
+            onClick={() => handleGenerate()}
+            disabled={regenerateDisabled}
+            title={generateTitle}
+            className={`${generateClassName} shrink-0 whitespace-nowrap`}
+          >
+            {generateLabel}
+          </button>
+        )}
         {showManualSync && (
           <button
             type="button"
             onClick={() => void handleManualPlanSync()}
             className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
           >
-            手動で反映
+            手直し済みにする
           </button>
         )}
         {showRecordActions && (
@@ -1105,7 +1167,7 @@ export function ScriptPane({
               className={`${scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
               title={scriptUnrecorded ? "前回の記録から変更があります" : "現在の台本をバージョンとして記録"}
             >
-              記録{scriptUnrecorded ? " *" : ""}
+              記録{scriptUnrecorded ? "（未記録）" : ""}
             </button>
             <button
               type="button"
@@ -1118,11 +1180,47 @@ export function ScriptPane({
           </>
         )}
         {scriptMeta && generated && (
-          <span className="shrink-0 text-[10px] text-gray-400 whitespace-nowrap pl-1">
+          <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap pl-1">
             {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
           </span>
         )}
       </div>
+
+      {genAlert && (
+        <div
+          role={genAlert.tone === "error" ? "alert" : "status"}
+          aria-live="polite"
+          className={cn(
+            "border-b px-4 py-2 flex items-start gap-2",
+            genAlert.tone === "error"
+              ? "bg-destructive/10 border-destructive/20 text-destructive"
+              : "bg-muted border-border text-foreground",
+          )}
+        >
+          <p className="text-xs leading-relaxed flex-1 min-w-0">{genAlert.message}</p>
+          {genAlert.retry && (
+            <button
+              type="button"
+              onClick={() => {
+                const retry = genAlert.retry;
+                setGenAlert(null);
+                retry?.();
+              }}
+              className="shrink-0 text-xs font-medium underline underline-offset-2 hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none rounded"
+            >
+              再試行
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setGenAlert(null)}
+            aria-label="通知を閉じる"
+            className="shrink-0 w-8 h-8 -my-1 flex items-center justify-center rounded-md hover:bg-foreground/10 text-lg leading-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {generated && !versionsEnabled && versionsHint && !loading && (
         <div className="bg-amber-50 border-b border-amber-100 px-4 py-2">
@@ -1131,13 +1229,17 @@ export function ScriptPane({
       )}
 
       {loading && (
-        <div className="analysis-loading-panel bg-blue-50 border-b border-blue-100 px-4 py-2.5">
-          <div className="flex items-start gap-2.5">
-            <div className="script-loading-spinner w-3.5 h-3.5 rounded-full border-2 border-blue-200 border-t-blue-600 shrink-0 mt-0.5" />
+        <div
+          className="analysis-loading-panel bg-blue-50 border-b border-blue-100 px-4 py-2"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-2">
+            <ScriptSpinner className="size-3.5 mt-0.5" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-blue-800 analysis-loading-text">{loadingBannerTitle}</p>
               {loadingBannerDetail && (
-                <p className="text-[10px] text-blue-600 mt-0.5 truncate">{loadingBannerDetail}</p>
+                <p className="text-xs text-blue-700 mt-0.5 truncate">{loadingBannerDetail}</p>
               )}
             </div>
           </div>
@@ -1146,9 +1248,9 @@ export function ScriptPane({
 
       <div className="flex-1 overflow-hidden">
         {scriptLoading && !script && !loading ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <Loader2 className="size-7 mb-3 mx-auto animate-spin text-blue-400" />
+          <div className="h-full flex items-center justify-center" role="status" aria-live="polite">
+            <div className="text-center text-gray-500">
+              <ScriptSpinner className="size-7 mb-3 mx-auto" />
               <p className="text-sm">台本を読み込んでいます…</p>
             </div>
           </div>

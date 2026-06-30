@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { ChatMessage } from "@/lib/types";
 
 interface Props {
@@ -15,19 +16,61 @@ interface Props {
 export function ChatPane({ theme, sectionLabel, sectionContent, history, onHistoryUpdate, onClose }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const headingId = useId();
 
-  async function handleSend() {
-    if (!input.trim() || streaming) return;
-    const userMsg: ChatMessage = { role: "user", content: input };
-    const newHistory = [...history, userMsg];
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Esc クローズ＋簡易フォーカストラップ（開いた時に先頭へフォーカス、Tab を内部に閉じ込め）
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const getFocusable = () =>
+      Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+
+    getFocusable()[0]?.focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = getFocusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    container.addEventListener("keydown", handleKeyDown);
+    return () => container.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  async function runRequest(baseHistory: ChatMessage[], message: string) {
+    const newHistory: ChatMessage[] = [...baseHistory, { role: "user", content: message }];
     onHistoryUpdate(newHistory);
-    setInput("");
+    setError(null);
+    setLastUserMessage(message);
     setStreaming(true);
-
-    const assistantMsg: ChatMessage = { role: "assistant", content: "" };
-    const withAssistant = [...newHistory, assistantMsg];
-    onHistoryUpdate(withAssistant);
+    onHistoryUpdate([...newHistory, { role: "assistant", content: "" }]);
 
     try {
       const res = await fetch("/api/section-chat", {
@@ -37,8 +80,8 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
           theme,
           sectionLabel,
           sectionContent,
-          history: newHistory.slice(0, -1),
-          userMessage: input,
+          history: baseHistory,
+          userMessage: message,
         }),
       });
       if (!res.ok) {
@@ -60,29 +103,65 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
         onHistoryUpdate([...newHistory, { role: "assistant", content: full }]);
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "セクション相談に失敗しました";
-      onHistoryUpdate([...newHistory, { role: "assistant", content: message }]);
+      setLastUserMessage(null);
+    } catch (err) {
+      // 失敗は assistant 吹き出しに混ぜず、空の応答を取り除いて専用バナーで通知する
+      onHistoryUpdate(newHistory);
+      setError(err instanceof Error ? err.message : "セクション相談に失敗しました");
     } finally {
       setStreaming(false);
     }
   }
 
+  function handleSend() {
+    const message = input.trim();
+    if (!message || streaming) return;
+    setInput("");
+    void runRequest(history, message);
+  }
+
+  function handleRetry() {
+    if (!lastUserMessage || streaming) return;
+    const base =
+      history.length > 0 && history[history.length - 1].role === "user"
+        ? history.slice(0, -1)
+        : history;
+    void runRequest(base, lastUserMessage);
+  }
+
   return (
-    <div className="fixed inset-0 z-40 w-full flex flex-col bg-white md:static md:inset-auto md:z-auto md:w-72 md:border-l md:border-gray-200">
-      <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-bold text-gray-700">AI と深掘り</p>
-          <p className="text-[10px] text-gray-400">{sectionLabel}</p>
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={headingId}
+      className="fixed inset-0 z-40 w-full flex flex-col bg-white md:static md:inset-auto md:z-auto md:w-72 md:border-l md:border-gray-200"
+    >
+      <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 id={headingId} className="text-xs font-bold text-gray-700">
+            AI と深掘り
+          </h2>
+          <p className="text-xs text-muted-foreground truncate">{sectionLabel}</p>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="閉じる"
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted text-lg leading-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+        >
           ×
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div
+        className="flex-1 overflow-y-auto p-3 space-y-3"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
         {history.length === 0 && (
-          <div className="text-[11px] text-gray-400 bg-gray-50 rounded-lg p-2 leading-relaxed">
+          <div className="text-xs text-muted-foreground bg-gray-50 rounded-lg p-2 leading-relaxed">
             このセクションについて改善案・別角度・具体例など、何でも聞いてください
           </div>
         )}
@@ -91,35 +170,60 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
             <div
               className={`max-w-[90%] text-xs rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${
                 msg.role === "user"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-700"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-foreground"
               }`}
             >
-              {msg.content || (streaming && i === history.length - 1 ? "▋" : "")}
+              {msg.content || (streaming && i === history.length - 1 ? <span aria-hidden>▋</span> : "")}
             </div>
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
+      {error && (
+        <div
+          role="alert"
+          className="mx-3 mb-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
+          <p className="font-medium">送信に失敗しました</p>
+          <p className="mt-1 leading-relaxed">{error}</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={streaming || !lastUserMessage}
+            className="mt-2 inline-flex h-8 items-center rounded-md border border-destructive/30 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+          >
+            再送信
+          </button>
+        </div>
+      )}
+
       <div className="p-2 border-t border-gray-200">
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="質問・改善依頼…"
-            className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
+            aria-label={`${sectionLabel} について質問・改善依頼を入力`}
+            className="flex-1 text-xs border border-input rounded-lg px-2.5 py-2 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none disabled:opacity-50"
             disabled={streaming}
           />
-          <button
+          <Button
+            type="button"
             onClick={handleSend}
             disabled={!input.trim() || streaming}
-            className="bg-blue-500 text-white rounded-lg px-2.5 py-2 text-xs hover:bg-blue-600 disabled:opacity-40 transition-colors"
+            className="text-xs"
           >
             送信
-          </button>
+          </Button>
         </div>
       </div>
     </div>

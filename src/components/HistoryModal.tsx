@@ -188,7 +188,7 @@ export function HistoryModal({
                       [{snap.authorName}] {formatDate(snap.createdAt)}
                     </p>
                     {isFirstRecord && (
-                      <span className="mt-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">
+                      <span className="mt-1 inline-block rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
                         初回記録
                       </span>
                     )}
@@ -196,7 +196,7 @@ export function HistoryModal({
                 </div>
                 <p className="text-sm text-foreground">{snap.summary}</p>
                 {snap.diffStats && (
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {formatDiffStats(snap.diffStats)}
                   </p>
                 )}
@@ -225,7 +225,9 @@ export function HistoryModal({
 
                 {confirmId === snap.id ? (
                   <div className="flex items-center gap-2 pt-1">
-                    <p className="text-xs text-amber-700 flex-1">この版に戻しますか？</p>
+                    <p className="text-xs text-destructive flex-1">
+                      現在の内容をこの版で置き換えます。よろしいですか？
+                    </p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -258,7 +260,7 @@ export function HistoryModal({
         </div>
 
         {error ? (
-          <p className="text-xs text-red-600" role="alert">
+          <p className="text-xs text-destructive" role="alert">
             {error}
           </p>
         ) : null}

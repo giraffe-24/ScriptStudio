@@ -231,7 +231,7 @@ export function EpisodeList({
                       }
                       onSelect(ep);
                     }}
-                    className="flex-1 text-left px-3 py-2.5 transition-colors min-w-0"
+                    className="flex-1 text-left px-3 py-2.5 transition-colors min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset rounded-sm"
                   >
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <span
@@ -242,7 +242,7 @@ export function EpisodeList({
                         #{displayNumber}
                       </span>
                       {ep.createdAt && (
-                        <span className="text-[10px] text-gray-300 shrink-0">{ep.createdAt}</span>
+                        <span className="text-[10px] text-gray-500 shrink-0">{ep.createdAt}</span>
                       )}
                       {!deleteMode && (
                         <>

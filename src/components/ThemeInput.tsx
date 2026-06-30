@@ -13,6 +13,15 @@ import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-hi
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
 import { CompetitorSubscriberStats } from "@/components/CompetitorSubscriberStats";
 import { CompetitorChannelAvatar } from "@/components/CompetitorChannelAvatar";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Props {
   pattern: ThemePattern | null;
@@ -102,7 +111,9 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
   const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
   const [savingCompetitors, setSavingCompetitors] = useState(false);
+  const [competitorError, setCompetitorError] = useState<string | null>(null);
   const [competitorStats, setCompetitorStats] = useState<Record<string, ChannelSubscriberStats>>({});
+  const [analyzed, setAnalyzed] = useState(false);
 
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
   const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set());
@@ -117,6 +128,8 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     setShowCompetitorModal(false);
     setSelectedCompetitors(new Set());
     setCompetitorStats({});
+    setCompetitorError(null);
+    setAnalyzed(false);
     setError(null);
     setProgressIndex(0);
   }
@@ -194,6 +207,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       }
 
       const results: EnrichedCandidate[] = data.candidates ?? [];
+      setAnalyzed(true);
       setCandidates(results);
       setSearchSources(data.searchSources ?? { youtube: true, google: false, x: false });
 
@@ -219,6 +233,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       return;
     }
     setSavingCompetitors(true);
+    setCompetitorError(null);
     try {
       const res = await fetch("/api/competitors", {
         method: "POST",
@@ -237,7 +252,9 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       setShowCompetitorModal(false);
     } catch (e) {
       console.error("competitors save error:", e);
-      setError(e instanceof Error ? e.message : "競合チャンネルの保存に失敗しました");
+      setCompetitorError(
+        e instanceof Error ? e.message : "競合チャンネルの保存に失敗しました",
+      );
     } finally {
       setSavingCompetitors(false);
     }
@@ -256,16 +273,20 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   return (
     <div className="space-y-4">
       {!pattern ? (
-        <p className="text-xs text-gray-400 text-center py-6 leading-relaxed">
+        <p className="text-xs text-muted-foreground text-center py-6 leading-relaxed">
           市場分析またはテーマ分析を選んでください
         </p>
       ) : pattern === "market" ? (
         <>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label
+              htmlFor="theme-category"
+              className="block text-xs font-medium text-gray-500 mb-1"
+            >
               カテゴリ（空白でも OK）
             </label>
             <input
+              id="theme-category"
               type="text"
               value={category}
               onChange={(e) => {
@@ -273,20 +294,27 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                 resetResults();
               }}
               placeholder="例：Gmail, Android, Google フォト"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <span
+              id="theme-mode-label"
+              className="block text-xs font-medium text-gray-700 mb-1"
+            >
               どんなネタを探しますか？
-            </label>
+            </span>
             {!themeModeLocked && (
-              <p className="text-[11px] text-gray-500 mb-2.5 leading-relaxed">
+              <p className="text-xs text-gray-500 mb-2.5 leading-relaxed">
                 探したい動画のタイプを1つ選んでください。
               </p>
             )}
-            <div className="space-y-2">
+            <div
+              role="radiogroup"
+              aria-labelledby="theme-mode-label"
+              className="space-y-2"
+            >
               {(themeModeLocked && themeMode
                 ? THEME_MODES.filter((m) => m.id === themeMode)
                 : THEME_MODES
@@ -297,13 +325,15 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                   <button
                     key={m.id}
                     type="button"
+                    role="radio"
+                    aria-checked={selected}
                     onClick={() => {
                       if (themeModeLocked) return;
                       setThemeMode(m.id);
                       resetResults();
                     }}
                     disabled={themeModeLocked}
-                    className={`w-full flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                    className={`w-full flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring ${
                       themeModeLocked
                         ? "border-blue-300 bg-blue-50 cursor-default"
                         : selected
@@ -326,7 +356,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                       <span className="block text-xs text-gray-600 mt-1 leading-relaxed">
                         {m.description}
                       </span>
-                      <span className="block text-[11px] text-gray-400 mt-1 leading-relaxed">
+                      <span className="block text-xs text-gray-400 mt-1 leading-relaxed">
                         {m.example}
                       </span>
                     </span>
@@ -339,10 +369,14 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
         </>
       ) : (
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label
+            htmlFor="user-theme"
+            className="block text-xs font-medium text-gray-500 mb-1"
+          >
             テーマを入力
           </label>
           <input
+            id="user-theme"
             type="text"
             value={userTheme}
             onChange={(e) => {
@@ -350,33 +384,34 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
               resetResults();
             }}
             placeholder="例：LINEの通知をまとめて管理する方法"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring"
           />
         </div>
       )}
 
       {pattern && (
-      <button
+      <Button
         onClick={handleResearch}
         disabled={!canAnalyze}
-        className={`w-full rounded-lg py-2.5 text-sm font-medium transition-all ${
-          !canAnalyze
-            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-            : pattern === "market"
-            ? "bg-blue-500 text-white hover:bg-blue-600"
-            : "bg-purple-500 text-white hover:bg-purple-600"
-        }`}
+        size="lg"
+        aria-busy={loading}
+        className="w-full py-2.5"
       >
         {loading
           ? "AI が分析中…"
           : pattern === "market"
-          ? "📊 トレンド分析する"
-          : "✨ テーマを分析する"}
-      </button>
+          ? "📊 市場分析する"
+          : "✨ テーマ分析する"}
+      </Button>
       )}
 
       {loading && (
-        <div className="analysis-loading-panel bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1.5">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-label="AI が分析中"
+          className="analysis-loading-panel bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1.5"
+        >
           {PROGRESS_LABELS.map((label, i) => (
             <div key={label} className="flex items-center gap-2">
               <div
@@ -389,7 +424,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                 }`}
               />
               <span
-                className={`text-[11px] ${
+                className={`text-xs ${
                   i <= progressIndex ? "text-blue-700" : "text-gray-400"
                 } ${i === progressIndex ? "analysis-loading-text" : ""}`}
               >
@@ -401,31 +436,62 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       )}
 
       {error && (
-        <p className="text-xs text-red-500 leading-relaxed bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-2 text-xs text-destructive leading-relaxed bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
+        >
+          <span className="min-w-0">{error}</span>
+          <Button
+            variant="destructive"
+            size="xs"
+            onClick={handleResearch}
+            disabled={!canAnalyze}
+            className="shrink-0"
+          >
+            再試行
+          </Button>
+        </div>
+      )}
+
+      {analyzed && !loading && !error && candidates.length === 0 && (
+        <div
+          role="status"
+          className="text-center bg-muted/40 border border-border rounded-lg px-3 py-6 space-y-3"
+        >
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            候補が見つかりませんでした。条件を変えて再試行してください。
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResearch}
+            disabled={!canAnalyze}
+          >
+            再試行
+          </Button>
+        </div>
       )}
 
       {candidates.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
               テーマ候補
             </h3>
             {searchSources && (
               <div className="flex flex-wrap gap-1">
                 {searchSources.youtube && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
                     YouTube（第一指標）
                   </span>
                 )}
                 {searchSources.google && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
                     Google
                   </span>
                 )}
                 {searchSources.x && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">
                     X
                   </span>
                 )}
@@ -451,7 +517,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {c.ownChannelRelation && (
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                          className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${
                             RELATION_BADGE[c.ownChannelRelation]
                           }`}
                         >
@@ -459,7 +525,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                         </span>
                       )}
                       {c.competitionDensity && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-500">
+                        <span className="text-xs px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-500">
                           {DENSITY_LABEL[c.competitionDensity]}
                         </span>
                       )}
@@ -467,7 +533,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                   </button>
                   <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                      className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${
                         SCORE_BADGE[c.score]
                       }`}
                     >
@@ -475,8 +541,10 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     </span>
                     <button
                       onClick={() => toggleOpen(i)}
-                      className="text-gray-400 hover:text-gray-600 text-xs leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                      aria-label="詳細を表示"
+                      className="text-gray-500 hover:text-gray-700 text-xs leading-none w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      aria-label={isOpen ? "詳細を隠す" : "詳細を表示"}
+                      aria-expanded={isOpen}
+                      aria-controls={`candidate-detail-${i}`}
                     >
                       <span
                         className={`inline-block transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -488,10 +556,13 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                 </div>
 
                 {isOpen && (
-                  <div className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-2.5 bg-white bg-opacity-60">
+                  <div
+                    id={`candidate-detail-${i}`}
+                    className="border-t border-gray-100 px-3 pb-3 pt-2 space-y-2.5 bg-white bg-opacity-60"
+                  >
                     {c.differentiationAngle && (
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                           差別化切り口
                         </p>
                         <p className="text-xs text-gray-700 leading-relaxed">
@@ -500,7 +571,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                       </div>
                     )}
                     <div>
-                      <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">
                         フック
                       </p>
                       <p className="text-xs text-blue-600 italic leading-relaxed">
@@ -508,14 +579,14 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                         視聴者の悩み
                       </p>
                       <p className="text-xs text-gray-700 leading-relaxed">{c.targetPain}</p>
                     </div>
                     {c.reason && (
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                           選定理由
                         </p>
                         <p className="text-xs text-gray-500 leading-relaxed">{c.reason}</p>
@@ -523,7 +594,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     )}
                     {c.competitorNotes && (
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                           競合との差分
                         </p>
                         <p className="text-xs text-gray-500 leading-relaxed">{c.competitorNotes}</p>
@@ -531,7 +602,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     )}
                     {c.seriesPotential && (
                       <div>
-                        <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">
                           シリーズ化
                         </p>
                         <p className="text-xs text-purple-600 leading-relaxed">
@@ -541,7 +612,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     )}
                     {c.overlapWarning && (
                       <div>
-                        <p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">
                           被り注意
                         </p>
                         <p className="text-xs text-orange-600 leading-relaxed">
@@ -551,7 +622,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     )}
                     {c.referencedVideos && c.referencedVideos.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                           参照動画
                         </p>
                         <ul className="space-y-1">
@@ -565,7 +636,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                               >
                                 {v.title}
                               </a>
-                              <span className="text-[10px] text-gray-400 ml-1">
+                              <span className="text-xs text-gray-400 ml-1">
                                 ({v.channel}
                                 {v.viewCount
                                   ? `, ${Number(v.viewCount).toLocaleString()}回`
@@ -579,7 +650,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                     )}
                     {c.titleAlternatives && c.titleAlternatives.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                           代替タイトル
                         </p>
                         <ul className="list-disc list-inside text-xs text-gray-500 space-y-0.5">
@@ -596,84 +667,114 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
           })}
 
           <div className="pt-1">
-            <button
+            <Button
               onClick={handleConfirm}
               disabled={pickedIndex === null}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                pickedIndex !== null
-                  ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm active:scale-[0.98]"
-                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-              }`}
+              size="lg"
+              className="w-full py-2.5 rounded-xl font-semibold shadow-sm"
             >
               {pickedIndex !== null ? "6本の柱を作成する →" : "候補を選んでください"}
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
-      {showCompetitorModal && competitorSuggestions.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-800">競合チャンネルを登録</h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              今回の分析で見つかった競合 ch です。今後の分析に使う ch を選んで承認してください。
-            </p>
+      {competitorSuggestions.length > 0 && (
+        <Dialog
+          open={showCompetitorModal}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowCompetitorModal(false);
+              setCompetitorError(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>競合チャンネルを登録</DialogTitle>
+              <DialogDescription>
+                今回の分析で見つかった競合 ch です。今後の分析に使う ch を選んで承認してください。
+              </DialogDescription>
+            </DialogHeader>
+
+            {competitorError && (
+              <div
+                role="alert"
+                className="flex items-start justify-between gap-2 text-xs text-destructive leading-relaxed bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
+              >
+                <span className="min-w-0">{competitorError}</span>
+                <Button
+                  variant="destructive"
+                  size="xs"
+                  onClick={handleApproveCompetitors}
+                  disabled={savingCompetitors}
+                  className="shrink-0"
+                >
+                  再試行
+                </Button>
+              </div>
+            )}
+
             <ul className="space-y-2 max-h-56 overflow-y-auto">
               {competitorSuggestions.map((s) => (
-                <li key={s.channelId} className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedCompetitors.has(s.channelId)}
-                    onChange={(e) => {
-                      setSelectedCompetitors((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(s.channelId);
-                        else next.delete(s.channelId);
-                        return next;
-                      });
-                    }}
-                    className="rounded border-gray-300 mt-0.5"
-                  />
-                  <CompetitorChannelAvatar
-                    channelId={s.channelId}
-                    displayName={s.displayName}
-                    thumbnailUrl={competitorStats[s.channelId]?.thumbnailUrl}
-                    size={32}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <span className="text-xs text-gray-700">
-                      <a
-                        href={youtubeChannelUrl(s.channelId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {s.displayName}
-                      </a>
-                      <span className="text-gray-400 ml-1">({s.videoCount}件ヒット)</span>
-                    </span>
-                    <CompetitorSubscriberStats stats={competitorStats[s.channelId]} />
-                  </div>
+                <li key={s.channelId}>
+                  <label className="flex items-start gap-2 cursor-pointer rounded-lg p-1 -m-1 hover:bg-muted/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedCompetitors.has(s.channelId)}
+                      onChange={(e) => {
+                        setSelectedCompetitors((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(s.channelId);
+                          else next.delete(s.channelId);
+                          return next;
+                        });
+                      }}
+                      className="rounded border-gray-300 mt-0.5"
+                    />
+                    <CompetitorChannelAvatar
+                      channelId={s.channelId}
+                      displayName={s.displayName}
+                      thumbnailUrl={competitorStats[s.channelId]?.thumbnailUrl}
+                      size={32}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs text-gray-700">
+                        <a
+                          href={youtubeChannelUrl(s.channelId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {s.displayName}
+                        </a>
+                        <span className="text-gray-500 ml-1">({s.videoCount}件ヒット)</span>
+                      </span>
+                      <CompetitorSubscriberStats stats={competitorStats[s.channelId]} />
+                    </div>
+                  </label>
                 </li>
               ))}
             </ul>
-            <div className="flex gap-2 pt-1">
-              <button
+
+            <DialogFooter>
+              <Button
+                variant="outline"
                 onClick={() => setShowCompetitorModal(false)}
-                className="flex-1 py-2 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
               >
                 後で
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleApproveCompetitors}
                 disabled={savingCompetitors}
-                className="flex-1 py-2 text-xs rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+                aria-busy={savingCompetitors}
               >
                 {savingCompetitors ? "保存中…" : "承認して保存"}
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -7,31 +7,54 @@ interface Props {
   onChange: (pattern: ThemePattern) => void;
 }
 
+const PATTERNS: {
+  id: ThemePattern;
+  icon: string;
+  title: string;
+  description: string;
+}[] = [
+  {
+    id: "market",
+    icon: "📊",
+    title: "市場分析",
+    description: "トレンドから今のネタを探す",
+  },
+  {
+    id: "user-input",
+    icon: "✏️",
+    title: "テーマ分析",
+    description: "決めたテーマを深掘りする",
+  },
+];
+
 export function PatternSelector({ pattern, onChange }: Props) {
   return (
-    <div className="flex gap-2">
-      <button
-        onClick={() => onChange("market")}
-        className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium border-2 transition-all ${
-          pattern === "market"
-            ? "border-blue-500 bg-blue-50 text-blue-700"
-            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-        }`}
-      >
-        <span>📊</span>
-        <span>市場分析</span>
-      </button>
-      <button
-        onClick={() => onChange("user-input")}
-        className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium border-2 transition-all ${
-          pattern === "user-input"
-            ? "border-purple-500 bg-purple-50 text-purple-700"
-            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-        }`}
-      >
-        <span>✏️</span>
-        <span>テーマ分析</span>
-      </button>
+    <div role="radiogroup" aria-label="分析モードを選択" className="flex gap-2">
+      {PATTERNS.map((p) => {
+        const selected = pattern === p.id;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(p.id)}
+            className={`flex-1 flex flex-col items-center gap-0.5 rounded-lg py-2.5 px-2 text-center border-2 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring ${
+              selected
+                ? "border-primary bg-primary/10 text-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-foreground/30"
+            }`}
+          >
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <span aria-hidden>{p.icon}</span>
+              <span>{p.title}</span>
+            </span>
+            <span className="text-xs text-muted-foreground leading-snug">
+              {p.description}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

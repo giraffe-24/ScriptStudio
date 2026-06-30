@@ -6,8 +6,12 @@ type Props = {
   maxHeightClass?: string;
 };
 
+const DIFF_LINE_LIMIT = 120;
+
 export function ScriptDiffPreview({ lines, maxHeightClass = "max-h-48" }: Props) {
-  const visible = lines.filter((l) => l.type !== "same").slice(0, 120);
+  const changed = lines.filter((l) => l.type !== "same");
+  const visible = changed.slice(0, DIFF_LINE_LIMIT);
+  const hiddenCount = changed.length - visible.length;
   if (visible.length === 0) {
     return <p className="text-xs text-muted-foreground">変更行はありません。</p>;
   }
@@ -33,6 +37,11 @@ export function ScriptDiffPreview({ lines, maxHeightClass = "max-h-48" }: Props)
           {line.text || " "}
         </div>
       ))}
+      {hiddenCount > 0 && (
+        <div className="mt-1 border-t pt-1 text-center font-sans text-muted-foreground">
+          ほか {hiddenCount.toLocaleString()} 行の変更
+        </div>
+      )}
     </div>
   );
 }

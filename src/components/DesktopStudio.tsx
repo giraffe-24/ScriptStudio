@@ -9,7 +9,17 @@ import { ThemeInput } from "@/components/ThemeInput";
 import { PlanningDoc } from "@/components/PlanningDoc";
 import { ScriptPane } from "@/components/ScriptPane";
 import { UnrecordedBadge } from "@/components/UnrecordedBadge";
+import { UserMenu } from "@/components/UserMenu";
 import type { StudioState } from "@/lib/useStudio";
+
+/** テーマ→企画→台本 の流れの「今どのステップか」を示す番号バッジ */
+function StepBadge({ n }: { n: number }) {
+  return (
+    <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+      {n}
+    </span>
+  );
+}
 
 export function DesktopStudio({ studio }: { studio: StudioState }) {
   const {
@@ -54,19 +64,25 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
     <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
       {/* Pane 1: エピソード一覧 */}
       <div className="w-52 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
-        <EpisodeList
-          episodes={episodes}
-          loading={episodesLoading}
-          onRefresh={loadEpisodes}
-          selectedId={selectedEpisode?.id ?? null}
-          selectedSlug={selectedEpisode?.slug ?? null}
-          titleOverride={titleOverride}
-          numberOverride={numberOverride}
-          statusOverride={statusOverride}
-          onSelect={handleEpisodeSelect}
-          onStatusChange={handleStatusChange}
-          onDeleted={handleEpisodesDeleted}
-        />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <EpisodeList
+            episodes={episodes}
+            loading={episodesLoading}
+            onRefresh={loadEpisodes}
+            selectedId={selectedEpisode?.id ?? null}
+            selectedSlug={selectedEpisode?.slug ?? null}
+            titleOverride={titleOverride}
+            numberOverride={numberOverride}
+            statusOverride={statusOverride}
+            onSelect={handleEpisodeSelect}
+            onStatusChange={handleStatusChange}
+            onDeleted={handleEpisodesDeleted}
+          />
+        </div>
+        {/* アカウント：ログイン中のユーザー名とログアウト */}
+        <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
+          <UserMenu className="justify-between" />
+        </div>
       </div>
 
       {!showWorkspace ? (
@@ -86,7 +102,7 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
             </p>
             <button
               onClick={handleNewEpisode}
-              className="bg-blue-500 text-white px-6 py-3 rounded-xl hover:bg-blue-600 transition-colors font-medium text-sm"
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors font-medium text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
             >
               ＋ 新しい企画を始める
             </button>
@@ -97,7 +113,10 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
           {/* Pane 2: テーマ選定 */}
           <div className="w-80 shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
             <div className="h-[52px] px-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700">テーマ選定</h2>
+              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                <StepBadge n={1} />
+                テーマ選定
+              </h2>
               <div className="flex items-center gap-1.5">
                 <CompetitorSettingsDialog />
                 <button
@@ -128,7 +147,10 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
           {/* Pane 3: 企画書 */}
           <div className="flex-1 border-r border-gray-200 bg-gray-50 overflow-hidden flex flex-col">
             <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
-              <h2 className="text-sm font-semibold text-gray-700 shrink-0">企画書</h2>
+              <h2 className="text-sm font-semibold text-gray-700 shrink-0 flex items-center gap-1.5">
+                <StepBadge n={2} />
+                企画書
+              </h2>
               {(selectedCandidate || currentPlan) && (
                 <>
                   <span className="text-gray-300 text-sm shrink-0">/</span>

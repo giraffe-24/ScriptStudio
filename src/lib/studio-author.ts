@@ -10,6 +10,12 @@ export function setStudioAuthorName(name: string): void {
   localStorage.setItem(STORAGE_KEY, name.trim());
 }
 
+/** ログアウト時に記録者名を消し、前ユーザー名の残留を防ぐ */
+export function clearStudioAuthorName(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 /** ログイン ID を優先して記録者名を取得 */
 export async function resolveStudioAuthorName(): Promise<string> {
   try {

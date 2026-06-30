@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Menu } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Menu, Loader2, Copy, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   combineScriptCalib,
   splitScriptCalib,
@@ -89,13 +90,9 @@ function renderHighlightedContent(text: string) {
   ));
 }
 
-function LoadingSpinner({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`script-loading-spinner w-4 h-4 rounded-full border-2 border-blue-200 border-t-blue-600 shrink-0 ${className}`}
-      aria-hidden
-    />
-  );
+/** 台本クラスタ共通スピナー（Loader2 / .script-loading-spinner / LoadingSpinner を統合） */
+export function ScriptSpinner({ className }: { className?: string }) {
+  return <Loader2 className={cn("size-4 shrink-0 animate-spin text-primary", className)} aria-hidden />;
 }
 
 function EditorLoadingOverlay({
@@ -114,12 +111,14 @@ function EditorLoadingOverlay({
       }`}
     >
       <div
+        role="status"
+        aria-live="polite"
         className={`rounded-lg border border-blue-200 px-4 py-3 shadow-sm max-w-md mx-4 ${
           blocking ? "analysis-loading-panel bg-blue-50" : "bg-white/95"
         }`}
       >
         <div className="flex items-start gap-3">
-          <LoadingSpinner className="mt-0.5" />
+          <ScriptSpinner className="size-4 mt-0.5" />
           <div className="min-w-0">
             <p className="text-sm font-medium text-blue-900 analysis-loading-text">{title}</p>
             {detail && <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">{detail}</p>}
@@ -151,6 +150,7 @@ export function ScriptEditor({
   const [calibOpen, setCalibOpen] = useState(false);
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [selectionBusy, setSelectionBusy] = useState(false);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
   const [activeSectionOffset, setActiveSectionOffset] = useState<number | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
@@ -158,6 +158,46 @@ export function ScriptEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const navHeadingId = useId();
+
+  // セクションドロワー: Esc クローズ＋簡易フォーカストラップ
+  useEffect(() => {
+    if (!navOpen) return;
+    const container = navRef.current;
+    if (!container) return;
+    const getFocusable = () =>
+      Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+
+    getFocusable()[0]?.focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setNavOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = getFocusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    container.addEventListener("keydown", handleKeyDown);
+    return () => container.removeEventListener("keydown", handleKeyDown);
+  }, [navOpen]);
 
   useEffect(() => {
     const { main, calib } = splitCalib(script);
@@ -296,6 +336,7 @@ export function ScriptEditor({
     if (!payload.selection.trim()) return;
 
     setSelectionBusy(true);
+    setSelectionError(null);
     try {
       const replacement = await onRegenerateSelection(payload);
       if (!replacement.trim()) return;
@@ -319,7 +360,7 @@ export function ScriptEditor({
         selectionRef.current = next;
       });
     } catch {
-      window.alert("選択部分の再生成に失敗しました");
+      setSelectionError("選択部分の再生成に失敗しました。もう一度お試しください。");
     } finally {
       setSelectionBusy(false);
     }
@@ -355,10 +396,14 @@ export function ScriptEditor({
           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className={`h-full ${progressColor} transition-all`} style={{ width: `${progress}%` }} />
           </div>
-          <span className="text-[10px] text-gray-400 hidden md:inline">目標 4,000〜6,000 字</span>
+          <span className="text-xs text-muted-foreground hidden md:inline">目標 4,000〜6,000 字</span>
           {(isGenerating || selectionBusy) && (
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-blue-700">
-              <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
+            <span
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700"
+            >
+              <ScriptSpinner className="size-3" />
               {selectionBusy
                 ? "部分再生成中"
                 : isStreaming
@@ -388,7 +433,7 @@ export function ScriptEditor({
                   : scriptBtnSecondary
               }`}
             >
-              {selectionBusy && <LoadingSpinner className="w-3 h-3 border-[1.5px]" />}
+              {selectionBusy && <ScriptSpinner className="size-3" />}
               {selectionBusy ? "再生成中…" : "部分再生成"}
             </button>
           )}
@@ -408,17 +453,24 @@ export function ScriptEditor({
               type="button"
               onClick={() => setNavOpen(true)}
               aria-label="セクション目次"
-              className="md:hidden shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 active:bg-gray-100 transition-colors"
+              className="md:hidden shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-100 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
             >
               <Menu className="w-5 h-5" />
             </button>
           )}
-          {!saved && !editorLocked && (
-            <span className="text-[10px] text-gray-400">自動保存中…</span>
-          )}
-          {saveError && !editorLocked && (
-            <span className="text-[10px] text-red-500">保存失敗: {saveError}</span>
-          )}
+          {saveError ? (
+            <span role="alert" className="text-xs font-medium text-destructive whitespace-nowrap">
+              保存失敗: {saveError}
+            </span>
+          ) : !saved && !editorLocked ? (
+            <span role="status" aria-live="polite" className="text-xs text-muted-foreground whitespace-nowrap">
+              自動保存中…
+            </span>
+          ) : saved ? (
+            <span role="status" aria-live="polite" className="text-xs text-muted-foreground whitespace-nowrap">
+              保存済み ✓
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -426,16 +478,22 @@ export function ScriptEditor({
         <div className="md:hidden fixed inset-0 z-50 flex" onClick={() => setNavOpen(false)}>
           <div className="absolute inset-0 bg-black/30" />
           <div
+            ref={navRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={navHeadingId}
             className="relative ml-auto w-72 max-w-[80%] h-full bg-white shadow-xl border-l border-gray-200 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between shrink-0">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">セクション</p>
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2 shrink-0">
+              <h2 id={navHeadingId} className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                セクション
+              </h2>
               <button
                 type="button"
                 onClick={() => setNavOpen(false)}
-                className="text-gray-400 active:text-gray-600 text-xl leading-none"
                 aria-label="閉じる"
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted text-xl leading-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
               >
                 ×
               </button>
@@ -448,7 +506,7 @@ export function ScriptEditor({
                     scrollToSection(sec);
                     setNavOpen(false);
                   }}
-                  className={`w-full text-left rounded-lg px-3 py-2.5 text-sm leading-snug transition-colors ${
+                  className={`w-full text-left rounded-lg px-3 py-2 text-sm leading-snug transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none ${
                     activeSectionOffset === sec.charOffset
                       ? "bg-blue-100 text-blue-800"
                       : "text-gray-700 active:bg-gray-100"
@@ -462,19 +520,47 @@ export function ScriptEditor({
         </div>
       )}
 
+      {selectionError && !selectionBusy && (
+        <div
+          role="alert"
+          className="px-4 py-2 border-b border-destructive/20 bg-destructive/10 shrink-0 flex items-center justify-between gap-2"
+        >
+          <p className="text-xs text-destructive">{selectionError}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            {canRegenerateSelection && (
+              <button
+                type="button"
+                onClick={() => void handleRegenerateSelectionClick()}
+                className="text-xs font-medium text-destructive underline underline-offset-2 hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none rounded"
+              >
+                再試行
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectionError(null)}
+              aria-label="エラーを閉じる"
+              className="w-8 h-8 flex items-center justify-center rounded-md text-destructive hover:bg-destructive/10 text-lg leading-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectionRange && canRegenerateSelection && !selectionBusy && !isGenerating && (
-        <div className="px-4 py-1.5 border-b border-blue-100 bg-blue-50 shrink-0">
-          <p className="text-[10px] text-blue-700">
+        <div className="px-4 py-2 border-b border-blue-100 bg-blue-50 shrink-0">
+          <p className="text-xs text-blue-700">
             {selectionLength.toLocaleString()} 字を選択中 —「部分再生成」で前後の文脈を踏まえて書き直します
           </p>
         </div>
       )}
 
       {selectionBusy && (
-        <div className="px-4 py-1.5 border-b border-blue-200 bg-blue-100 shrink-0">
+        <div className="px-4 py-2 border-b border-blue-200 bg-blue-100 shrink-0">
           <div className="flex items-center gap-2">
-            <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
-            <p className="text-[10px] text-blue-800 font-medium">
+            <ScriptSpinner className="size-3" />
+            <p className="text-xs text-blue-800 font-medium">
               選択した {selectionLength.toLocaleString()} 字を AI が前後文脈を踏まえて書き直しています…
             </p>
           </div>
@@ -484,38 +570,52 @@ export function ScriptEditor({
       <div className="flex flex-1 overflow-hidden">
         {sections.length > 0 && (
           <div className="hidden md:block w-44 shrink-0 border-r border-gray-100 overflow-y-auto bg-gray-50 py-3 px-2 space-y-1">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">
+            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1 mb-2">
               セクション
-            </p>
-            {sections.map((sec) => (
-              <button
-                key={`${sec.charOffset}-${sec.label}`}
-                onClick={() => scrollToSection(sec)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  void handleCopySection(sec.label, sec.content);
-                }}
-                title={
-                  sec.planSection
-                    ? `台本: ${sec.label}\n企画: ${sec.planSection}\nクリック：ジャンプ　右クリック：コピー`
-                    : "クリック：ジャンプ　右クリック：コピー"
-                }
-                className={`w-full text-left rounded-lg px-2.5 py-2 transition-all group ${
-                  activeSectionOffset === sec.charOffset
-                    ? "bg-blue-100 text-blue-800 ring-1 ring-blue-200"
-                    : copied === sec.label
-                    ? "bg-green-100 text-green-700"
-                    : "hover:bg-white hover:shadow-sm text-gray-600"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs leading-snug line-clamp-2 flex-1">{sec.label}</span>
-                  <span className="shrink-0 text-[10px] opacity-0 group-hover:opacity-100 text-gray-400 transition-opacity">
-                    {copied === sec.label ? "✓" : "↑"}
-                  </span>
+            </h2>
+            {sections.map((sec) => {
+              const active = activeSectionOffset === sec.charOffset;
+              const isCopied = copied === sec.label;
+              return (
+                <div
+                  key={`${sec.charOffset}-${sec.label}`}
+                  className={cn(
+                    "flex items-center rounded-lg transition-all",
+                    active
+                      ? "bg-blue-100 text-blue-800 ring-1 ring-blue-200"
+                      : isCopied
+                      ? "bg-green-100 text-green-700"
+                      : "text-gray-600 hover:bg-white hover:shadow-sm",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection(sec)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      void handleCopySection(sec.label, sec.content);
+                    }}
+                    title={
+                      sec.planSection
+                        ? `台本: ${sec.label}\n企画: ${sec.planSection}\nクリック：ジャンプ`
+                        : "クリック：ジャンプ"
+                    }
+                    className="min-w-0 flex-1 text-left px-2.5 py-2 rounded-l-lg focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+                  >
+                    <span className="text-xs leading-snug line-clamp-2 block">{sec.label}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopySection(sec.label, sec.content)}
+                    aria-label={`「${sec.label}」をコピー`}
+                    title="このセクションをコピー"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+                  >
+                    {isCopied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+                  </button>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -542,6 +642,7 @@ export function ScriptEditor({
               onKeyUp={syncSelectionFromTextarea}
               onScroll={(e) => syncHighlightScroll(e.currentTarget.scrollTop)}
               readOnly={editorLocked}
+              aria-label="台本本文"
               className={editorTextareaClass}
               placeholder="台本をここに入力…"
               spellCheck={false}
@@ -572,10 +673,14 @@ export function ScriptEditor({
             )}
 
             {isStreaming && (
-              <div className="absolute bottom-3 right-3 z-10 pointer-events-none">
+              <div
+                className="absolute bottom-3 right-3 z-10 pointer-events-none"
+                role="status"
+                aria-live="polite"
+              >
                 <div className="flex items-center gap-2 rounded-full border border-blue-200 bg-white/95 px-3 py-1.5 shadow-sm">
-                  <LoadingSpinner className="w-3 h-3 border-[1.5px]" />
-                  <span className="text-[11px] font-medium text-blue-800">執筆中…</span>
+                  <ScriptSpinner className="size-3" />
+                  <span className="text-xs font-medium text-blue-800">執筆中…</span>
                 </div>
               </div>
             )}
@@ -585,16 +690,18 @@ export function ScriptEditor({
 
       <div className="border-t-2 border-dashed border-amber-200 shrink-0">
         <button
+          type="button"
           onClick={() => setCalibOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+          aria-expanded={calibOpen}
+          className="w-full flex items-center justify-between px-4 py-2 bg-amber-50 hover:bg-amber-100 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
         >
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-amber-700">推敲比較</span>
-            <span className="text-[10px] text-amber-500">
+            <span className="text-xs text-amber-600">
               手直し後の確定稿をここに貼り付けて /推敲比較 で使用
             </span>
           </div>
-          <span className={`text-amber-500 text-xs transition-transform duration-200 ${calibOpen ? "rotate-180" : ""}`}>
+          <span className={`text-amber-600 text-xs transition-transform duration-200 ${calibOpen ? "rotate-180" : ""}`} aria-hidden>
             ▾
           </span>
         </button>
@@ -606,17 +713,19 @@ export function ScriptEditor({
               onChange={(e) => handleCalibChange(e.target.value)}
               rows={8}
               placeholder="手直し後の台本をここに全文貼り付けてください…"
-              className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus:outline-none placeholder:text-amber-300"
+              aria-label="推敲比較用の確定稿（手直し後の台本全文）"
+              className="w-full px-4 py-3 text-sm font-mono leading-relaxed text-gray-700 bg-transparent resize-none border-0 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none placeholder:text-amber-400"
               spellCheck={false}
             />
             {calibText && (
               <div className="px-4 pb-2 flex items-center justify-between">
-                <span className="text-[10px] text-amber-500">
+                <span className="text-xs text-amber-600">
                   {calibText.replace(/\s/g, "").length.toLocaleString()} 字
                 </span>
                 <button
+                  type="button"
                   onClick={() => handleCalibChange("")}
-                  className="text-[10px] text-amber-400 hover:text-amber-600 transition-colors"
+                  className="text-xs text-amber-600 hover:text-amber-800 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none rounded"
                 >
                   クリア
                 </button>

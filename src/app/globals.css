@@ -412,4 +412,19 @@
   .splash-logo-in {
     animation: none;
   }
+
+  /* 動きに敏感なユーザー向けに装飾アニメを止める。
+     ローディングのスピナーは「処理中」を伝える機能なので残す。 */
+  .analysis-loading-panel,
+  .analysis-loading-dot,
+  .analysis-loading-text,
+  .script-editor-streaming-bar,
+  .typing-caret {
+    animation: none;
+  }
+
+  .typing-caret {
+    /* 点滅は止めるが位置の目印としては残す */
+    opacity: 1;
+  }
 }

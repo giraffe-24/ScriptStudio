@@ -47,8 +47,23 @@ export function TypingText({
   const chars = Array.from(text);
   const [count, setCount] = useState(0);
   const [done, setDone] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  // OS の「視差効果を減らす」設定を購読する（外部状態の同期）
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReducedMotion(mq.matches);
+    const onChange = () => setReducedMotion(mq.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
 
   useEffect(() => {
+    // reduced-motion 時はアニメーションせず、描画側で全文を即時表示する
+    if (reducedMotion) return;
+
     const total = Array.from(text).length;
     let i = 0;
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -68,31 +83,36 @@ export function TypingText({
       clearTimeout(start);
       if (interval) clearInterval(interval);
     };
-  }, [text, speed, startDelay, charsPerTick]);
+  }, [text, speed, startDelay, charsPerTick, reducedMotion]);
 
   // 打ち終わったらカーソルを少し点滅させてからフェードアウト
   const [caretHidden, setCaretHidden] = useState(false);
   useEffect(() => {
-    if (!done || caretLingerMs <= 0) return;
+    // reduced-motion 時は描画側でカーソルを消すため、ここでは何もしない
+    if (reducedMotion || !done || caretLingerMs <= 0) return;
     const t = setTimeout(() => setCaretHidden(true), caretLingerMs);
     return () => clearTimeout(t);
-  }, [done, caretLingerMs]);
+  }, [done, caretLingerMs, reducedMotion]);
+
+  // reduced-motion 時は全文表示・カーソル非表示に切り替える
+  const visibleCount = reducedMotion ? chars.length : count;
+  const caretIsHidden = reducedMotion || caretHidden;
 
   return (
     <span
       className={className}
       {...(decorative ? { "aria-hidden": true } : { "aria-label": text })}
     >
-      <span aria-hidden="true">{chars.slice(0, count).join("")}</span>
+      <span aria-hidden="true">{chars.slice(0, visibleCount).join("")}</span>
       <span
         aria-hidden="true"
-        className={`typing-caret${caretHidden ? " typing-caret--hidden" : ""}${
+        className={`typing-caret${caretIsHidden ? " typing-caret--hidden" : ""}${
           caretClassName ? ` ${caretClassName}` : ""
         }`}
       />
       {reserveLayout ? (
         <span aria-hidden="true" style={{ visibility: "hidden" }}>
-          {chars.slice(count).join("")}
+          {chars.slice(visibleCount).join("")}
         </span>
       ) : null}
     </span>

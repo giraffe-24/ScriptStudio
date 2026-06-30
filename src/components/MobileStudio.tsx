@@ -10,6 +10,7 @@ import { ThemeInput } from "@/components/ThemeInput";
 import { PlanningDoc } from "@/components/PlanningDoc";
 import { ScriptPane } from "@/components/ScriptPane";
 import { UnrecordedBadge } from "@/components/UnrecordedBadge";
+import { UserMenu } from "@/components/UserMenu";
 import type { Episode } from "@/lib/types";
 import type { StudioState } from "@/lib/useStudio";
 
@@ -96,6 +97,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
           <span className="text-xs text-gray-500 truncate min-w-0">/ {episodeTitle}</span>
         )}
         {planUnrecorded && <UnrecordedBadge />}
+        <UserMenu compact className="ml-auto pl-1" />
       </header>
 
       {/* メイン */}
@@ -106,7 +108,7 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
             <div className="p-3 border-b border-gray-200 shrink-0">
               <button
                 onClick={onStartNew}
-                className="w-full bg-blue-500 text-white py-2.5 rounded-xl active:bg-blue-600 transition-colors font-medium text-sm"
+                className="w-full bg-primary text-primary-foreground py-2.5 rounded-xl active:bg-primary/90 transition-colors font-medium text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 ＋ 新しい企画を始める
               </button>
@@ -259,7 +261,7 @@ function NextBar({ label, onClick }: { label: string; onClick: () => void }) {
     <div className="shrink-0 p-3 border-t border-gray-200 bg-white">
       <button
         onClick={onClick}
-        className="w-full bg-orange-500 text-white py-2.5 rounded-xl active:bg-orange-600 transition-colors font-medium text-sm"
+        className="w-full bg-primary text-primary-foreground py-2.5 rounded-xl active:bg-primary/90 transition-colors font-medium text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         {label}
       </button>
@@ -277,7 +279,7 @@ function EmptyWorkspace({ onStart }: { onStart: () => void }) {
         </p>
         <button
           onClick={onStart}
-          className="bg-blue-500 text-white px-6 py-2.5 rounded-xl active:bg-blue-600 transition-colors font-medium text-sm"
+          className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl active:bg-primary/90 transition-colors font-medium text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           ＋ 新しい企画を始める
         </button>
