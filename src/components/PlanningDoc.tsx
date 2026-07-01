@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/lib/types";
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
+import { GitHistoryModal } from "./GitHistoryModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
+
+// Git ミラー設定の有無はセッション内で不変なので 1 度だけ確認してキャッシュする。
+let gitMirrorConfiguredCache: boolean | null = null;
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
@@ -45,8 +49,28 @@ export function PlanningDoc({
   const [submitting, setSubmitting] = useState(false);
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [gitConfigured, setGitConfigured] = useState(gitMirrorConfiguredCache ?? false);
   const planLoadKeyRef = useRef("");
   const planRequestRef = useRef(0);
+
+  useEffect(() => {
+    // 既に判定済みなら初期 state に反映済み。null のときだけ 1 度だけ問い合わせる。
+    if (gitMirrorConfiguredCache !== null) return;
+    let cancelled = false;
+    fetch("/api/git-history?action=status")
+      .then((res) => res.json())
+      .then((data) => {
+        gitMirrorConfiguredCache = Boolean(data?.configured);
+        if (!cancelled) setGitConfigured(gitMirrorConfiguredCache);
+      })
+      .catch(() => {
+        if (!cancelled) setGitConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // タイトル変更でキーが変わらないよう slug / 候補テーマのみで判定
   const planLoadKey = `${episodeNumber ?? "new"}:${episodeSlug ?? "new"}:${candidate?.title ?? ""}`;
@@ -360,6 +384,17 @@ export function PlanningDoc({
             <p className="text-center text-xs text-gray-500 mt-1.5">
               「追加」は台本を生成せず、企画のまま一覧に保存します
             </p>
+            {episodeNumber != null && !!episodeSlug && gitConfigured && onPlanChange && (
+              <Button
+                onClick={() => setHistoryOpen(true)}
+                disabled={submitting}
+                variant="ghost"
+                size="sm"
+                className="w-full text-gray-500"
+              >
+                🕘 企画の変更履歴（Git）
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -373,6 +408,28 @@ export function PlanningDoc({
           history={chatHistory}
           onHistoryUpdate={setChatHistory}
           onClose={() => setChatSection(null)}
+        />
+      )}
+
+      {episodeNumber != null && !!episodeSlug && (
+        <GitHistoryModal
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          episodeNumber={episodeNumber}
+          episodeSlug={episodeSlug}
+          filename="plan.json"
+          label="企画書"
+          onRestore={async (content) => {
+            let parsed: EpisodePlan;
+            try {
+              parsed = JSON.parse(content) as EpisodePlan;
+            } catch {
+              throw new Error("保存された企画データを読み込めませんでした");
+            }
+            const restored = sanitizePlanOutline(parsed) ?? parsed;
+            onPlanChange?.(restored);
+            onTitleChange?.(restored.episodeTitle);
+          }}
         />
       )}
     </div>

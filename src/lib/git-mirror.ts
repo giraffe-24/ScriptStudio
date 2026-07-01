@@ -173,6 +173,61 @@ export async function mirrorPutFile(
   throw new Error(`GitHub PUT ${relPath}: 競合が解消せず失敗しました`);
 }
 
+export type MirrorCommit = {
+  sha: string;
+  message: string;
+  authorName: string;
+  date: string;
+};
+
+/** 指定ファイルを変更したコミット一覧（新しい順）。未設定/履歴なしは空配列。 */
+export async function listFileCommits(
+  relPath: string,
+  limit = 50,
+): Promise<MirrorCommit[]> {
+  const config = readConfig();
+  if (!config) return [];
+  const res = await githubFetch(
+    config,
+    `/repos/${config.repo}/commits?path=${encodeURIComponent(relPath)}&sha=${encodeURIComponent(config.branch)}&per_page=${limit}`,
+  );
+  // 404/409: リポジトリ/ブランチが空、または対象パスの履歴なし
+  if (res.status === 404 || res.status === 409) return [];
+  if (!res.ok) {
+    throw new Error(`GitHub list commits ${relPath}: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as Array<{
+    sha: string;
+    commit: { message: string; author?: { name?: string; date?: string } };
+  }>;
+  return data.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message,
+    authorName: c.commit.author?.name ?? "unknown",
+    date: c.commit.author?.date ?? "",
+  }));
+}
+
+/** 指定コミット時点のファイル内容（テキスト）。無ければ null。 */
+export async function getFileContentAtRef(
+  relPath: string,
+  ref: string,
+): Promise<string | null> {
+  const config = readConfig();
+  if (!config) return null;
+  const res = await githubFetch(
+    config,
+    `/repos/${config.repo}/contents/${encodeContentPath(relPath)}?ref=${encodeURIComponent(ref)}`,
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`GitHub get content ${relPath}@${ref}: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as { content?: string; encoding?: string };
+  if (!data.content || (data.encoding && data.encoding !== "base64")) return null;
+  return Buffer.from(data.content, "base64").toString("utf-8");
+}
+
 /** ファイルを削除（1 コミット）。存在しなければ何もしない。 */
 export async function mirrorDeleteFile(
   relPath: string,
