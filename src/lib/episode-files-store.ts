@@ -5,6 +5,12 @@ import {
   ensurePersistedRuntimeStoreConfigured,
   shouldUsePersistedRuntimeStore,
 } from "./runtime-persistence";
+import {
+  isGitMirrorConfigured,
+  mirrorDeleteFile,
+  mirrorPutFile,
+} from "./git-mirror";
+import { getActor } from "./request-actor";
 
 export type EpisodeStorageBase = "outputs" | "archive";
 
@@ -28,6 +34,30 @@ function baseDir(base: EpisodeStorageBase): string {
 
 function objectPath(base: EpisodeStorageBase, dirName: string, filename: string): string {
   return `${base}/${dirName}/${filename}`;
+}
+
+/**
+ * Git ミラー上のパス。ローカルの outputs/ 構造に合わせる
+ * （没＝アーカイブは outputs/没/ 配下）ので、リポジトリを見れば直感的に差分が追える。
+ */
+function mirrorRelPath(
+  base: EpisodeStorageBase,
+  dirName: string,
+  filename: string,
+): string {
+  return base === "archive"
+    ? `outputs/没/${dirName}/${filename}`
+    : `outputs/${dirName}/${filename}`;
+}
+
+/** ミラーは best-effort: 失敗しても Supabase 保存自体は止めない。 */
+async function safeMirror(run: () => Promise<void>): Promise<void> {
+  if (!shouldUsePersistedRuntimeStore() || !isGitMirrorConfigured()) return;
+  try {
+    await run();
+  } catch (error) {
+    console.warn("[episode-files-store] Git ミラー失敗（保存は継続）:", error);
+  }
 }
 
 function normalizeIndex(input?: Partial<EpisodeOverlayIndex> | null): EpisodeOverlayIndex {
@@ -304,6 +334,14 @@ export async function writeEpisodeText(
     return next;
   });
   await writeLocalTextBestEffort(base, dirName, filename, content);
+  await safeMirror(() =>
+    mirrorPutFile(
+      mirrorRelPath(base, dirName, filename),
+      content,
+      getActor(),
+      `${dirName}/${filename} を更新`,
+    ),
+  );
 }
 
 async function materializeEpisodeFiles(
@@ -340,6 +378,32 @@ export async function moveEpisodeDirectory(
   await materializeEpisodeFiles(sourceBase, sourceDirName, targetBase, targetDirName);
   const sourceFiles = await listPersistedFiles(sourceBase, sourceDirName);
   await removePersistedFiles(sourceFiles.map((fileName) => objectPath(sourceBase, sourceDirName, fileName)));
+  if (shouldUsePersistedRuntimeStore() && isGitMirrorConfigured()) {
+    const actor = getActor();
+    const targetFiles = await listPersistedFiles(targetBase, targetDirName);
+    for (const fileName of targetFiles) {
+      const content = await readPersistedText(targetBase, targetDirName, fileName);
+      if (content !== null) {
+        await safeMirror(() =>
+          mirrorPutFile(
+            mirrorRelPath(targetBase, targetDirName, fileName),
+            content,
+            actor,
+            `${sourceDirName} → ${targetDirName} 移動`,
+          ),
+        );
+      }
+    }
+    for (const fileName of sourceFiles) {
+      await safeMirror(() =>
+        mirrorDeleteFile(
+          mirrorRelPath(sourceBase, sourceDirName, fileName),
+          actor,
+          `${sourceDirName} → ${targetDirName} 移動（旧を削除）`,
+        ),
+      );
+    }
+  }
   await updateOverlayIndex((current) => {
     const next = normalizeIndex(current);
     const sourceList = sourceBase === "archive" ? next.archive : next.outputs;
@@ -377,6 +441,18 @@ export async function removeEpisodeDirectory(
   ensurePersistedRuntimeStoreConfigured("エピソード保存");
   const persistedFiles = await listPersistedFiles(base, dirName);
   await removePersistedFiles(persistedFiles.map((fileName) => objectPath(base, dirName, fileName)));
+  if (shouldUsePersistedRuntimeStore() && isGitMirrorConfigured()) {
+    const actor = getActor();
+    for (const fileName of persistedFiles) {
+      await safeMirror(() =>
+        mirrorDeleteFile(
+          mirrorRelPath(base, dirName, fileName),
+          actor,
+          `${dirName} を完全削除`,
+        ),
+      );
+    }
+  }
   await updateOverlayIndex((current) => {
     const next = normalizeIndex(current);
     if (base === "archive") {
