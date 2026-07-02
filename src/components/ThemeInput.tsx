@@ -8,7 +8,6 @@ import type {
   ThemeMode,
   ThemePattern,
 } from "@/lib/types";
-import type { ThemeSearchSources } from "@/lib/theme-search";
 import { toUserMessage } from "@/lib/error-message";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
@@ -111,7 +110,6 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const [errorCode, setErrorCode] = useState<ApiErrorCode | undefined>(undefined);
   const [errorDetail, setErrorDetail] = useState<string | undefined>(undefined);
   const [candidates, setCandidates] = useState<EnrichedCandidate[]>([]);
-  const [searchSources, setSearchSources] = useState<ThemeSearchSources | null>(null);
   const [competitorSuggestions, setCompetitorSuggestions] = useState<CompetitorSuggestion[]>([]);
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
   const [selectedCompetitors, setSelectedCompetitors] = useState<Set<string>>(new Set());
@@ -128,7 +126,6 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     setCandidates([]);
     setPickedIndex(null);
     setOpenIndexes(new Set());
-    setSearchSources(null);
     setCompetitorSuggestions([]);
     setShowCompetitorModal(false);
     setSelectedCompetitors(new Set());
@@ -218,7 +215,6 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       const results: EnrichedCandidate[] = data.candidates ?? [];
       setAnalyzed(true);
       setCandidates(results);
-      setSearchSources(data.searchSources ?? { youtube: true, google: false, x: false });
 
       const suggestions: CompetitorSuggestion[] = data.competitorSuggestions ?? [];
       if (suggestions.length > 0) {
@@ -482,25 +478,6 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
               テーマ候補
             </h3>
-            {searchSources && (
-              <div className="flex flex-wrap gap-1">
-                {searchSources.youtube && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                    YouTube（第一指標）
-                  </span>
-                )}
-                {searchSources.google && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                    Google
-                  </span>
-                )}
-                {searchSources.x && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">
-                    X
-                  </span>
-                )}
-              </div>
-            )}
           </div>
 
           {candidates.map((c, i) => {
