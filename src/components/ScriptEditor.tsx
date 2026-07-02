@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Menu, Loader2, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toUserMessage } from "@/lib/error-message";
 import {
   combineScriptCalib,
   splitScriptCalib,
@@ -234,7 +235,7 @@ export function ScriptEditor({
         .catch((error) => {
           if (saveRequestRef.current !== requestId) return;
           setSaved(false);
-          setSaveError(error instanceof Error ? error.message : "保存に失敗しました");
+          setSaveError(toUserMessage(error, "保存に失敗しました。もう一度お試しください。"));
         });
     }, 800);
 

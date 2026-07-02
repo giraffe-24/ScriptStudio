@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { toUserMessage } from "@/lib/error-message";
 import {
   computeScriptDiff,
   formatDiffStats,
@@ -142,7 +143,7 @@ export function SnapshotCommitModal({
       });
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toUserMessage(err));
     } finally {
       setSaving(false);
     }

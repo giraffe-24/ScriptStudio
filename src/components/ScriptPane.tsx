@@ -11,6 +11,7 @@ import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
 import { GitHistoryModal } from "./GitHistoryModal";
 import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
+import { toUserMessage } from "@/lib/error-message";
 import {
   scriptBtnAbort,
   scriptBtnDisabled,
@@ -344,7 +345,7 @@ export function ScriptPane({
     );
     const data = await res.json();
     if (!res.ok) {
-      setGenAlert({ message: data.error ?? "最新の記録を取得できませんでした", tone: "error" });
+      setGenAlert({ message: toUserMessage(data.error, "最新の記録を取得できませんでした。"), tone: "error" });
       return;
     }
     setPreviousSnapshotContent(data.snapshot?.content ?? "");
@@ -641,14 +642,19 @@ export function ScriptPane({
       if (!res.ok) {
         if (signal.aborted) return;
         const errText = await res.text();
-        let message = `台本生成に失敗しました（${res.status}）`;
+        const fallback = `台本の生成に失敗しました。少し時間をおいて、もう一度お試しください。`;
+        let raw = "";
         try {
           const data = JSON.parse(errText) as { error?: string };
-          if (data.error) message = data.error;
+          raw = data.error ?? "";
         } catch {
-          if (errText && !looksLikeHtmlErrorPage(errText)) message = errText.slice(0, 200);
+          if (errText && !looksLikeHtmlErrorPage(errText)) raw = errText;
         }
-        setGenAlert({ message, tone: "error", retry: () => void runFullGeneration(options) });
+        setGenAlert({
+          message: toUserMessage(raw, fallback),
+          tone: "error",
+          retry: () => void runFullGeneration(options),
+        });
         restorePreviousScript();
         return;
       }
@@ -826,7 +832,7 @@ export function ScriptPane({
       const data = await res.json();
       if (!res.ok) {
         setGenAlert({
-          message: data.error ?? "セクション更新に失敗しました",
+          message: toUserMessage(data.error, "セクションの更新に失敗しました。少し時間をおいて、もう一度お試しください。"),
           tone: "error",
           retry: () => void runIncrementalUpdate(forcedIndices),
         });

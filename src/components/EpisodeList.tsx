@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type { Episode, EpisodeStatus } from "@/lib/types";
+import { toUserMessage } from "@/lib/error-message";
 import {
   EPISODE_STATUSES,
   STATUS_COLOR,
@@ -118,7 +119,7 @@ export function EpisodeList({
         );
       }
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : String(err));
+      setDeleteError(toUserMessage(err, "削除に失敗しました。少し時間をおいて、もう一度お試しください。"));
     } finally {
       setDeleting(false);
     }

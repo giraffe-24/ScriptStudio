@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppIcon from "@image/ScriptStudioIcon.svg";
 import { setStudioAuthorName } from "@/lib/studio-author";
+import { toUserMessage } from "@/lib/error-message";
 import { TypingText } from "@/components/TypingText";
 import { LOGIN_BACKGROUND_SAGA } from "./saga-text";
 
@@ -52,23 +53,27 @@ export function LoginForm() {
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/site-auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    try {
+      const res = await fetch("/api/site-auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-    setLoading(false);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(toUserMessage(data?.error, "ユーザー名またはパスワードが正しくありません。"));
+        return;
+      }
 
-    if (!res.ok) {
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      setError(data?.error ?? "ログインに失敗しました");
-      return;
+      setStudioAuthorName(username.trim());
+      router.replace(safeNext);
+      router.refresh();
+    } catch (err) {
+      setError(toUserMessage(err, "ログインできませんでした。通信環境を確認して、もう一度お試しください。"));
+    } finally {
+      setLoading(false);
     }
-
-    setStudioAuthorName(username.trim());
-    router.replace(safeNext);
-    router.refresh();
   }
 
   // 認証チェック中、または既ログインで遷移待ちのときは、フォームを隠してロゴだけ見せる。

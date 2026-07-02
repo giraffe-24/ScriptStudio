@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { toUserMessage } from "@/lib/error-message";
 
 type MirrorCommit = {
   sha: string;
@@ -90,7 +91,7 @@ export function GitHistoryModal({
         setCommits(data.commits ?? []);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(toUserMessage(err));
         setCommits([]);
       })
       .finally(() => setLoading(false));
@@ -123,7 +124,7 @@ export function GitHistoryModal({
       await fetchContent(sha);
       setExpandedSha(sha);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toUserMessage(err));
     }
   }
 
@@ -135,7 +136,7 @@ export function GitHistoryModal({
       await onRestore(content);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toUserMessage(err));
     } finally {
       setBusySha(null);
       setConfirmSha(null);

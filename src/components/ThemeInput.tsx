@@ -9,6 +9,7 @@ import type {
   ThemePattern,
 } from "@/lib/types";
 import type { ThemeSearchSources } from "@/lib/theme-search";
+import { toUserMessage } from "@/lib/error-message";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
 import type { ApiErrorCode } from "@/lib/api-error";
@@ -208,7 +209,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "分析に失敗しました。しばらくしてから再試行してください。");
+        setError(toUserMessage(data.error, "分析に失敗しました。しばらくしてから再試行してください。"));
         setErrorCode(data.code as ApiErrorCode | undefined);
         setErrorDetail(data.detail as string | undefined);
         return;
@@ -263,7 +264,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     } catch (e) {
       console.error("competitors save error:", e);
       setCompetitorError(
-        e instanceof Error ? e.message : "競合チャンネルの保存に失敗しました",
+        toUserMessage(e, "競合チャンネルの保存に失敗しました。少し時間をおいて、もう一度お試しください。"),
       );
     } finally {
       setSavingCompetitors(false);

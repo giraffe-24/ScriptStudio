@@ -10,6 +10,7 @@ import type { ApiErrorCode } from "@/lib/api-error";
 import { CompetitorSubscriberStats } from "@/components/CompetitorSubscriberStats";
 import { CompetitorChannelAvatar } from "@/components/CompetitorChannelAvatar";
 import { ErrorBox } from "@/components/ui/ErrorBox";
+import { toUserMessage } from "@/lib/error-message";
 import { Button } from "@/components/ui/button";
 
 type UiError = { msg: string; code?: ApiErrorCode; detail?: string } | null;
@@ -44,7 +45,7 @@ export function CompetitorSettingsDialog() {
         setChannels([]);
         setStats({});
         setLoadError({
-          msg: data.error ?? "競合チャンネルを読み込めませんでした",
+          msg: toUserMessage(data.error, "競合チャンネルを読み込めませんでした。"),
           code: data.code,
           detail: data.detail,
         });
@@ -89,7 +90,7 @@ export function CompetitorSettingsDialog() {
         setChannels(data.channels ?? []);
       } else {
         setToggleError({
-          msg: data.error ?? "設定を更新できませんでした",
+          msg: toUserMessage(data.error, "設定を更新できませんでした。"),
           code: data.code,
           detail: data.detail,
         });
@@ -122,7 +123,7 @@ export function CompetitorSettingsDialog() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setRegisterError({
-          msg: data.error ?? "登録に失敗しました",
+          msg: toUserMessage(data.error, "登録に失敗しました。"),
           code: data.code,
           detail: data.detail,
         });

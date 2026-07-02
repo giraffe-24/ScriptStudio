@@ -10,6 +10,7 @@ import type {
 } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
 import { hasPlanChangesSinceRecord } from "@/lib/record-state";
+import { toUserMessage } from "@/lib/error-message";
 import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
 
 /**
@@ -172,7 +173,7 @@ export function useStudio() {
       setScriptGenerateKey((k) => k + 1);
       void loadEpisodes(); // 台本執筆トリガー
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : String(error));
+      window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
     }
   }
 
@@ -185,7 +186,7 @@ export function useStudio() {
       setNewEpisodeMode(false);
       void loadEpisodes(); // エピソード追加トリガー
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : String(error));
+      window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
     }
   }
 
@@ -303,7 +304,7 @@ export function useStudio() {
               plan: inferData.plan,
             });
           } catch (error) {
-            window.alert(error instanceof Error ? error.message : String(error));
+            window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
           }
         }
       } finally {
@@ -392,7 +393,7 @@ export function useStudio() {
           plan: currentPlanRef.current,
         });
       } catch (error) {
-        window.alert(error instanceof Error ? error.message : String(error));
+        window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
       }
     };
 
@@ -428,7 +429,7 @@ export function useStudio() {
           );
         } catch (error) {
           setTitleOverride(undefined);
-          window.alert(error instanceof Error ? error.message : String(error));
+          window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
         }
       }, 800);
     }
@@ -456,7 +457,7 @@ export function useStudio() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: res.statusText }));
-          alert(err.error ?? "番号の更新に失敗しました");
+          window.alert(toUserMessage(err, "番号の更新に失敗しました。"));
           setSelectedEpisode({ ...selectedEpisode, id: String(oldNumber), number: oldNumber });
           setNumberOverride(undefined);
           return;
@@ -498,7 +499,7 @@ export function useStudio() {
         setSelectedEpisode({ ...selectedEpisode, status: resolved });
       }
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : String(error));
+      window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
     }
   }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, X, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toUserMessage } from "@/lib/error-message";
 import type { DirectionAxis, PlanDirection, ThemeCandidate } from "@/lib/types";
 
 interface Props {
@@ -51,7 +52,7 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
         if (reqRef.current !== requestId) return;
 
         if (!res.ok) {
-          setError(`6本柱の生成に失敗しました。${data.error ?? res.statusText ?? ""}`);
+          setError(toUserMessage(data.error, "設計思想（6本柱）の生成に失敗しました。少し時間をおいて、もう一度お試しください。"));
           return;
         }
 

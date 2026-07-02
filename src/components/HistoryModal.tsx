@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ScriptDiffPreview } from "@/components/ScriptDiffPreview";
 import { computeScriptDiff, formatDiffStats } from "@/lib/script-diff";
 import type { ScriptSnapshot } from "@/lib/script-versions";
+import { toUserMessage } from "@/lib/error-message";
 
 type Props = {
   open: boolean;
@@ -135,7 +136,7 @@ export function HistoryModal({
         setSnapshots(data.snapshots ?? []);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(toUserMessage(err));
         setSnapshots([]);
       })
       .finally(() => setLoading(false));
@@ -148,7 +149,7 @@ export function HistoryModal({
       await onRestore(snapshot.content);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toUserMessage(err));
     } finally {
       setRestoringId(null);
       setConfirmId(null);

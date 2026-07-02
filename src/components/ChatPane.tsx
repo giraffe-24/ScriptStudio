@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ChatMessage } from "@/lib/types";
+import { toUserMessage } from "@/lib/error-message";
 
 interface Props {
   theme: string;
@@ -120,7 +121,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
     } catch (err) {
       // 失敗は assistant 吹き出しに混ぜず、空の応答を取り除いて専用バナーで通知する
       onHistoryUpdate(newHistory);
-      setError(err instanceof Error ? err.message : "セクション相談に失敗しました");
+      setError(toUserMessage(err, "セクション相談に失敗しました。少し時間をおいて、もう一度お試しください。"));
     } finally {
       setStreaming(false);
     }

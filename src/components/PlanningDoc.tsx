@@ -9,6 +9,7 @@ import { DirectionPhase } from "./DirectionPhase";
 import { GitHistoryModal } from "./GitHistoryModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
 import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
+import { toUserMessage } from "@/lib/error-message";
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
@@ -102,7 +103,7 @@ export function PlanningDoc({
 
       if (!res.ok) {
         console.error("[PlanningDoc] generate-plan error:", data);
-        setPlanError(`企画書の生成に失敗しました。${data.error ?? res.statusText ?? ""}`);
+        setPlanError(toUserMessage(data.error, "企画書の生成に失敗しました。少し時間をおいて、もう一度お試しください。"));
         return;
       }
 
