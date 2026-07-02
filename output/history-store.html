@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta property="og:title" content="台本・企画書の「履歴」を残す仕組み ｜ ScriptStudio スナップショット保存基盤">
+  <meta property="og:description" content="ScriptStudio で「記録・履歴・この版に戻す」を支える保存基盤。何を保存し（スナップショット）、どこに置き（Supabase＝クラウドDB）、どう壊れないようにしたか（キープアライブ・保存先診断・要約フォールバック）を図解でまとめる。">
+  <meta property="og:type" content="article">
+  <title>台本・企画書の「履歴」を残す仕組み ｜ ScriptStudio スナップショット保存基盤</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23ffffff'/><rect x='8' y='8' width='84' height='84' rx='12' fill='none' stroke='%23000' stroke-width='4'/><rect x='20' y='55' width='60' height='12' rx='2' fill='%23c9fe6e'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Gothic+Expanded+One&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            giz: {
+              lime: '#c9fe6e',
+              'lime-dark': '#8fbc3a',
+              'lime-deep': '#5a7c2a',
+              forest: '#2d6a4f',
+              'forest-light': '#40916c',
+              moss: '#52796f',
+              'moss-light': '#6d8f7a',
+              sea: '#3d8b7a',
+              'sea-light': '#5ab3a0',
+              violet: '#8B6BB8',
+              'violet-dark': '#6B4F9A',
+              orange: '#FF9500',
+              'orange-dark': '#e08600',
+              honey: '#FF9500',
+              'honey-dark': '#e08600',
+              coral: '#e76f51',
+              'coral-dark': '#c44a32',
+              mist: '#eef8dc',
+              'mist-deep': '#d8f0b8',
+              'mist-ink': '#2f4a28',
+              terminal: '#1a2e22',
+              'terminal-bar': '#243d2e',
+              black: '#000000',
+              white: '#ffffff',
+              gray: '#737373',
+              'gray-mid': '#bfbfbf',
+              surface: '#f5f5f5',
+              ink: '#262626',
+            }
+          },
+          fontFamily: {
+            /* 英数字 → Special Gothic、日本語 → Noto（記事ページと同じフォールバック順） */
+            sans: ['"Special Gothic Expanded One"', '"Noto Sans JP"', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Yu Gothic UI"', '"Meiryo"', 'sans-serif'],
+            jp: ['"Noto Sans JP"', '"Hiragino Sans"', 'sans-serif'],
+            display: ['"Special Gothic Expanded One"', '"Noto Sans JP"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Gizmodo Japan: 英数字は Special Gothic、日本語は Noto にフォールバック */
+    :root {
+      --giz-font-stack: 'Special Gothic Expanded One', 'Noto Sans JP', 'Hiragino Sans',
+        'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', Meiryo, sans-serif;
+      --giz-font-jp: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+      --giz-shell-max: 48rem;
+      --giz-content-max: 48rem;
+      --giz-shell-radius: 1.25rem;
+      --giz-header-offset: 4.5rem;
+      --giz-lime: #c9fe6e;
+      --giz-toc-width: 16rem;
+      --giz-toc-gap: 1.25rem;
+      --giz-toc-rail-min: 64rem;
+    }
+
+    @media (min-width: 768px) {
+      :root {
+        --giz-shell-radius: 6rem;
+        --giz-header-offset: 5.25rem;
+      }
+    }
+
+    html {
+      font-family: var(--giz-font-stack);
+      scroll-behavior: smooth;
+    }
+
+    body::after {
+      content: '';
+      display: block;
+      height: 3px;
+      width: 100%;
+      background-color: #000;
+      border-radius: 3px;
+    }
+
+    @media (min-width: 768px) {
+      body.giz-page-body::after {
+        display: none;
+      }
+    }
+
+    .giz-page-body {
+      min-height: 100vh;
+      background: #000;
+      padding: 0;
+    }
+
+    .giz-page-shell {
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      background: #fff;
+      border-radius: var(--giz-shell-radius);
+      overflow: hidden;
+    }
+
+    .giz-site-footer {
+      background: #000;
+      color: #fff;
+    }
+
+    @media (min-width: 768px) {
+      .giz-site-footer {
+        padding: 2.5rem 1.25rem 3rem;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .giz-site-footer {
+        padding: 2rem 0.625rem 2.5rem;
+      }
+    }
+
+    .giz-footer-inner {
+      max-width: var(--giz-content-max);
+      margin: 0 auto;
+    }
+
+    .giz-footer-top-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .giz-footer-social {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .giz-footer-icon-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.5rem;
+      height: 2.25rem;
+      padding: 0 0.75rem;
+      border-radius: 0.5rem;
+      background: #333;
+      color: #fff;
+      text-decoration: none;
+      transition: background 0.15s ease;
+    }
+
+    .giz-footer-icon-pill:hover {
+      background: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-icon-pill:focus-visible {
+      outline: 2px solid var(--giz-lime);
+      outline-offset: 2px;
+      background: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-icon-pill i {
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+
+    .giz-footer-label {
+      font-family: var(--giz-font-jp);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.55);
+      margin-bottom: 0.75rem;
+    }
+
+    .giz-footer-topic-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .giz-footer-topic-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.55rem 1rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: #141414;
+      color: #fff;
+      font-family: var(--giz-font-jp);
+      font-size: 0.75rem;
+      line-height: 1.35;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .giz-footer-topic-btn:hover {
+      background: var(--giz-lime);
+      border-color: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-topic-btn:focus-visible {
+      outline: 2px solid var(--giz-lime);
+      outline-offset: 2px;
+      background: var(--giz-lime);
+      border-color: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-topic-btn i {
+      font-size: 0.65rem;
+      opacity: 0.7;
+    }
+
+    main {
+      font-family: inherit;
+      font-weight: 400;
+      line-height: 1.85;
+      color: #262626;
+      background: #fff;
+    }
+
+    main h1.diagram-page-title {
+      font-family: var(--giz-font-stack);
+      font-weight: 600;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+      color: #000;
+    }
+
+    /* タイトル内の API など英字はディスプレイ体を明示 */
+    main h1.diagram-page-title .giz-latin {
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+    }
+
+    main h2 {
+      font-family: var(--giz-font-stack);
+      font-weight: 600;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+      color: #262626;
+    }
+
+    main h3,
+    main h4 {
+      font-family: inherit;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    main strong {
+      font-weight: 600;
+    }
+
+    main pre,
+    main pre code,
+    main .font-mono {
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+      line-height: 1.7;
+    }
+
+    /* ダークコードブロック: main の giz-ink 継承を打ち消す */
+    main pre,
+    main pre code {
+      color: #e2e8f0;
+    }
+
+    main pre .text-slate-500 { color: #94a3b8; }
+    main pre .text-slate-400 { color: #cbd5e1; }
+    main pre .text-purple-400 { color: #c4b5fd; }
+    main pre .text-blue-400 { color: #7dd3fc; }
+    main pre .text-emerald-400 { color: #86efac; }
+    main pre .text-giz-orange { color: #ffb84d; }
+
+    main i.fa-solid:not(.hidden) {
+      display: inline-block;
+      line-height: 1;
+      vertical-align: -0.12em;
+    }
+
+    main i.fa-solid.hidden {
+      display: none !important;
+    }
+
+    @media (min-width: 768px) {
+      main i.fa-solid.hidden.md\:block {
+        display: inline-block !important;
+      }
+      main i.fa-solid.md\:hidden {
+        display: none !important;
+      }
+    }
+
+    main i.fa-solid.w-3\.5,
+    main i.fa-solid[class*="w-3.5"] { font-size: 0.875rem; }
+    main i.fa-solid.w-4 { font-size: 1rem; }
+    main i.fa-solid.w-5 { font-size: 1.25rem; }
+    main i.fa-solid.w-6 { font-size: 1.5rem; }
+    main i.fa-solid.w-7 { font-size: 1.75rem; }
+    main i.fa-solid.w-8 { font-size: 2rem; }
+    main i.fa-solid.w-10 { font-size: 2.5rem; }
+
+    main section.giz-section h2 {
+      padding-bottom: 0.5rem;
+      border-bottom: 3px solid #000;
+      border-radius: 0 0 3px 3px;
+    }
+
+    .giz-latin,
+    .giz-badge,
+    .giz-label,
+    .font-display {
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-synthesis: weight;
+    }
+
+    .giz-badge,
+    .giz-label,
+    .font-display {
+      font-weight: 400;
+      letter-spacing: 0.04em;
+    }
+
+    .giz-label {
+      text-transform: uppercase;
+    }
+
+    /* 日本語のみの段落は Noto を優先（英数字混在段落はスタックで自動切替） */
+    .font-jp {
+      font-family: var(--giz-font-jp);
+    }
+
+    .giz-badge {
+      font-size: 0.65rem;
+    }
+
+    /* ヒーローのジャンル表示のみ Chrome ライム */
+    .giz-genre-badge {
+      background-color: color-mix(in srgb, var(--giz-lime) 38%, #fff);
+      color: #5a7c2a;
+      border: 1px solid color-mix(in srgb, var(--giz-lime) 60%, #bfbfbf);
+    }
+
+    .giz-genre-badge i {
+      color: inherit;
+    }
+
+    .giz-label {
+      font-size: 0.6875rem;
+    }
+
+    .level-primary { font-weight: 600; color: #000; }
+    .level-secondary { font-size: 0.9375rem; font-weight: 400; color: #737373; line-height: 1.85; }
+    .level-tertiary { font-size: 0.75rem; font-weight: 400; color: #737373; }
+
+    /* ヒーロー：ワードマーク */
+    .giz-wordmark {
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1;
+      color: #2d6a4f;
+    }
+
+    /* ヒーロー：ワードマークの“見えないくらい”のルビ */
+    ruby.giz-wordmark-ruby { ruby-position: over; }
+    ruby.giz-wordmark-ruby rt {
+      font-family: var(--giz-font-jp);
+      font-weight: 400;
+      font-size: 0.2em;
+      letter-spacing: 0.14em;
+      color: #2d6a4f;
+      opacity: 0.07;
+    }
+
+    /* ヒーロー：要点をマーカーで強調 */
+    .giz-mark {
+      background-image: linear-gradient(transparent 62%, color-mix(in srgb, var(--giz-lime) 80%, #fff) 62%);
+      padding: 0 0.12em;
+      font-weight: 700;
+      color: #2f4a28;
+    }
+
+    /* ヒーロー：以前横断していたツールのチップ */
+    .giz-tool-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.7rem;
+      border: 1px solid #e5e5e5;
+      border-radius: 9999px;
+      background: #fafafa;
+      font-family: var(--giz-font-jp);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #404040;
+      white-space: nowrap;
+    }
+
+    /* ヒーロー：ねらう“話しかける系”フォーマットのチップ */
+    .giz-target-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.8rem;
+      border: 1px solid color-mix(in srgb, var(--giz-lime) 55%, #bfbfbf);
+      border-radius: 9999px;
+      background: color-mix(in srgb, var(--giz-lime) 18%, #fff);
+      font-family: var(--giz-font-jp);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #2f4a28;
+      white-space: nowrap;
+    }
+    .giz-target-chip i { color: #2d6a4f; }
+
+    /* ヒーロー：旧ツールを“行ったり来たり”する矢印 */
+    .giz-hop-arrow {
+      color: #c4c4c4;
+      font-size: 0.72rem;
+      animation: giz-hop 1.3s ease-in-out infinite;
+    }
+    @keyframes giz-hop {
+      0%, 100% { transform: translateX(-3px); opacity: 0.45; }
+      50%      { transform: translateX(3px);  opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .giz-hop-arrow { animation: none; }
+    }
+
+    .giz-site-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      border-radius: var(--giz-shell-radius) var(--giz-shell-radius) 0 0;
+      overflow: hidden;
+      isolation: isolate;
+      background: transparent;
+    }
+
+    /* 角丸は親、膜（blur）は子 — 同一要素だと角が黒ずむ */
+    .giz-site-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: rgba(255, 255, 255, 0.78);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2) brightness(1.06);
+      backdrop-filter: blur(14px) saturate(1.2) brightness(1.06);
+      pointer-events: none;
+    }
+
+    .giz-site-header .giz-header-bar {
+      position: relative;
+      z-index: 1;
+    }
+
+    .giz-page-shell > main {
+      padding-top: calc(var(--giz-header-offset) + 1.5rem);
+    }
+
+    @media (min-width: 768px) {
+      .giz-page-shell > main {
+        padding-top: calc(var(--giz-header-offset) + 2.5rem);
+      }
+    }
+
+    @media (min-width: 768px) {
+      .giz-site-header .giz-header-bar {
+        padding: 1.25rem 1.5rem 1.35rem;
+        max-width: var(--giz-content-max);
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .giz-site-header .giz-header-bar {
+        padding: 0.85rem 1rem 1rem;
+      }
+    }
+
+    .giz-header-clock-time {
+      display: block;
+      font-size: 1.125rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: #000;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .giz-header-clock-tz {
+      display: block;
+      font-size: 0.625rem;
+      letter-spacing: 0.16em;
+      color: #000;
+      margin-top: 0.15rem;
+    }
+
+    .giz-site-header i.fa-solid {
+      display: inline-block;
+      line-height: 1;
+    }
+
+    .giz-header-actions {
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+
+    .giz-header-toc-wrap {
+      position: relative;
+    }
+
+    .giz-header-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      border: 2px solid #000;
+      border-radius: 9999px;
+      padding: 0.45rem 1rem 0.45rem 1.2rem;
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      color: #000;
+      background: #fff;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .giz-header-menu-btn:hover:not([aria-expanded="true"]) {
+      background: var(--giz-lime);
+    }
+
+    .giz-header-menu-dots span {
+      display: block;
+      width: 3px;
+      height: 3px;
+      border-radius: 9999px;
+      background: #000;
+    }
+
+    .giz-header-menu-btn[aria-expanded="true"] {
+      background: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-header-menu-btn[aria-expanded="true"] .giz-header-menu-dots span {
+      background: #000;
+    }
+
+    .giz-header-pdf-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 2px solid #000;
+      border-radius: 9999px;
+      padding: 0.45rem 1rem;
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      color: #000;
+      background: #fff;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .giz-header-pdf-btn:hover {
+      background: var(--giz-lime);
+    }
+
+    .giz-toc-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 55;
+      background: rgba(0, 0, 0, 0.55);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+
+    .giz-toc-backdrop[hidden] {
+      display: none;
+    }
+
+    .giz-header-toc-panel {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+      z-index: 60;
+      padding: 0;
+    }
+
+    .giz-header-toc-panel[hidden] {
+      display: none !important;
+    }
+
+    .giz-toc-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.9rem 0.9rem 0.85rem 1rem;
+      background: #000;
+      border-bottom: 3px solid var(--giz-lime);
+      flex-shrink: 0;
+    }
+
+    .giz-toc-head-text {
+      min-width: 0;
+    }
+
+    .giz-toc-head-label {
+      margin: 0;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-size: 0.625rem;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      line-height: 1;
+      color: var(--giz-lime);
+    }
+
+    .giz-toc-head-title {
+      margin: 0.3rem 0 0;
+      font-family: var(--giz-font-jp);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+    }
+
+    .giz-toc-close {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.125rem;
+      height: 2.125rem;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-radius: 9999px;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .giz-toc-close i {
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    .giz-toc-close:hover {
+      background: var(--giz-lime);
+      border-color: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-header-toc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0.65rem;
+      overflow-y: auto;
+      flex: 1;
+      counter-reset: giz-toc;
+      font-family: var(--giz-font-jp);
+      font-size: 0.8125rem;
+      line-height: 1.45;
+    }
+
+    .giz-header-toc-list li {
+      counter-increment: giz-toc;
+    }
+
+    .giz-header-toc-list a {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.7rem 0.75rem;
+      margin-bottom: 0.3rem;
+      border-radius: 0.75rem;
+      border: 1px solid transparent;
+      color: #262626;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .giz-header-toc-list a::before {
+      content: counter(giz-toc, decimal-leading-zero);
+      flex-shrink: 0;
+      min-width: 1.35rem;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-size: 0.6875rem;
+      letter-spacing: 0.02em;
+      line-height: 1.45;
+      color: #737373;
+    }
+
+    .giz-header-toc-list li:last-child a {
+      margin-bottom: 0;
+    }
+
+    .giz-header-toc-list a:hover,
+    .giz-header-toc-list a:focus-visible {
+      background: rgba(201, 254, 110, 0.38);
+      border-color: rgba(0, 0, 0, 0.1);
+      color: #000;
+      outline: none;
+    }
+
+    .giz-header-toc-list a.is-active {
+      background: rgba(201, 254, 110, 0.55);
+      border-color: rgba(0, 0, 0, 0.15);
+      color: #000;
+      font-weight: 600;
+    }
+
+    .giz-header-toc-list a.is-active::before {
+      color: #000;
+    }
+
+    @media (max-width: 63.9375rem) {
+      body.giz-toc-open {
+        overflow: hidden;
+      }
+
+      .giz-header-toc-panel {
+        position: fixed;
+        left: 50%;
+        right: auto;
+        top: auto;
+        bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        width: min(22rem, calc(100vw - 1.25rem));
+        max-height: min(70vh, 32rem);
+      }
+
+      .giz-header-toc-panel:not([hidden]) {
+        animation: giz-toc-rise 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes giz-toc-rise {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(1.25rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+    }
+
+    @media (min-width: 64rem) {
+      .giz-toc-backdrop {
+        display: none !important;
+      }
+
+      .giz-header-toc-panel {
+        position: fixed;
+        top: calc(var(--giz-header-offset) + 1.25rem);
+        left: calc(50% + (var(--giz-content-max) / 2) + var(--giz-toc-gap));
+        right: auto;
+        width: var(--giz-toc-width);
+        max-height: calc(100vh - var(--giz-header-offset) - 2.5rem);
+        border-radius: 1rem;
+        transform: none;
+      }
+
+      .giz-toc-rail .giz-toc-close {
+        display: none;
+      }
+
+      .giz-header-toc-panel:not([hidden]) {
+        animation: giz-toc-slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes giz-toc-slide-in {
+        from {
+          opacity: 0;
+          transform: translateX(0.75rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      body::after { display: none !important; }
+      .giz-page-body { background: #fff !important; padding: 0 !important; }
+      .giz-page-shell { border-radius: 0 !important; box-shadow: none !important; }
+      .giz-site-footer { display: none !important; }
+      .giz-toc-backdrop { display: none !important; }
+      .rounded-xl { break-inside: avoid; }
+      .md\:flex-row { flex-direction: row !important; }
+      .md\:hidden { display: none !important; }
+      .hidden.md\:block { display: block !important; }
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    }
+  </style>
+</head>
+<body class="giz-page-body text-giz-gray font-sans antialiased leading-relaxed">
+  <div class="giz-page-shell">
+  <header class="giz-site-header no-print">
+    <div class="giz-header-bar max-w-full mx-auto grid grid-cols-[1fr_auto] items-center gap-3">
+      <div class="giz-latin justify-self-start">
+        <time id="giz-header-clock-time" class="giz-header-clock-time" datetime="">00:00:00</time>
+        <span class="giz-header-clock-tz">JST</span>
+      </div>
+      <div class="giz-header-actions">
+        <div class="giz-header-toc-wrap">
+          <button type="button" id="giz-toc-toggle" class="giz-header-menu-btn giz-latin" aria-expanded="false" aria-controls="giz-toc-panel" aria-label="目次を開く">
+            <span>MENU</span>
+            <span class="giz-header-menu-dots inline-flex flex-col gap-[3px]" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+          </button>
+        </div>
+        <button type="button" onclick="window.print()" class="giz-header-pdf-btn giz-latin">
+          <i class="fa-solid fa-download text-[0.7rem]" aria-hidden="true"></i>
+          PDF
+        </button>
+      </div>
+    </div>
+  </header>
+  <div id="giz-toc-backdrop" class="giz-toc-backdrop no-print" hidden aria-hidden="true"></div>
+  <nav id="giz-toc-panel" class="giz-header-toc-panel no-print" hidden aria-label="目次">
+    <div class="giz-toc-head">
+      <div class="giz-toc-head-text">
+        <p class="giz-toc-head-label giz-latin">CONTENTS</p>
+        <p class="giz-toc-head-title">目次</p>
+      </div>
+      <button type="button" id="giz-toc-close" class="giz-toc-close" aria-label="目次を閉じる">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <ol class="giz-header-toc-list">
+      <li><a href="#top">はじめに ── ScriptStudio とは</a></li>
+      <li><a href="#features">全体像（5つの役割）と本題</a></li>
+      <li><a href="#section-1">ツールの画面（キャプチャ）</a></li>
+      <li><a href="#section-2">保持できるようにしたデータ</a></li>
+      <li><a href="#section-3">保存先と、選んだ理由</a></li>
+      <li><a href="#section-4">工夫したポイント</a></li>
+      <li><a href="#section-5">苦戦したポイント</a></li>
+      <li><a href="#section-ai">発展：AIが動く機能</a></li>
+      <li><a href="#summary">まとめ</a></li>
+    </ol>
+  </nav>
+  <main class="max-w-3xl mx-auto px-5 md:px-10 pb-10 md:pb-20 font-sans text-giz-ink bg-giz-white">
+
+<!-- CONTENT_START -->
+
+<!-- ============ HERO ============ -->
+<section id="top" class="scroll-mt-28 md:scroll-mt-32 text-center">
+  <!-- eyebrow -->
+  <span class="giz-genre-badge giz-badge inline-flex items-center gap-1.5 rounded-full px-4 py-1.5">
+    <i class="fa-solid fa-layer-group w-3.5" aria-hidden="true"></i>
+    ScriptStudio ／ 5つの役割のひとつ「保存・管理」
+  </span>
+
+  <!-- ブランド＋モットー：ひとかたまりの識別ロックアップ -->
+  <div class="giz-wordmark mt-5 text-5xl md:text-6xl"><ruby class="giz-wordmark-ruby">ScriptStudio<rt>クリプトスタジオ</rt></ruby></div>
+  <h1 class="mt-3 font-jp text-2xl md:text-3xl font-bold leading-tight text-giz-ink">
+    <span class="giz-mark">シームレス</span>こそ、正義。
+  </h1>
+
+  <!-- 何を・誰に（pitch） -->
+  <div class="mt-10 mx-auto max-w-2xl">
+    <p class="mx-auto max-w-xl level-secondary">
+      ScriptStudio は <strong class="text-giz-ink">調査→企画→執筆→推敲→管理</strong> をひとつの流れにして、<strong class="text-giz-forest">AIを“あなたの書き手”に育てる</strong>。量産しても、あなたの声のまま。
+    </p>
+    <div class="mt-5 flex flex-col items-center gap-2">
+      <!-- 上段（頂点）2つ -->
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <span class="giz-target-chip"><i class="fa-brands fa-youtube" aria-hidden="true"></i>YouTube台本</span>
+        <span class="giz-target-chip"><i class="fa-solid fa-podcast" aria-hidden="true"></i>ポッドキャスト台本</span>
+      </div>
+      <!-- 下段（底辺）3つ -->
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <span class="giz-target-chip"><i class="fa-solid fa-envelope" aria-hidden="true"></i>メルマガ / LINE</span>
+        <span class="giz-target-chip"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i>セミナー台本</span>
+        <span class="giz-target-chip"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>ショート動画</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- つくった背景：ツール横断が面倒 → 1画面にまとめた -->
+  <div class="mt-10 mx-auto max-w-2xl rounded-2xl border border-giz-gray-mid bg-white p-6 md:p-8 text-center">
+    <p class="inline-flex items-center gap-1.5 font-jp text-xs font-bold text-giz-forest">
+      <i class="fa-solid fa-seedling" aria-hidden="true"></i> つくった背景
+    </p>
+    <p class="mt-3 mx-auto max-w-md font-jp text-sm md:text-[0.95rem] text-giz-ink leading-relaxed">
+      以前は、ネタ探しから台本づくりまで、いくつもの道具を<strong class="text-giz-ink">行ったり来たり</strong>。
+    </p>
+    <div class="mt-5 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2">
+      <span class="giz-tool-chip">Google検索</span>
+      <i class="fa-solid fa-right-left giz-hop-arrow" aria-hidden="true"></i>
+      <span class="giz-tool-chip">YouTube</span>
+      <i class="fa-solid fa-right-left giz-hop-arrow" aria-hidden="true"></i>
+      <span class="giz-tool-chip">Googleドキュメント</span>
+      <i class="fa-solid fa-right-left giz-hop-arrow" aria-hidden="true"></i>
+      <span class="giz-tool-chip">Notion</span>
+      <i class="fa-solid fa-right-left giz-hop-arrow" aria-hidden="true"></i>
+      <span class="giz-tool-chip">AI</span>
+    </div>
+    <p class="mt-2 level-tertiary">この行き来を、一日に何度も。</p>
+    <p class="mt-5 mx-auto max-w-md font-jp text-sm md:text-[0.95rem] text-giz-ink leading-relaxed">
+      タブとアプリを横断するたびに<strong class="text-giz-ink">「これ、面倒くさい！」</strong>。<br class="hidden md:block">
+      その一連を<strong class="text-giz-forest">1つの画面</strong>にまとめたのが ScriptStudio。
+    </p>
+  </div>
+
+  <!-- リード文：この資料が扱う範囲（保存・管理＝履歴） -->
+  <p class="mt-10 mx-auto max-w-xl level-secondary">
+    この資料が掘り下げるのは、その中の <strong class="text-giz-forest">「保存・管理」</strong>。
+    台本や企画書を<strong class="text-giz-ink">〈スナップショット〉</strong>で丸ごと残し、差分を見て<strong class="text-giz-ink">その版に戻せる</strong>仕組みの話です。
+  </p>
+
+</section>
+
+<!-- ============ SECTION: 機能（ScriptStudio でできること） ============ -->
+<section id="features" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">OVERVIEW ／ 全体像</p>
+  <h2 class="mt-1 text-2xl">ScriptStudio の全体像 — 5つの役割</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
+    5つの役割が、1つの画面で地続きにつながっています。この資料が開くのは、そのうちの <strong class="text-giz-forest">「保存・管理」</strong>だけ。残り4つは「こんなこともできる」という地図として眺めてください。
+  </p>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-2">
+    <!-- 1 企画立案 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-lightbulb w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">企画立案</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+        テーマ調査・市場分析でネタと<strong class="text-giz-ink">根拠</strong>を洗い出し、「設計思想の6本柱」で軸を固めてから企画書に落とす。
+      </p>
+    </div>
+    <!-- 2 競合調査 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-sea">
+        <i class="fa-solid fa-binoculars w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">競合調査</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+        競合チャンネルを登録して傾向を把握し、<strong class="text-giz-ink">ブレない差別化</strong>の材料にする。
+      </p>
+    </div>
+    <!-- 3 台本作成 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-orange">
+        <i class="fa-solid fa-file-pen w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">台本作成</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+        自分の声で執筆。気になる箇所だけ選んで前後の文脈ごと書き直す<strong class="text-giz-ink">部分再生成</strong>で、トークンも節約。
+      </p>
+    </div>
+    <!-- 4 保存・管理（履歴＝この資料のテーマ） -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-box-archive w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">保存・管理</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+        ドキュメント感覚の使い勝手——<strong class="text-giz-ink">並べ替え</strong>・<strong class="text-giz-ink">字数確認</strong>に加え、版を残す<strong class="text-giz-ink">履歴管理（保存／履歴／復元）</strong>。この資料が掘り下げるのはここ。
+      </p>
+    </div>
+    <!-- 5 AI育成（横幅いっぱい） -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5 sm:col-span-2">
+      <div class="flex items-center gap-2 text-giz-coral">
+        <i class="fa-solid fa-seedling w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">AI育成</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+        確定稿と AI の原稿を読み比べる推敲や、ブランド定義・成功台本の蓄積で、<strong class="text-giz-ink">AI を“自分の書き手”に育てていく</strong>。使うほど自分の色に寄る。
+      </p>
+    </div>
+  </div>
+
+  <!-- ここから本題：全体像から「保存・管理」へズームイン（要点3つ＋流れ） -->
+  <div class="mt-10 border-t-2 border-giz-ink pt-8">
+    <p class="giz-label text-giz-forest">ここから本題 ／ 「保存・管理」を開く</p>
+    <h3 class="mt-1 font-jp text-lg font-bold text-giz-ink">読みどころは、この3つだけ</h3>
+    <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+      <strong class="text-giz-ink">何を保存し・どこに置き・どう壊れないようにしたか</strong>。以降のセクションは、この3点を順にくわしく見ていきます。
+    </p>
+
+    <div class="mt-5 grid gap-3 sm:grid-cols-3">
+      <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
+        <div class="flex items-center gap-2 text-giz-forest">
+          <i class="fa-solid fa-camera-retro w-5" aria-hidden="true"></i>
+          <span class="giz-label">WHAT ／ 何を</span>
+        </div>
+        <p class="mt-2 font-jp text-sm font-bold text-giz-ink">何を保存する？</p>
+        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">編集を丸ごと固めた「スナップショット」。台本用と企画書用の2系統。</p>
+      </div>
+      <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
+        <div class="flex items-center gap-2 text-giz-sea">
+          <i class="fa-solid fa-database w-5" aria-hidden="true"></i>
+          <span class="giz-label">WHERE ／ どこに</span>
+        </div>
+        <p class="mt-2 font-jp text-sm font-bold text-giz-ink">どこに置く？</p>
+        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">Supabase（クラウド DB）に、全文スナップショットを1件ずつ貯める。</p>
+      </div>
+      <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
+        <div class="flex items-center gap-2 text-giz-orange">
+          <i class="fa-solid fa-shield-halved w-5" aria-hidden="true"></i>
+          <span class="giz-label">HOW ／ どう守る</span>
+        </div>
+        <p class="mt-2 font-jp text-sm font-bold text-giz-ink">どう壊れないように？</p>
+        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">キープアライブ・保存先診断・要約フォールバックで「通信に失敗」を潰す。</p>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-giz-gray-mid bg-giz-mist/50 p-5">
+      <p class="giz-label text-giz-forest">ひと目でわかる流れ</p>
+      <div class="mt-3 flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-1.5">
+        <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+          <i class="fa-solid fa-pen-to-square w-6 text-giz-forest" aria-hidden="true"></i>
+          <p class="mt-1 font-jp text-sm font-bold text-giz-ink">編集</p>
+          <p class="font-jp text-xs text-giz-gray">台本・企画書を書く</p>
+        </div>
+        <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
+        <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+          <i class="fa-solid fa-floppy-disk w-6 text-giz-forest" aria-hidden="true"></i>
+          <p class="mt-1 font-jp text-sm font-bold text-giz-ink">記録</p>
+          <p class="font-jp text-xs text-giz-gray">差分＋AI要約つきで1版を保存</p>
+        </div>
+        <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
+        <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+          <i class="fa-solid fa-clock-rotate-left w-6 text-giz-forest" aria-hidden="true"></i>
+          <p class="mt-1 font-jp text-sm font-bold text-giz-ink">履歴・復元</p>
+          <p class="font-jp text-xs text-giz-gray">一覧・差分を見て、この版に戻す</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 1: 画面キャプチャ ============ -->
+<section id="section-1" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">SECTION 1</p>
+  <h2 class="mt-1 text-2xl">ツールの画面（キャプチャ）</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
+    まず入口の<strong>ログイン画面</strong>、そのあとの操作は大きく <strong>3画面</strong>。エディタのツールバーから「記録」と「履歴」を開く。
+    下の枠は<strong class="text-giz-forest">スクリーンショットを貼るための領域</strong>（実データは後から貼る）。
+  </p>
+
+  <!-- placeholder 0：ログイン画面（入口） -->
+  <div class="mt-6">
+    <div class="mb-2 flex items-center gap-2">
+      <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white"><i class="fa-solid fa-lock text-[0.6rem]" aria-hidden="true"></i></span>
+      <p class="font-jp text-sm font-bold text-giz-ink">ログイン画面（入口）</p>
+    </div>
+    <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-5 py-12 md:py-16 text-center">
+      <!-- スクショ差し込み時：この dashed div を丸ごと下の <img> に置き換える。
+        <img src="assets/screen-login.png" class="w-full rounded-2xl border border-giz-gray-mid"
+             alt="ログイン画面。ScriptStudio ロゴ、ユーザー名・パスワードの入力欄、ログインボタン"> -->
+      <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
+        <i class="fa-solid fa-image w-6 text-giz-gray" aria-hidden="true"></i>
+      </div>
+      <p class="giz-label text-giz-gray">SCREENSHOT</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
+      <p class="mx-auto mt-1 max-w-md font-jp text-xs text-giz-gray leading-relaxed">
+        ScriptStudio ロゴ、ユーザー名・パスワードの入力欄、「ログイン」ボタンが写ったログイン画面。
+      </p>
+    </div>
+
+    <!-- 認証方式の選定（費用対効果） -->
+    <div class="mt-4 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
+      <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+        <i class="fa-solid fa-scale-balanced w-4" aria-hidden="true"></i>認証方式の選定 ── なぜ Google 認証にしなかったか
+      </p>
+      <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+        当初は <strong>Google 認証（OAuth 認証）</strong> を入れようとした。ただし利用者は基本的に<strong>本人</strong>。
+        OAuth は同意画面の審査・連携設定・運用の手間まで抱える割に、この規模では見合わない。
+        <strong class="text-giz-forest">費用対効果</strong>を踏まえ、<strong>ID＋パスワードの自前認証</strong>（ログイン成功でサーバーがセッションを発行し、Cookie で保持）を採用した。小さく閉じた利用なら、これで必要十分。
+      </p>
+    </div>
+  </div>
+
+  <!-- placeholder 1 -->
+  <div class="mt-6">
+    <div class="mb-2 flex items-center gap-2">
+      <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">1</span>
+      <p class="font-jp text-sm font-bold text-giz-ink">メイン画面（エディタ＋ツールバー）</p>
+    </div>
+    <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-5 py-12 md:py-16 text-center">
+      <!-- スクショ差し込み時：この dashed div を丸ごと下の <img> に置き換える。alt は画面内容を具体的に。
+        <img src="assets/screen-main.png" class="w-full rounded-2xl border border-giz-gray-mid"
+             alt="台本／企画書エディタの全体画面。上部ツールバーに『記録』『履歴』ボタンが並ぶ"> -->
+      <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
+        <i class="fa-solid fa-image w-6 text-giz-gray" aria-hidden="true"></i>
+      </div>
+      <p class="giz-label text-giz-gray">SCREENSHOT</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
+      <p class="mx-auto mt-1 max-w-md font-jp text-xs text-giz-gray leading-relaxed">
+        台本／企画書エディタの全体。ツールバーの「記録」「履歴」ボタンが見える状態を貼る。
+      </p>
+    </div>
+  </div>
+
+  <!-- placeholder 2 & 3 -->
+  <div class="mt-5 grid gap-5 md:grid-cols-2">
+    <div>
+      <div class="mb-2 flex items-center gap-2">
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">2</span>
+        <p class="font-jp text-sm font-bold text-giz-ink">「記録」モーダル</p>
+      </div>
+      <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-4 py-10 md:py-14 text-center h-full">
+        <!-- スクショ差し込み時：この dashed div を下の <img> に置き換える。
+          <img src="assets/screen-record.png" class="w-full rounded-2xl border border-giz-gray-mid"
+               alt="『記録』モーダル。変更の差分プレビュー、AI が書いた変更要約、作成者名の入力欄が並ぶ"> -->
+        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
+          <i class="fa-solid fa-image w-5 text-giz-gray" aria-hidden="true"></i>
+        </div>
+        <p class="giz-label text-giz-gray">SCREENSHOT</p>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
+        <p class="mx-auto mt-1 max-w-xs font-jp text-xs text-giz-gray leading-relaxed">
+          差分プレビュー・AI が書いた変更要約・作成者名の入力欄が写ったモーダル。
+        </p>
+      </div>
+    </div>
+    <div>
+      <div class="mb-2 flex items-center gap-2">
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">3</span>
+        <p class="font-jp text-sm font-bold text-giz-ink">「履歴」モーダル</p>
+      </div>
+      <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-4 py-10 md:py-14 text-center h-full">
+        <!-- スクショ差し込み時：この dashed div を下の <img> に置き換える。
+          <img src="assets/screen-history.png" class="w-full rounded-2xl border border-giz-gray-mid"
+               alt="『履歴』モーダル。版の一覧（記録した人・日時・要約）、差分表示、『この版に戻す』ボタンが並ぶ"> -->
+        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
+          <i class="fa-solid fa-image w-5 text-giz-gray" aria-hidden="true"></i>
+        </div>
+        <p class="giz-label text-giz-gray">SCREENSHOT</p>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
+        <p class="mx-auto mt-1 max-w-xs font-jp text-xs text-giz-gray leading-relaxed">
+          版の一覧（誰が・いつ・要約）、差分表示、「この版に戻す」ボタンが写った履歴画面。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 読み方ボックス -->
+  <div class="mt-6 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
+    <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+      <i class="fa-solid fa-circle-info w-4" aria-hidden="true"></i>この画面の読み方
+    </p>
+    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+      ユーザーがやることは「書く → <strong>記録</strong>を押す → 必要なら<strong>履歴</strong>から戻す」だけ。
+      保存先の Supabase は画面には出てこない（裏側で処理される）。使う人は仕組みを意識しなくていい。
+    </p>
+  </div>
+</section>
+
+<!-- ============ SECTION 2: 保持データ ============ -->
+<section id="section-2" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">SECTION 2</p>
+  <h2 class="mt-1 text-2xl">保存しているデータ</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
+    キホンの単位は <strong class="text-giz-forest">スナップショット</strong>。
+    「記録」を1回押すと、そのときの内容を丸ごと固めた1件が積み上がる。台本と企画書で別々に履歴を持つ。
+  </p>
+
+  <!-- スナップショット1件の中身 -->
+  <h3 class="mt-6 font-jp text-base font-bold text-giz-ink">スナップショット1件に入っているもの</h3>
+  <div class="mt-3 overflow-hidden rounded-xl border border-giz-gray-mid">
+    <table class="w-full border-collapse text-left font-jp text-sm">
+      <thead>
+        <tr class="bg-giz-terminal text-white">
+          <th class="px-4 py-2.5 font-bold">保存する内容</th>
+          <th class="px-4 py-2.5 font-bold">意味・使いみち</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-giz-gray-mid">
+        <tr class="bg-white">
+          <td class="px-4 py-2.5 font-bold text-giz-ink">記録した人</td>
+          <td class="px-4 py-2.5 text-giz-ink">ログイン名から自動で入る</td>
+        </tr>
+        <tr class="bg-giz-surface">
+          <td class="px-4 py-2.5 font-bold text-giz-ink">記録した日時</td>
+          <td class="px-4 py-2.5 text-giz-ink">履歴を新しい順に並べる基準</td>
+        </tr>
+        <tr class="bg-white">
+          <td class="px-4 py-2.5 font-bold text-giz-ink">変更の要約</td>
+          <td class="px-4 py-2.5 text-giz-ink">「何を変えたか」を1〜2文で。AI が差分から自動生成</td>
+        </tr>
+        <tr class="bg-giz-surface">
+          <td class="px-4 py-2.5 font-bold text-giz-ink">本文の全文</td>
+          <td class="px-4 py-2.5 text-giz-ink">この版へ<strong>そっくり戻す</strong>ための原本</td>
+        </tr>
+        <tr class="bg-white">
+          <td class="px-4 py-2.5 font-bold text-giz-ink">変更量</td>
+          <td class="px-4 py-2.5 text-giz-ink">追加・削除の行数。どれだけ変わったかの目安（台本のみ）</td>
+        </tr>
+        <tr class="bg-giz-surface">
+          <td class="px-4 py-2.5 font-bold text-giz-ink">どの回のものか</td>
+          <td class="px-4 py-2.5 text-giz-ink">動画の回ごとに履歴を分ける</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 font-jp text-xs text-giz-gray">
+    ※ 変更のあった部分「だけ」ではなく、毎回<strong>本文をまるごと</strong>保存している。これが「この版にそっくり戻す」を成立させるカギ。
+  </p>
+
+  <!-- 台本 vs 企画書 -->
+  <h3 class="mt-7 font-jp text-base font-bold text-giz-ink">2系統のスナップショット（対称設計）</h3>
+  <div class="mt-3 grid gap-4 md:grid-cols-2">
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-file-lines w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">台本スナップショット</p>
+      </div>
+      <p class="mt-1 font-mono text-xs text-giz-gray">table: script_snapshots</p>
+      <ul class="mt-3 space-y-1.5 font-jp text-sm text-giz-ink">
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i><span><code class="text-xs">content</code> = 台本の全文テキスト</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i><span>追加/削除の行数（<code class="text-xs">diff_stats</code>）も保持</span></li>
+      </ul>
+    </div>
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-sea">
+        <i class="fa-solid fa-lightbulb w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">企画書スナップショット</p>
+      </div>
+      <p class="mt-1 font-mono text-xs text-giz-gray">table: plan_snapshots</p>
+      <ul class="mt-3 space-y-1.5 font-jp text-sm text-giz-ink">
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i><span><code class="text-xs">content</code> = 企画書の <code class="text-xs">plan.json</code>（構造ごと）</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i><span>差分・要約は「整形テキスト」に変換して表示</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 企画書テキストの中身 -->
+  <div class="mt-4 rounded-xl border border-giz-gray-mid bg-giz-surface p-4">
+    <p class="font-jp text-sm font-bold text-giz-ink">企画書の「整形テキスト」に含む項目</p>
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">タイトル</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">想定視聴者</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">視聴者の悩み</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">提供する価値</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">コンテンツの核</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">構成</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">競合との差別化</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">想定尺</span>
+      <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">ゴール</span>
+    </div>
+    <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">
+      <strong class="text-giz-ink">狙い：</strong>保存は復元しやすい JSON、表示は人が差分を追える整形テキスト。「保存の形」と「見せる形」を分けている。
+    </p>
+  </div>
+</section>
+
+<!-- ============ SECTION 3: 保存先と理由 ============ -->
+<section id="section-3" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">SECTION 3</p>
+  <h2 class="mt-1 text-2xl">保存先と、それを選んだ理由</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
+    履歴は <strong class="text-giz-forest">Supabase（クラウド DB）</strong> に一元保存する。なぜファイルではなく外部 DB なのか、そして実際に<strong>どんな形でデータを持っているか</strong>を見ていく。
+  </p>
+
+  <!-- 保存の流れ -->
+  <div class="mt-6 rounded-2xl border border-giz-gray-mid bg-giz-mist/50 p-5">
+    <p class="giz-label text-giz-forest">保存の流れ</p>
+    <div class="mt-4 flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-1.5">
+      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+        <i class="fa-solid fa-floppy-disk w-6 text-giz-forest" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">保存ボタン</p>
+        <p class="mt-0.5 font-jp text-xs text-giz-gray">画面で「記録」する</p>
+      </div>
+      <i class="fa-solid fa-chevron-right hidden md:block w-4 text-giz-gray-mid mx-auto" aria-hidden="true"></i>
+      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+        <i class="fa-solid fa-server w-6 text-giz-sea" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">API</p>
+        <p class="mt-0.5 font-mono text-xs text-giz-gray">/api/script-versions</p>
+      </div>
+      <i class="fa-solid fa-chevron-right hidden md:block w-4 text-giz-gray-mid mx-auto" aria-hidden="true"></i>
+      <div class="flex-1 rounded-xl border border-giz-sea bg-white px-3 py-3 text-center">
+        <i class="fa-solid fa-database w-6 text-giz-sea" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase に1件追加</p>
+        <p class="mt-0.5 font-mono text-xs text-giz-gray">script_snapshots</p>
+      </div>
+    </div>
+    <p class="mt-4 font-jp text-xs text-giz-gray leading-relaxed">
+      1回の保存 ＝ テーブルに<strong class="text-giz-ink">1行 INSERT</strong>。台本は <code class="text-xs">script_snapshots</code>、企画書は <code class="text-xs">plan_snapshots</code> に同じ仕組みで貯まる。呼び出す側（画面）は API を叩くだけ。
+    </p>
+  </div>
+
+  <!-- 2つの保存先の理由 -->
+  <div class="mt-6 grid gap-4 md:grid-cols-2">
+    <div class="rounded-2xl border border-giz-sea bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-sea">
+        <i class="fa-solid fa-cloud w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">Supabase（Postgres）に保存</p>
+      </div>
+      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">なぜ外部 DB が必要？</p>
+      <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+        土台は Vercel の<strong class="text-giz-ink">サーバーレス</strong>。書き込んだファイルは処理が終わると消える（揮発する）。だから履歴のような「残さないと意味がないデータ」は外部に置くしかない。
+      </p>
+      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">なぜ Supabase を選んだ？</p>
+      <ul class="mt-1 space-y-1.5 font-jp text-sm text-giz-ink">
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>マネージドの Postgres で運用が軽い</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>無料枠で始められる</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>サーバー用キーで直接読み書きでき、SQL で表を管理できる</li>
+      </ul>
+    </div>
+    <div class="rounded-2xl border border-giz-forest bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-table-list w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">データの持ち方（テーブル設計）</p>
+      </div>
+      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">1回の保存 ＝ 1行</p>
+      <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+        台本の<strong class="text-giz-ink">全文をまるごと</strong>残し、著者・保存メモ・前版との差分・保存時刻を添える。だから「その版に丸ごと戻す」ができる。
+      </p>
+      <p class="mt-3 font-jp text-sm font-bold text-giz-ink"><code class="text-xs">script_snapshots</code> の主な列</p>
+      <ul class="mt-1.5 space-y-1.5 font-jp text-sm text-giz-ink">
+        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">content</code><span class="text-giz-gray">台本の全文（まるごと）</span></li>
+        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">summary</code><span class="text-giz-gray">保存メモ</span></li>
+        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">diff_stats</code><span class="text-giz-gray">前版との差分サマリ</span></li>
+        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">author_name</code><span class="text-giz-gray">保存した人</span></li>
+        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">created_at</code><span class="text-giz-gray">保存時刻</span></li>
+      </ul>
+      <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">取り出すときは<strong class="text-giz-ink">その回のぶんを新しい順</strong>に並べる → それが<strong class="text-giz-forest">履歴</strong>。企画書も同じ形で <code class="text-xs">plan_snapshots</code> に貯まる。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 4: 工夫 ============ -->
+<section id="section-4" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">SECTION 4</p>
+  <h2 class="mt-1 text-2xl">工夫したポイント</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">「消えない・止まらない・原因がわかる」を成立させるための5つの仕掛け。</p>
+
+  <div class="mt-6 space-y-4">
+    <!-- 1 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-start gap-3">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">1</span>
+        <div>
+          <p class="font-jp text-base font-bold text-giz-ink">変更の差分を保存時に記録</p>
+          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+            保存のたびに前版との差分（追加◯行／削除◯行）を計算し、<code class="text-xs">diff_stats</code> にひも付けて一緒に残す。履歴一覧はこれを見るだけで、開かなくても<strong class="text-giz-ink">「どれだけ変わった版か」</strong>が一目でわかる。
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- 2 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-start gap-3">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">2</span>
+        <div>
+          <p class="font-jp text-base font-bold text-giz-ink">変更内容を AI が要約（失敗しても止めない）</p>
+          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+            記録時に Claude が差分を読み、<strong class="text-giz-ink">1〜2文の要約</strong>を自動生成。API が落ちても「追加◯行／削除◯行」から定型文にフォールバックし、初稿・無変更も専用の文言で必ず何かを返す。
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- 3 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-start gap-3">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">3</span>
+        <div>
+          <p class="font-jp text-base font-bold text-giz-ink">7日休止を防ぐキープアライブ</p>
+          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+            Supabase の無料枠は約7日 DB を触らないと自動休止する。そこで <strong class="text-giz-ink">Vercel Cron が1日1回</strong>、専用テーブルへ upsert（＝本物の DB クエリ）を送って起こしておく。Storage 読み取りも併用して二重に保険をかける。
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- 4 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-start gap-3">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">4</span>
+        <div>
+          <p class="font-jp text-base font-bold text-giz-ink">保存先の健全性を診断する API</p>
+          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+            「通信に失敗」が<strong class="text-giz-ink">ユーザーの回線のせいか、Supabase が止まっているせいか</strong>を、推測でなく事実で切り分ける <code class="text-xs">/api/health</code>。到達不能／タイムアウト／応答ありに分類し、キーや URL などの秘密は返さない。
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- 5 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-start gap-3">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">5</span>
+        <div>
+          <p class="font-jp text-base font-bold text-giz-ink">企画書は「保存＝JSON／表示＝テキスト」を分離</p>
+          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
+            復元は構造を保った JSON、差分表示は人が読める整形テキスト。1つのデータに<strong class="text-giz-ink">2つの見せ方</strong>を用意し、「そっくり戻せる」と「変更が追える」を両立させた。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 5: 苦戦 ============ -->
+<section id="section-5" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">SECTION 5</p>
+  <h2 class="mt-1 text-2xl">苦戦したポイント</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">実際に踏んだ3つの落とし穴と、そこから決めた対策。</p>
+
+  <div class="mt-6 space-y-4">
+    <!-- struggle 1 -->
+    <div class="rounded-2xl border border-giz-coral bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-coral">
+        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">① AI 要約の失敗が、保存まで道連れにした</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
+        <strong>症状：</strong>記録のたびに変更点を AI で1〜2文に要約していたが、AI 側がタイムアウト・失敗すると<strong class="text-giz-coral">保存そのものが巻き添えで失敗</strong>。おまけ機能のはずが、履歴の生命線を止めていた。
+      </p>
+      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+        <strong>対策：</strong>要約は「あれば嬉しいおまけ」と割り切り、失敗しても差分数（＋◯／−◯）から定型文へフォールバック。要約が無くても<strong>保存は必ず通す</strong>ようにした。
+      </p>
+    </div>
+    <!-- struggle 2 -->
+    <div class="rounded-2xl border border-giz-coral bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-coral">
+        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">② Supabase 無料枠の7日自動休止</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
+        <strong>症状：</strong>DB アクティビティが約7日ないと自動で一時停止。さらに放置すると削除され、<strong class="text-giz-coral">一度死ぬとキープアライブでも復活しない</strong>（ホスト名が引けなくなる）。
+      </p>
+      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+        <strong>対策：</strong>あくまで<strong>予防</strong>としてキープアライブ Cron を用意。停止済みはダッシュボードから復元／再作成が必要で、恒久的に止めない保証は有料プランのみ、と割り切って明文化した。
+      </p>
+    </div>
+    <!-- struggle 3 -->
+    <div class="rounded-2xl border border-giz-coral bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-coral">
+        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">③ 失敗の原因が切り分けられない</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
+        <strong>症状：</strong>「保存に失敗」とだけ出て、回線なのかサーバーなのか、設定ミスなのか分からない。
+      </p>
+      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+        <strong>対策：</strong>診断 API で事実ベースに分類。あわせて、サーバー用キーの取り違え（publishable キーを誤設定）も設定チェックで弾き、ヒントを返すようにした。
+      </p>
+    </div>
+  </div>
+
+  <!-- A/B/C 比較 -->
+  <h3 class="mt-7 font-jp text-base font-bold text-giz-ink">保存先の選択肢を比べた結果</h3>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
+      <p class="giz-label text-giz-coral">A</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Vercel のファイルに保存</p>
+      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-coral"><i class="fa-solid fa-xmark w-4" aria-hidden="true"></i>不採用</p>
+      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">サーバーレスで揮発し、書いても消える。</p>
+    </div>
+    <div class="rounded-xl border-2 border-giz-sea bg-giz-mist/40 p-4">
+      <p class="giz-label text-giz-sea">B</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase（Postgres）</p>
+      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-sea"><i class="fa-solid fa-circle-check w-4" aria-hidden="true"></i>採用</p>
+      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">永続化できる。ただし無料枠は7日休止に注意。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION: 発展課題（AIが動く機能） ============ -->
+<section id="section-ai" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">発展課題（任意）</p>
+  <h2 class="mt-1 text-2xl">AIが動く機能</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
+    基本の課題（画面〜苦戦）に加えて、アプリの随所に <strong class="text-giz-forest">「AIが動く機能」</strong> を組み込んだ。共通するのは、<strong class="text-giz-ink">全部を渡さず「対象だけ」を AI に渡す</strong>という設計。3つの例で示す。
+  </p>
+
+  <!-- AIが動く3機能：どれも「対象だけ渡す」 -->
+  <div class="mt-6 grid gap-4 sm:grid-cols-3">
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-wand-magic-sparkles w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">変更を AI が要約</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>前の版との差分 <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>1〜2文の要約</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">記録するたび、履歴に「何を変えたか」が自動で並ぶ。</p>
+    </div>
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-i-cursor w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">台本の部分再生成</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>選んだ箇所＋前後（各〜1000字）<span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その範囲だけ書き直し</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">執筆ペインで気になる箇所を選ぶだけ。全文を作り直さないので他がブレず、トークンも節約。</p>
+    </div>
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-file-pen w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">企画書の部分修正</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>直したい項目だけ <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その項目だけ更新</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">想定視聴者・悩みなど、項目単位で AI に相談。企画書ぜんぶは触らない。</p>
+    </div>
+  </div>
+
+  <!-- 道を外させない（ハーネス） -->
+  <div class="mt-6 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
+    <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+      <i class="fa-solid fa-shield-halved w-4" aria-hidden="true"></i>道を外させない工夫（ハーネス）
+    </p>
+    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+      どれも<strong>対象を絞って渡す</strong>のが肝。範囲が狭いほど、AI は<strong>暴走せず・他をブレさせず・トークンも軽い</strong>。さらに要約は、API が落ちても「追加◯行／削除◯行」の定型文に<strong>フォールバック</strong>して<strong>本体（保存）は止めない</strong>。「どの作業を AI に任せ、どうすれば道を外さず動くか」を設計した部分。
+    </p>
+  </div>
+</section>
+
+<!-- ============ SUMMARY ============ -->
+<section id="summary" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">SUMMARY</p>
+  <h2 class="mt-1 text-2xl">まとめ</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">この保存基盤が担保している3つの価値。</p>
+
+  <div class="mt-5 space-y-3">
+    <div class="flex items-start gap-3 rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">1</span>
+      <div>
+        <p class="font-jp text-base font-bold text-giz-ink">いつでも戻せる</p>
+        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">1記録＝1スナップショットで、誰が・いつ・何を・全文を保持。過去の版へそっくり復元できる。</p>
+      </div>
+    </div>
+    <div class="flex items-start gap-3 rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-sea text-white font-bold">2</span>
+      <div>
+        <p class="font-jp text-base font-bold text-giz-ink">変更が一目で追える</p>
+        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">保存のたびに前版との差分（＋◯／−◯）を一緒に記録。履歴一覧を見れば、開かずに「どれだけ変わった版か」がわかる。</p>
+      </div>
+    </div>
+    <div class="flex items-start gap-3 rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-orange text-white font-bold">3</span>
+      <div>
+        <p class="font-jp text-base font-bold text-giz-ink">壊れにくく、原因がわかる</p>
+        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">キープアライブ・保存先診断・要約フォールバックで、「通信に失敗」を予防し、起きても切り分けられる。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 rounded-2xl border-l-4 border-giz-forest bg-giz-mist/60 p-5">
+    <p class="font-jp text-sm text-giz-mist-ink leading-relaxed">
+      <i class="fa-solid fa-quote-left w-4 text-giz-forest" aria-hidden="true"></i>
+      要は「<strong>データは全文で残す・変更は差分で追える・落ちる前提で守りを固める</strong>」。この3点が、履歴を安心して使える土台になっている。
+    </p>
+  </div>
+</section>
+
+<!-- CONTENT_END -->
+
+
+  </main>
+  </div>
+
+  <footer class="giz-site-footer no-print">
+    <div class="giz-footer-inner px-5 md:px-10 pb-6">
+      <div class="giz-footer-top-row">
+        <div class="giz-footer-social">
+          <!-- FOOTER_SOCIAL -->
+        </div>
+      </div>
+
+      <p class="giz-footer-label">もっと詳しく知る（公式・信頼できる情報）</p>
+      <div class="giz-footer-topic-grid">
+        <a class="giz-footer-topic-btn" href="https://supabase.com/docs/guides/database/overview" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Supabase Database Docs</a>
+        <a class="giz-footer-topic-btn" href="https://supabase.com/docs/guides/platform/manage-your-usage/compute" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Supabase 無料枠と一時停止</a>
+        <a class="giz-footer-topic-btn" href="https://vercel.com/docs/cron-jobs" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Vercel Cron Jobs</a>
+        <a class="giz-footer-topic-btn" href="https://vercel.com/docs/functions/runtimes#file-system-support" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Vercel 関数のファイルシステム</a>
+        <a class="giz-footer-topic-btn" href="https://nextjs.org/docs/app/building-your-application/routing/route-handlers" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Next.js Route Handlers</a>
+        <a class="giz-footer-topic-btn" href="https://docs.anthropic.com/en/docs/build-with-claude/overview" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Anthropic Claude Docs</a>
+      </div>
+
+    </div>
+  </footer>
+  <script>
+    (function () {
+      var el = document.getElementById('giz-header-clock-time');
+      if (el) {
+        var fmt = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Tokyo',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        var tick = function () {
+          var now = new Date();
+          el.textContent = fmt.format(now);
+          el.setAttribute('datetime', now.toISOString());
+        };
+        tick();
+        setInterval(tick, 1000);
+      }
+
+      var tocToggle = document.getElementById('giz-toc-toggle');
+      var tocPanel = document.getElementById('giz-toc-panel');
+      var tocBackdrop = document.getElementById('giz-toc-backdrop');
+      var tocClose = document.getElementById('giz-toc-close');
+      if (!tocToggle || !tocPanel) return;
+
+      var tocMq = window.matchMedia('(max-width: 63.9375rem)');
+
+      var usesTocOverlay = function () {
+        return tocMq.matches;
+      };
+
+      var isTocRail = function () {
+        return !usesTocOverlay();
+      };
+
+      var setTocRailMode = function (rail) {
+        tocPanel.classList.toggle('giz-toc-rail', rail);
+      };
+
+      var closeToc = function (force) {
+        if (!force && isTocRail()) return;
+        tocPanel.hidden = true;
+        if (tocBackdrop) {
+          tocBackdrop.hidden = true;
+          tocBackdrop.setAttribute('aria-hidden', 'true');
+        }
+        document.body.classList.remove('giz-toc-open');
+        tocToggle.setAttribute('aria-expanded', 'false');
+        tocToggle.setAttribute('aria-label', '目次を開く');
+      };
+
+      var openToc = function () {
+        tocPanel.hidden = false;
+        if (tocBackdrop && usesTocOverlay()) {
+          tocBackdrop.hidden = false;
+          tocBackdrop.setAttribute('aria-hidden', 'false');
+          document.body.classList.add('giz-toc-open');
+        }
+        tocToggle.setAttribute('aria-expanded', 'true');
+        tocToggle.setAttribute('aria-label', '目次を閉じる');
+      };
+
+      var syncTocLayout = function () {
+        var rail = isTocRail();
+        setTocRailMode(rail);
+        if (rail) {
+          openToc();
+        } else if (tocPanel.hidden) {
+          if (tocBackdrop) {
+            tocBackdrop.hidden = true;
+            tocBackdrop.setAttribute('aria-hidden', 'true');
+          }
+          document.body.classList.remove('giz-toc-open');
+          tocToggle.setAttribute('aria-expanded', 'false');
+          tocToggle.setAttribute('aria-label', '目次を開く');
+        }
+      };
+
+      syncTocLayout();
+      if (typeof tocMq.addEventListener === 'function') {
+        tocMq.addEventListener('change', syncTocLayout);
+      } else if (typeof tocMq.addListener === 'function') {
+        tocMq.addListener(syncTocLayout);
+      }
+
+      tocToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (tocPanel.hidden) openToc();
+        else closeToc(true);
+      });
+
+      if (tocBackdrop) {
+        tocBackdrop.addEventListener('click', closeToc);
+      }
+
+      if (tocClose) {
+        tocClose.addEventListener('click', function (e) {
+          e.stopPropagation();
+          closeToc(true);
+        });
+      }
+
+      tocPanel.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          if (usesTocOverlay()) closeToc(true);
+        });
+      });
+
+      var tocLinks = tocPanel.querySelectorAll('.giz-header-toc-list a');
+      var tocSectionIds = [];
+      tocLinks.forEach(function (link) {
+        var href = link.getAttribute('href');
+        if (href && href.charAt(0) === '#') {
+          tocSectionIds.push(href.slice(1));
+        }
+      });
+
+      var updateTocActive = function () {
+        if (!tocSectionIds.length) return;
+        var headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--giz-header-offset')) || 72;
+        var scrollPos = window.scrollY + headerOffset + 24;
+        var currentId = tocSectionIds[0];
+        tocSectionIds.forEach(function (id) {
+          var section = document.getElementById(id);
+          if (section && section.offsetTop <= scrollPos) {
+            currentId = id;
+          }
+        });
+        tocLinks.forEach(function (link) {
+          var isActive = link.getAttribute('href') === '#' + currentId;
+          link.classList.toggle('is-active', isActive);
+          if (isActive) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      };
+
+      updateTocActive();
+      window.addEventListener('scroll', updateTocActive, { passive: true });
+      window.addEventListener('resize', updateTocActive);
+
+      document.addEventListener('click', function (e) {
+        if (tocPanel.hidden || usesTocOverlay()) return;
+        if (tocClose && (e.target === tocClose || tocClose.contains(e.target))) return;
+        if (!tocPanel.contains(e.target) && e.target !== tocToggle && !tocToggle.contains(e.target)) {
+          closeToc();
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && usesTocOverlay()) closeToc(true);
+      });
+    })();
+  </script>
+</body>
+</html>
