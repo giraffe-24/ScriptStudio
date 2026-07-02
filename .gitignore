@@ -39,3 +39,8 @@ pnpm-debug.log*
 # editor / local
 .claude/
 skills-lock.json
+
+# ローカル台本履歴（保存/履歴のファイルベース保管先。開発マシンごとに独立）
+.script-history/
+# ローカル企画書履歴（同上）
+.plan-history/

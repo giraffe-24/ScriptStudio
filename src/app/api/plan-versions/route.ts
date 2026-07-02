@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured, getSupabaseConfigHint } from "@/lib/supabase-server";
 import { shouldUsePersistedRuntimeStore } from "@/lib/runtime-persistence";
+import {
+  createPlanSnapshot,
+  getLatestPlanSnapshot,
+  getPlanSnapshotById,
+  listPlanSnapshots,
+} from "@/lib/plan-versions";
+import {
+  createLocalPlanSnapshot,
+  getLatestLocalPlanSnapshot,
+  getLocalPlanSnapshotById,
+  listLocalPlanSnapshots,
+} from "@/lib/plan-versions-local";
+import { getSessionUsernameFromRequest } from "@/lib/studio-session";
+import { getStudioUserName } from "@/lib/studio-user";
 
 /**
- * 台本スナップショット履歴の保存先を判定する。
+ * 企画書スナップショット履歴の保存先を判定する（台本の script-versions と同じ方針）。
  * - 本番（Vercel）: ファイルシステムが揮発するため Supabase 必須。
- * - ローカル開発: Supabase に到達できなくても壊れないよう、ファイルベースの
- *   ローカル履歴（.script-history/）を使う。これによりローカルでも
- *   「保存（記録）」「履歴」「この版に戻す」が使える。
+ * - ローカル開発: ファイルベースのローカル履歴（.plan-history/）を使う。
  */
 function versionsEnabled(): boolean {
   if (shouldUsePersistedRuntimeStore()) return isSupabaseConfigured();
@@ -18,22 +30,6 @@ function versionsEnabled(): boolean {
 function remoteStoreEnabled(): boolean {
   return shouldUsePersistedRuntimeStore() && isSupabaseConfigured();
 }
-import { syncScriptRecordBaseline } from "@/lib/file-manager";
-import {
-  createScriptSnapshot,
-  getLatestScriptSnapshot,
-  getScriptSnapshotById,
-  listScriptSnapshots,
-} from "@/lib/script-versions";
-import {
-  createLocalScriptSnapshot,
-  getLatestLocalScriptSnapshot,
-  getLocalScriptSnapshotById,
-  listLocalScriptSnapshots,
-} from "@/lib/script-versions-local";
-import type { DiffStats } from "@/lib/script-diff";
-import { getSessionUsernameFromRequest } from "@/lib/studio-session";
-import { getStudioUserName } from "@/lib/studio-user";
 
 function notConfigured() {
   return NextResponse.json(
@@ -64,8 +60,8 @@ export async function GET(req: NextRequest) {
     }
     try {
       const snapshots = remoteStoreEnabled()
-        ? await listScriptSnapshots(number, slug)
-        : await listLocalScriptSnapshots(number, slug);
+        ? await listPlanSnapshots(number, slug)
+        : await listLocalPlanSnapshots(number, slug);
       return NextResponse.json({ snapshots });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -79,8 +75,8 @@ export async function GET(req: NextRequest) {
     }
     try {
       const snapshot = remoteStoreEnabled()
-        ? await getLatestScriptSnapshot(number, slug)
-        : await getLatestLocalScriptSnapshot(number, slug);
+        ? await getLatestPlanSnapshot(number, slug)
+        : await getLatestLocalPlanSnapshot(number, slug);
       return NextResponse.json({ snapshot });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -93,8 +89,8 @@ export async function GET(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     try {
       const snapshot = remoteStoreEnabled()
-        ? await getScriptSnapshotById(id)
-        : await getLocalScriptSnapshotById(id);
+        ? await getPlanSnapshotById(id)
+        : await getLocalPlanSnapshotById(id);
       if (!snapshot) return NextResponse.json({ error: "not found" }, { status: 404 });
       return NextResponse.json({ snapshot });
     } catch (err) {
@@ -115,8 +111,6 @@ export async function POST(req: NextRequest) {
     authorName?: string;
     summary?: string;
     content?: string;
-    diffStats?: DiffStats | null;
-    planFingerprint?: string;
   };
 
   try {
@@ -139,31 +133,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const snapshot = remoteStoreEnabled()
-      ? await createScriptSnapshot({
-          episodeNumber,
-          episodeSlug,
-          authorName,
-          summary,
-          content,
-          diffStats: body.diffStats ?? null,
-        })
-      : await createLocalScriptSnapshot({
-          episodeNumber,
-          episodeSlug,
-          authorName,
-          summary,
-          content,
-          diffStats: body.diffStats ?? null,
-        });
-    let scriptMeta = null;
-    if (body.planFingerprint?.trim()) {
-      scriptMeta = await syncScriptRecordBaseline(
-        episodeNumber,
-        episodeSlug,
-        body.planFingerprint.trim(),
-      );
-    }
-    return NextResponse.json({ snapshot, scriptMeta });
+      ? await createPlanSnapshot({ episodeNumber, episodeSlug, authorName, summary, content })
+      : await createLocalPlanSnapshot({ episodeNumber, episodeSlug, authorName, summary, content });
+    return NextResponse.json({ snapshot });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

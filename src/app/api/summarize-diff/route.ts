@@ -7,17 +7,18 @@ import { toFriendlyApiError } from "@/lib/api-error";
 function buildFallbackSummary(
   episodeTitle: string,
   stats: { added: number; removed: number },
+  docLabel: string,
 ): string {
   if (stats.added > 0 && stats.removed > 0) {
-    return `${episodeTitle} の台本を更新しました。表現と内容を見直しています。`;
+    return `${episodeTitle} の${docLabel}を更新しました。表現と内容を見直しています。`;
   }
   if (stats.added > 0) {
-    return `${episodeTitle} の台本に追記を反映しました。`;
+    return `${episodeTitle} の${docLabel}に追記を反映しました。`;
   }
   if (stats.removed > 0) {
-    return `${episodeTitle} の台本を整理して更新しました。`;
+    return `${episodeTitle} の${docLabel}を整理して更新しました。`;
   }
-  return "台本を更新しました。";
+  return `${docLabel}を更新しました。`;
 }
 
 export async function POST(req: NextRequest) {
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     episodeTitle?: string;
     oldText?: string;
     newText?: string;
+    docLabel?: string;
   };
 
   try {
@@ -38,13 +40,14 @@ export async function POST(req: NextRequest) {
   }
 
   const episodeTitle = body.episodeTitle?.trim() ?? "台本";
+  const docLabel = body.docLabel?.trim() || "台本";
   const oldText = body.oldText ?? "";
   const newText = body.newText ?? "";
   const diff = computeScriptDiff(oldText, newText);
 
   if (diff.stats.isFirstRecord) {
     return NextResponse.json({
-      summary: `初稿を記録。${episodeTitle} の台本を保存しました。`,
+      summary: `初稿を記録。${episodeTitle} の${docLabel}を保存しました。`,
       stats: diff.stats,
     });
   }
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = getAnthropicModel("summary");
 
-  const userPrompt = `YouTube トーク台本の変更内容を、日本語で1〜2文に要約してください。箇条書きや Markdown は使わないでください。
+  const userPrompt = `YouTube 動画企画の${docLabel}の変更内容を、日本語で1〜2文に要約してください。箇条書きや Markdown は使わないでください。
 
 エピソード: ${episodeTitle}
 変更統計: 追加 ${diff.stats.added} 行 / 削除 ${diff.stats.removed} 行
@@ -78,12 +81,12 @@ ${diff.diffExcerpt || "（差分テキストなし）"}`;
     const summary = block?.type === "text" ? block.text.trim() : "";
 
     return NextResponse.json({
-      summary: summary || "台本を更新しました。",
+      summary: summary || `${docLabel}を更新しました。`,
       stats: diff.stats,
     });
   } catch (err) {
     return NextResponse.json({
-      summary: buildFallbackSummary(episodeTitle, diff.stats),
+      summary: buildFallbackSummary(episodeTitle, diff.stats, docLabel),
       stats: diff.stats,
       warning: toFriendlyApiError(err),
     });

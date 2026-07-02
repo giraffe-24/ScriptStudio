@@ -23,6 +23,12 @@ type Props = {
   episodeNumber: number;
   episodeSlug: string;
   onRestore: (content: string) => Promise<void>;
+  /** 履歴 API のエンドポイント（既定: 台本） */
+  endpoint?: string;
+  /** 保存 content を表示・差分用テキストへ変換（既定: そのまま。企画書は JSON→整形テキスト） */
+  renderContent?: (raw: string) => string;
+  /** 全文・確認文言のラベル（既定: 台本） */
+  contentLabel?: string;
 };
 
 function formatDate(iso: string): string {
@@ -43,17 +49,22 @@ function SnapshotDetail({
   snap,
   previousContent,
   isFirstRecord,
+  renderContent,
+  contentLabel,
 }: {
   snap: ScriptSnapshot;
   previousContent: string;
   isFirstRecord: boolean;
+  renderContent: (raw: string) => string;
+  contentLabel: string;
 }) {
   const [showFullContent, setShowFullContent] = useState(false);
+  const currentText = renderContent(snap.content);
 
   if (isFirstRecord) {
     return (
       <div className="space-y-2 pt-1">
-        <p className="text-xs text-muted-foreground">初回記録の台本です。</p>
+        <p className="text-xs text-muted-foreground">初回記録の{contentLabel}です。</p>
         <button
           type="button"
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -64,18 +75,18 @@ function SnapshotDetail({
           ) : (
             <ChevronDown className="size-3.5" aria-hidden />
           )}
-          {showFullContent ? "台本全文を閉じる" : "台本全文を見る"}
+          {showFullContent ? `${contentLabel}全文を閉じる` : `${contentLabel}全文を見る`}
         </button>
         {showFullContent ? (
           <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 font-mono text-xs leading-relaxed">
-            {snap.content}
+            {currentText}
           </pre>
         ) : null}
       </div>
     );
   }
 
-  const diff = computeScriptDiff(previousContent, snap.content);
+  const diff = computeScriptDiff(renderContent(previousContent), currentText);
 
   return (
     <div className="space-y-2 pt-1">
@@ -93,11 +104,11 @@ function SnapshotDetail({
         ) : (
           <ChevronDown className="size-3.5" aria-hidden />
         )}
-        {showFullContent ? "台本全文を閉じる" : "台本全文を見る"}
+        {showFullContent ? `${contentLabel}全文を閉じる` : `${contentLabel}全文を見る`}
       </button>
       {showFullContent ? (
         <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 font-mono text-xs leading-relaxed">
-          {snap.content}
+          {currentText}
         </pre>
       ) : null}
     </div>
@@ -111,6 +122,9 @@ export function HistoryModal({
   episodeNumber,
   episodeSlug,
   onRestore,
+  endpoint = "/api/script-versions",
+  renderContent = (raw) => raw,
+  contentLabel = "台本",
 }: Props) {
   const [snapshots, setSnapshots] = useState<ScriptSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,7 +142,7 @@ export function HistoryModal({
     setExpandedId(null);
 
     fetch(
-      `/api/script-versions?action=list&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
+      `${endpoint}?action=list&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
     )
       .then(async (res) => {
         const data = await res.json();
@@ -140,7 +154,7 @@ export function HistoryModal({
         setSnapshots([]);
       })
       .finally(() => setLoading(false));
-  }, [open, episodeNumber, episodeSlug]);
+  }, [open, episodeNumber, episodeSlug, endpoint]);
 
   async function handleRestore(snapshot: ScriptSnapshot) {
     setRestoringId(snapshot.id);
@@ -171,7 +185,7 @@ export function HistoryModal({
         <div className="max-h-[min(28rem,70vh)] space-y-3 overflow-y-auto">
           {loading && <p className="text-xs text-muted-foreground">読み込み中…</p>}
           {!loading && snapshots.length === 0 && (
-            <p className="text-xs text-muted-foreground">まだ記録がありません。</p>
+            <p className="text-xs text-muted-foreground">まだ保存された版がありません。</p>
           )}
           {snapshots.map((snap, index) => {
             const isFirstRecord = index === snapshots.length - 1;
@@ -221,6 +235,8 @@ export function HistoryModal({
                     snap={snap}
                     previousContent={previousContent}
                     isFirstRecord={isFirstRecord}
+                    renderContent={renderContent}
+                    contentLabel={contentLabel}
                   />
                 ) : null}
 

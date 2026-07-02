@@ -7,8 +7,15 @@ import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
 import { GitHistoryModal } from "./GitHistoryModal";
+import { HistoryModal } from "./HistoryModal";
+import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
 import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
+import {
+  planToSnapshotText,
+  planSnapshotContentToText,
+  parsePlanSnapshotContent,
+} from "@/lib/plan-snapshot-text";
 import { toUserMessage } from "@/lib/error-message";
 
 /* ── 編集フィールド共通スタイル ── */
@@ -50,6 +57,11 @@ export function PlanningDoc({
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const gitConfigured = useGitMirrorStatus();
+  // 企画書のバージョン履歴（保存/履歴）。ローカルはファイル、本番は Supabase。
+  const [planVersionsEnabled, setPlanVersionsEnabled] = useState(false);
+  const [planHistoryOpen, setPlanHistoryOpen] = useState(false);
+  const [planCommitOpen, setPlanCommitOpen] = useState(false);
+  const [latestPlanContent, setLatestPlanContent] = useState<string | null>(null);
   const planLoadKeyRef = useRef("");
   const planRequestRef = useRef(0);
 
@@ -69,6 +81,43 @@ export function PlanningDoc({
   }, [planLoadKey]);
 
   const plan = initialPlan ?? draftPlan;
+
+  // 企画書バージョン履歴が使えるか（セッション内で 1 回だけ確認）
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/plan-versions?action=status")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setPlanVersionsEnabled(Boolean(d?.configured));
+      })
+      .catch(() => {
+        if (!cancelled) setPlanVersionsEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshLatestPlanSnapshot = useCallback(async () => {
+    if (!planVersionsEnabled || episodeNumber == null || !episodeSlug) {
+      setLatestPlanContent(null);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/plan-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
+      );
+      const data = await res.json();
+      setLatestPlanContent(res.ok ? (data.snapshot?.content ?? null) : null);
+    } catch {
+      setLatestPlanContent(null);
+    }
+  }, [planVersionsEnabled, episodeNumber, episodeSlug]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshLatestPlanSnapshot();
+  }, [refreshLatestPlanSnapshot]);
 
   function isActivePlanRequest(requestId: number, requestKey: string) {
     return planRequestRef.current === requestId && planLoadKeyRef.current === requestKey;
@@ -195,6 +244,12 @@ export function PlanningDoc({
   }
 
   if (!plan) return null;
+
+  // 企画書バージョン履歴（保存/履歴）の派生値
+  const canUsePlanVersions = planVersionsEnabled && episodeNumber != null && !!episodeSlug;
+  const planText = planToSnapshotText(plan);
+  const recordedPlanText = latestPlanContent ? planSnapshotContentToText(latestPlanContent) : "";
+  const planUnrecorded = canUsePlanVersions && !!planText.trim() && planText !== recordedPlanText;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -338,6 +393,34 @@ export function PlanningDoc({
 
           {/* アクションボタン */}
           <div className="pt-2 pb-6 space-y-2">
+            {canUsePlanVersions && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setPlanCommitOpen(true)}
+                  disabled={submitting || !planUnrecorded}
+                  variant={planUnrecorded ? "default" : "outline"}
+                  size="lg"
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  title={
+                    planUnrecorded
+                      ? "現在の企画書をバージョンとして保存（履歴に記録）"
+                      : "前回の保存から変更はありません"
+                  }
+                >
+                  {planUnrecorded ? "保存（未保存）" : "保存"}
+                </Button>
+                <Button
+                  onClick={() => setPlanHistoryOpen(true)}
+                  disabled={submitting}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 py-3 rounded-xl font-semibold"
+                  title="保存した企画書の履歴を見る・以前の版に戻す"
+                >
+                  履歴
+                </Button>
+              </div>
+            )}
             <Button
               onClick={() => {
                 if (submitting) return;
@@ -412,6 +495,42 @@ export function PlanningDoc({
             onTitleChange?.(restored.episodeTitle);
           }}
         />
+      )}
+
+      {planVersionsEnabled && episodeNumber != null && !!episodeSlug && (
+        <>
+          <SnapshotCommitModal
+            open={planCommitOpen}
+            onOpenChange={setPlanCommitOpen}
+            episodeTitle={plan.episodeTitle}
+            episodeNumber={episodeNumber}
+            episodeSlug={episodeSlug}
+            currentContent={planText}
+            previousContent={recordedPlanText}
+            endpoint="/api/plan-versions"
+            docLabel="企画書"
+            contentToStore={JSON.stringify(plan, null, 2)}
+            onCommitted={() => void refreshLatestPlanSnapshot()}
+          />
+          <HistoryModal
+            open={planHistoryOpen}
+            onOpenChange={setPlanHistoryOpen}
+            episodeTitle={plan.episodeTitle}
+            episodeNumber={episodeNumber}
+            episodeSlug={episodeSlug}
+            endpoint="/api/plan-versions"
+            renderContent={planSnapshotContentToText}
+            contentLabel="企画書"
+            onRestore={async (content) => {
+              const parsed = parsePlanSnapshotContent(content);
+              if (!parsed) throw new Error("保存された企画データを読み込めませんでした");
+              const restored = sanitizePlanOutline(parsed) ?? parsed;
+              onPlanChange?.(restored);
+              onTitleChange?.(restored.episodeTitle);
+              await refreshLatestPlanSnapshot();
+            }}
+          />
+        </>
       )}
     </div>
   );

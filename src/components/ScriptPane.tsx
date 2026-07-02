@@ -1096,11 +1096,11 @@ export function ScriptPane({
                 className={scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary}
                 title={
                   scriptUnrecorded
-                    ? "前回の記録から変更があります。クリックして記録してください"
-                    : "現在の台本をバージョンとして記録"
+                    ? "前回の保存から変更があります。クリックして保存してください"
+                    : "現在の台本をバージョンとして保存（履歴に記録）"
                 }
               >
-                記録{scriptUnrecorded ? "（未記録）" : ""}
+                保存{scriptUnrecorded ? "（未保存）" : ""}
               </button>
               <button
                 type="button"
@@ -1187,9 +1187,9 @@ export function ScriptPane({
               onClick={() => void openCommitModal()}
               disabled={loading || !latestScriptRef.current.trim()}
               className={`${scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
-              title={scriptUnrecorded ? "前回の記録から変更があります" : "現在の台本をバージョンとして記録"}
+              title={scriptUnrecorded ? "前回の保存から変更があります" : "現在の台本をバージョンとして保存（履歴に記録）"}
             >
-              記録{scriptUnrecorded ? "（未記録）" : ""}
+              保存{scriptUnrecorded ? "（未保存）" : ""}
             </button>
             <button
               type="button"

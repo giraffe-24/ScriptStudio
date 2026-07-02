@@ -26,9 +26,20 @@ type Props = {
   episodeTitle: string;
   episodeNumber: number;
   episodeSlug: string;
+  /** 差分・AI 要約に使う「現在」のテキスト表現 */
   currentContent: string;
+  /** 差分・AI 要約に使う「前回記録」のテキスト表現 */
   previousContent: string;
   planFingerprint?: string;
+  /** 記録 API のエンドポイント（既定: 台本） */
+  endpoint?: string;
+  /** ドキュメント種別ラベル（要約文言に使用。既定: 台本） */
+  docLabel?: string;
+  /**
+   * 実際に保存する content（未指定なら currentContent を保存）。
+   * 企画書のように「差分表示はテキスト・保存は JSON」を分けたい場合に使う。
+   */
+  contentToStore?: string;
   onCommitted: (result: {
     recordedContent: string;
     scriptMeta: {
@@ -50,6 +61,9 @@ export function SnapshotCommitModal({
   currentContent,
   previousContent,
   planFingerprint,
+  endpoint = "/api/script-versions",
+  docLabel = "台本",
+  contentToStore,
   onCommitted,
 }: Props) {
   const [authorName, setAuthorName] = useState("");
@@ -86,6 +100,7 @@ export function SnapshotCommitModal({
         episodeTitle,
         oldText: previousContent,
         newText: currentContent,
+        docLabel,
       }),
     })
       .then(async (res) => {
@@ -97,13 +112,13 @@ export function SnapshotCommitModal({
       .catch(() => {
         // AI 要約の取得に失敗してもエラー扱いにはせず、
         // 自動の下書きを入れたうえで控えめに編集を促す。
-        setSummary(diff.stats.isFirstRecord ? `初稿を記録。${episodeTitle}` : "台本を更新しました。");
+        setSummary(diff.stats.isFirstRecord ? `初稿を記録。${episodeTitle}` : `${docLabel}を更新しました。`);
         setSummaryNotice(
           "AI 要約を取得できなかったため、自動の下書きを入れました。必要に応じて編集してください。",
         );
       })
       .finally(() => setLoadingSummary(false));
-  }, [open, previousContent, currentContent, episodeTitle]);
+  }, [open, previousContent, currentContent, episodeTitle, docLabel]);
 
   async function handleCommit() {
     const name = authorName.trim();
@@ -121,7 +136,8 @@ export function SnapshotCommitModal({
     setError("");
 
     try {
-      const res = await fetch("/api/script-versions", {
+      const storedContent = contentToStore ?? currentContent;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -129,15 +145,15 @@ export function SnapshotCommitModal({
           episodeSlug,
           authorName: name,
           summary: text,
-          content: currentContent,
+          content: storedContent,
           diffStats: stats,
           planFingerprint,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
+      if (!res.ok) throw new Error(data.error ?? "保存に失敗しました");
       await onCommitted({
-        recordedContent: data.snapshot?.content ?? currentContent,
+        recordedContent: data.snapshot?.content ?? storedContent,
         scriptMeta: data.scriptMeta ?? null,
         planFingerprint,
       });
@@ -153,7 +169,7 @@ export function SnapshotCommitModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>バージョンを記録</DialogTitle>
+          <DialogTitle>この版を保存</DialogTitle>
           <DialogDescription>{episodeTitle}</DialogDescription>
         </DialogHeader>
 
@@ -219,7 +235,7 @@ export function SnapshotCommitModal({
             キャンセル
           </Button>
           <Button onClick={() => void handleCommit()} disabled={saving || loadingSummary}>
-            {saving ? "保存中…" : "記録を確定"}
+            {saving ? "保存中…" : "保存する"}
           </Button>
         </DialogFooter>
       </DialogContent>
