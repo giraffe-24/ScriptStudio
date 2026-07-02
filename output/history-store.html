@@ -823,6 +823,154 @@
       }
     }
 
+    /* ─── スマホフレーム（キャプチャ用モックアップ） ─── */
+    .giz-phone-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 1.75rem;
+    }
+
+    .giz-phone {
+      position: relative;
+      flex: 0 0 auto;
+      width: min(14rem, 62vw);
+      aspect-ratio: 9 / 19;
+      background: #0c0c0c;
+      border-radius: 2.25rem;
+      padding: 0.5rem;
+      box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.22),
+        inset 0 0 0 2px #2a2a2a,
+        inset 0 0 0 5px #000;
+    }
+
+    /* サイドボタン（電源・音量）でリアルさを足す */
+    .giz-phone::before,
+    .giz-phone::after {
+      content: '';
+      position: absolute;
+      width: 2px;
+      background: #2a2a2a;
+      border-radius: 2px;
+    }
+    .giz-phone::before {
+      right: -2px;
+      top: 6.5rem;
+      height: 2.5rem;
+    }
+    .giz-phone::after {
+      left: -2px;
+      top: 4.5rem;
+      height: 1.6rem;
+      box-shadow: 0 2.4rem 0 #2a2a2a, 0 4.4rem 0 #2a2a2a;
+    }
+
+    .giz-phone__screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #f5f5f5;
+      border-radius: 1.85rem;
+      overflow: hidden;
+    }
+
+    .giz-phone__notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 34%;
+      height: 1.05rem;
+      background: #0c0c0c;
+      border-radius: 0 0 0.7rem 0.7rem;
+      z-index: 3;
+    }
+
+    /* 画像スロット：ここに <img class="giz-phone__img"> を入れる */
+    .giz-phone__slot {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        repeating-linear-gradient(45deg, #eef0ee, #eef0ee 10px, #f6f7f5 10px, #f6f7f5 20px);
+    }
+
+    .giz-phone__img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+    }
+
+    .giz-phone__ph {
+      text-align: center;
+      color: #737373;
+      padding: 0 0.75rem;
+    }
+
+    .giz-phone__ph i {
+      font-size: 1.55rem;
+      color: #bfbfbf;
+    }
+
+    .giz-phone__ph-label {
+      margin-top: 0.5rem;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-size: 0.55rem;
+      letter-spacing: 0.14em;
+      color: #9a9a9a;
+    }
+
+    .giz-phone__ph-cap {
+      margin-top: 0.2rem;
+      font-family: var(--giz-font-jp);
+      font-size: 0.7rem;
+      line-height: 1.5;
+      color: #737373;
+    }
+
+    /* フッターアイコン：スマホの主要操作を集約したバー（レスポンシブの肝） */
+    .giz-phone__nav {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 0.15rem;
+      padding: 0.45rem 0.3rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+      background: #fff;
+      border-top: 1px solid #e5e5e5;
+    }
+
+    .giz-phone__nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      font-family: var(--giz-font-jp);
+      font-size: 0.5rem;
+      font-weight: 700;
+      color: #9a9a9a;
+      line-height: 1;
+    }
+
+    .giz-phone__nav-btn i {
+      font-size: 0.85rem;
+      color: #9a9a9a;
+    }
+
+    .giz-phone__nav-btn.is-active,
+    .giz-phone__nav-btn.is-active i {
+      color: #2d6a4f;
+    }
+
     @media print {
       .no-print { display: none !important; }
       body::after { display: none !important; }
@@ -1085,7 +1233,7 @@
   <h2 class="mt-1 text-2xl">ツールの画面（キャプチャ）</h2>
   <p class="mt-3 font-jp text-giz-ink leading-relaxed">
     まず入口の<strong>ログイン画面</strong>、そのあとの操作は大きく <strong>3画面</strong>。エディタのツールバーから「記録」と「履歴」を開く。
-    下の枠は<strong class="text-giz-forest">スクリーンショットを貼るための領域</strong>（実データは後から貼る）。
+    <strong class="text-giz-forest">PC・スマホどちらでも</strong>同じように使え、狭い画面では主要操作を画面下のフッターアイコンに集約している。
   </p>
 
   <!-- placeholder 0：ログイン画面（入口） -->
@@ -1184,16 +1332,75 @@
     </div>
   </div>
 
-  <!-- 読み方ボックス -->
-  <div class="mt-6 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
-    <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
-      <i class="fa-solid fa-circle-info w-4" aria-hidden="true"></i>この画面の読み方
+  <!-- モバイル表示（レスポンシブ）：スマホフレームに貼る -->
+  <div class="mt-8 rounded-2xl border border-giz-gray-mid bg-white p-5 md:p-6">
+    <div class="flex items-center gap-2">
+      <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white"><i class="fa-solid fa-mobile-screen-button text-[0.7rem]" aria-hidden="true"></i></span>
+      <p class="font-jp text-sm font-bold text-giz-ink">モバイル表示（レスポンシブ）</p>
+    </div>
+    <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+      PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作がしたい</span>と思ったので、スマホでも使えるようにした。狭い画面では主要操作（記録・履歴など）を<strong class="text-giz-forest">画面下のフッターアイコン</strong>へ集約し、片手・親指の届く位置で完結する。
     </p>
-    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
-      ユーザーがやることは「書く → <strong>記録</strong>を押す → 必要なら<strong>履歴</strong>から戻す」だけ。
-      保存先の Supabase は画面には出てこない（裏側で処理される）。使う人は仕組みを意識しなくていい。
-    </p>
+
+    <div class="mt-5 giz-phone-row">
+      <!-- スマホ①：メイン画面 -->
+      <figure class="m-0">
+        <div class="giz-phone">
+          <div class="giz-phone__screen">
+            <span class="giz-phone__notch" aria-hidden="true"></span>
+            <!-- 画像を入れるとき：この .giz-phone__slot の中身を丸ごと下の <img> に置き換える。
+              <img class="giz-phone__img" src="assets/mobile-main.png"
+                   alt="スマホで開いた台本エディタ。下部にフッターアイコン"> -->
+            <div class="giz-phone__slot">
+              <div class="giz-phone__ph">
+                <i class="fa-solid fa-image" aria-hidden="true"></i>
+                <p class="giz-phone__ph-label">SCREENSHOT</p>
+                <p class="giz-phone__ph-cap">スマホのメイン画面を貼る</p>
+              </div>
+            </div>
+            <nav class="giz-phone__nav" aria-hidden="true">
+              <span class="giz-phone__nav-btn"><i class="fa-solid fa-pen-to-square"></i>執筆</span>
+              <span class="giz-phone__nav-btn is-active"><i class="fa-solid fa-floppy-disk"></i>記録</span>
+              <span class="giz-phone__nav-btn"><i class="fa-solid fa-clock-rotate-left"></i>履歴</span>
+              <span class="giz-phone__nav-btn"><i class="fa-solid fa-lightbulb"></i>企画</span>
+            </nav>
+          </div>
+        </div>
+        <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
+          メイン画面。主要操作を<strong class="text-giz-forest">フッターアイコン</strong>に集約。
+        </figcaption>
+      </figure>
+
+      <!-- スマホ②：履歴モーダル -->
+      <figure class="m-0">
+        <div class="giz-phone">
+          <div class="giz-phone__screen">
+            <span class="giz-phone__notch" aria-hidden="true"></span>
+            <!-- 画像を入れるとき：この .giz-phone__slot の中身を丸ごと下の <img> に置き換える。
+              <img class="giz-phone__img" src="assets/mobile-history.png"
+                   alt="スマホで開いた履歴モーダル。版の一覧と『この版に戻す』"> -->
+            <div class="giz-phone__slot">
+              <div class="giz-phone__ph">
+                <i class="fa-solid fa-image" aria-hidden="true"></i>
+                <p class="giz-phone__ph-label">SCREENSHOT</p>
+                <p class="giz-phone__ph-cap">スマホの履歴画面を貼る</p>
+              </div>
+            </div>
+            <nav class="giz-phone__nav" aria-hidden="true">
+              <span class="giz-phone__nav-btn"><i class="fa-solid fa-pen-to-square"></i>執筆</span>
+              <span class="giz-phone__nav-btn"><i class="fa-solid fa-floppy-disk"></i>記録</span>
+              <span class="giz-phone__nav-btn is-active"><i class="fa-solid fa-clock-rotate-left"></i>履歴</span>
+              <span class="giz-phone__nav-btn"><i class="fa-solid fa-lightbulb"></i>企画</span>
+            </nav>
+          </div>
+        </div>
+        <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
+          履歴画面。一覧から<strong class="text-giz-forest">この版に戻す</strong>まで片手で完結。
+        </figcaption>
+      </figure>
+    </div>
   </div>
+
 </section>
 
 <!-- ============ SECTION 2: 保持データ ============ -->
@@ -1441,7 +1648,7 @@
 <section id="section-5" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
   <p class="giz-label text-giz-gray">SECTION 5</p>
   <h2 class="mt-1 text-2xl">苦戦したポイント</h2>
-  <p class="mt-3 font-jp text-giz-ink leading-relaxed">実際に踏んだ3つの落とし穴と、そこから決めた対策。</p>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">実際に踏んだ4つの落とし穴と、そこから決めた対策。</p>
 
   <div class="mt-6 space-y-4">
     <!-- struggle 1 -->
@@ -1481,6 +1688,19 @@
       </p>
       <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
         <strong>対策：</strong>診断 API で事実ベースに分類。あわせて、サーバー用キーの取り違え（publishable キーを誤設定）も設定チェックで弾き、ヒントを返すようにした。
+      </p>
+    </div>
+    <!-- struggle 4 -->
+    <div class="rounded-2xl border border-giz-coral bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-coral">
+        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">④ PC前提の画面で、スマホから使いづらい</p>
+      </div>
+      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
+        <strong>症状：</strong>いつでもどこでも手軽に使えることが大事なのに、当初は広い画面ありきのレイアウト。上部ツールバーに操作を並べていたため、外出先やスマホから台本を直そうとすると<strong class="text-giz-coral">窮屈で片手では届かない</strong>。「PCを開かないと作業できない」状態だった。
+      </p>
+      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+        <strong>対策：</strong><strong>レスポンシブ化して PC 依存をなくした</strong>。主要操作（記録・履歴など）を画面下の<strong>フッターアイコン</strong>に集約し、スマホでも親指の届く位置で完結。PCは従来のツールバー、スマホはフッターへと切り替わる。
       </p>
     </div>
   </div>
