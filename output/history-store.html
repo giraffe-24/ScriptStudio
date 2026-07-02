@@ -1014,7 +1014,7 @@
         <p class="font-jp text-sm font-bold text-giz-ink">AI育成</p>
       </div>
       <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-        確定稿と AI の原稿を読み比べる推敲や、ブランド定義・成功台本の蓄積で、<strong class="text-giz-ink">AI を“自分の書き手”に育てていく</strong>。使うほど自分の色に寄る。
+        確定稿と AI の原稿を読み比べる推敲や、ブランド定義・成功台本の蓄積で、<span class="giz-mark">AI を“自分の書き手”に育てていく。使うほど自分の色に寄る。</span>
       </p>
     </div>
   </div>
@@ -1255,10 +1255,9 @@
         <i class="fa-solid fa-file-lines w-5" aria-hidden="true"></i>
         <p class="font-jp text-sm font-bold">台本スナップショット</p>
       </div>
-      <p class="mt-1 font-mono text-xs text-giz-gray">table: script_snapshots</p>
       <ul class="mt-3 space-y-1.5 font-jp text-sm text-giz-ink">
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i><span><code class="text-xs">content</code> = 台本の全文テキスト</span></li>
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i><span>追加/削除の行数（<code class="text-xs">diff_stats</code>）も保持</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i><span>台本の全文テキストをまるごと</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i><span>追加／削除の行数（差分サマリ）も保持</span></li>
       </ul>
     </div>
     <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
@@ -1266,9 +1265,8 @@
         <i class="fa-solid fa-lightbulb w-5" aria-hidden="true"></i>
         <p class="font-jp text-sm font-bold">企画書スナップショット</p>
       </div>
-      <p class="mt-1 font-mono text-xs text-giz-gray">table: plan_snapshots</p>
       <ul class="mt-3 space-y-1.5 font-jp text-sm text-giz-ink">
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i><span><code class="text-xs">content</code> = 企画書の <code class="text-xs">plan.json</code>（構造ごと）</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i><span>企画書のデータを構造ごとまるごと</span></li>
         <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i><span>差分・要約は「整形テキスト」に変換して表示</span></li>
       </ul>
     </div>
@@ -1314,18 +1312,18 @@
       <i class="fa-solid fa-chevron-right hidden md:block w-4 text-giz-gray-mid mx-auto" aria-hidden="true"></i>
       <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
         <i class="fa-solid fa-server w-6 text-giz-sea" aria-hidden="true"></i>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">API</p>
-        <p class="mt-0.5 font-mono text-xs text-giz-gray">/api/script-versions</p>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">サーバー</p>
+        <p class="mt-0.5 font-jp text-xs text-giz-gray">保存を受け取る</p>
       </div>
       <i class="fa-solid fa-chevron-right hidden md:block w-4 text-giz-gray-mid mx-auto" aria-hidden="true"></i>
       <div class="flex-1 rounded-xl border border-giz-sea bg-white px-3 py-3 text-center">
         <i class="fa-solid fa-database w-6 text-giz-sea" aria-hidden="true"></i>
         <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase に1件追加</p>
-        <p class="mt-0.5 font-mono text-xs text-giz-gray">script_snapshots</p>
+        <p class="mt-0.5 font-jp text-xs text-giz-gray">クラウド DB に保存</p>
       </div>
     </div>
     <p class="mt-4 font-jp text-xs text-giz-gray leading-relaxed">
-      1回の保存 ＝ テーブルに<strong class="text-giz-ink">1行 INSERT</strong>。台本は <code class="text-xs">script_snapshots</code>、企画書は <code class="text-xs">plan_snapshots</code> に同じ仕組みで貯まる。呼び出す側（画面）は API を叩くだけ。
+      1回の保存で、そのときの台本を<strong class="text-giz-ink">まるごと1件ぶん</strong>追加する。台本も企画書も同じ仕組みで、記録するたびに下へ積み上がっていく。
     </p>
   </div>
 
@@ -1350,21 +1348,21 @@
     <div class="rounded-2xl border border-giz-forest bg-white p-5">
       <div class="flex items-center gap-2 text-giz-forest">
         <i class="fa-solid fa-table-list w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">データの持ち方（テーブル設計）</p>
+        <p class="font-jp text-sm font-bold">データの持ち方</p>
       </div>
-      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">1回の保存 ＝ 1行</p>
+      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">1回の保存 ＝ 1件</p>
       <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-        台本の<strong class="text-giz-ink">全文をまるごと</strong>残し、著者・保存メモ・前版との差分・保存時刻を添える。だから「その版に丸ごと戻す」ができる。
+        台本の<strong class="text-giz-ink">全文をまるごと</strong>残し、そこに次の情報を添える。だから「その版に丸ごと戻す」ができる。
       </p>
-      <p class="mt-3 font-jp text-sm font-bold text-giz-ink"><code class="text-xs">script_snapshots</code> の主な列</p>
+      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">1件に残しているもの</p>
       <ul class="mt-1.5 space-y-1.5 font-jp text-sm text-giz-ink">
-        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">content</code><span class="text-giz-gray">台本の全文（まるごと）</span></li>
-        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">summary</code><span class="text-giz-gray">保存メモ</span></li>
-        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">diff_stats</code><span class="text-giz-gray">前版との差分サマリ</span></li>
-        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">author_name</code><span class="text-giz-gray">保存した人</span></li>
-        <li class="flex gap-2"><code class="text-xs mt-0.5 shrink-0 text-giz-forest">created_at</code><span class="text-giz-gray">保存時刻</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>台本の全文（まるごと）</li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>保存メモ</li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>前版との差分サマリ</li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>保存した人</li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>保存時刻</li>
       </ul>
-      <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">取り出すときは<strong class="text-giz-ink">その回のぶんを新しい順</strong>に並べる → それが<strong class="text-giz-forest">履歴</strong>。企画書も同じ形で <code class="text-xs">plan_snapshots</code> に貯まる。</p>
+      <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">取り出すときは<strong class="text-giz-ink">その回のぶんを新しい順</strong>に並べる → それが<strong class="text-giz-forest">履歴</strong>。企画書も同じ形で貯まる。</p>
     </div>
   </div>
 </section>
@@ -1383,7 +1381,7 @@
         <div>
           <p class="font-jp text-base font-bold text-giz-ink">変更の差分を保存時に記録</p>
           <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            保存のたびに前版との差分（追加◯行／削除◯行）を計算し、<code class="text-xs">diff_stats</code> にひも付けて一緒に残す。履歴一覧はこれを見るだけで、開かなくても<strong class="text-giz-ink">「どれだけ変わった版か」</strong>が一目でわかる。
+            保存のたびに前版との差分（追加◯行／削除◯行）を計算し、<strong class="text-giz-ink">差分サマリ</strong>として一緒に残す。履歴一覧はこれを見るだけで、開かなくても<strong class="text-giz-ink">「どれだけ変わった版か」</strong>が一目でわかる。
           </p>
         </div>
       </div>
@@ -1407,7 +1405,7 @@
         <div>
           <p class="font-jp text-base font-bold text-giz-ink">7日休止を防ぐキープアライブ</p>
           <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            Supabase の無料枠は約7日 DB を触らないと自動休止する。そこで <strong class="text-giz-ink">Vercel Cron が1日1回</strong>、専用テーブルへ upsert（＝本物の DB クエリ）を送って起こしておく。Storage 読み取りも併用して二重に保険をかける。
+            Supabase の無料枠は、約7日データベースを触らないと自動で休止する。そこで <strong class="text-giz-ink">1日1回、自動で軽く読み書き</strong>して起こしておく。止まる前に触り続けるのが狙い。
           </p>
         </div>
       </div>
@@ -1419,7 +1417,7 @@
         <div>
           <p class="font-jp text-base font-bold text-giz-ink">保存先の健全性を診断する API</p>
           <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            「通信に失敗」が<strong class="text-giz-ink">ユーザーの回線のせいか、Supabase が止まっているせいか</strong>を、推測でなく事実で切り分ける <code class="text-xs">/api/health</code>。到達不能／タイムアウト／応答ありに分類し、キーや URL などの秘密は返さない。
+            「通信に失敗」が<strong class="text-giz-ink">ユーザーの回線のせいか、Supabase が止まっているせいか</strong>を、推測でなく事実で切り分ける<strong class="text-giz-ink">診断のしくみ</strong>。到達不能／タイムアウト／応答ありに分類し、秘密の情報（鍵など）は返さない。
           </p>
         </div>
       </div>
@@ -1529,7 +1527,7 @@
         <p class="font-jp text-sm font-bold text-giz-ink">台本の部分再生成</p>
       </div>
       <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>選んだ箇所＋前後（各〜1000字）<span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その範囲だけ書き直し</p>
-      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">執筆ペインで気になる箇所を選ぶだけ。全文を作り直さないので他がブレず、トークンも節約。</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">執筆ペインで気になる箇所を選ぶだけ。<span class="giz-mark">全文を作り直さないので他がブレず、トークンも節約。</span></p>
     </div>
     <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
       <div class="flex items-center gap-2 text-giz-forest">
