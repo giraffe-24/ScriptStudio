@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured, getSupabaseConfigHint } from "@/lib/supabase-server";
+import { shouldUsePersistedRuntimeStore } from "@/lib/runtime-persistence";
+
+/**
+ * 台本スナップショット履歴は Supabase(DB) 前提の本番機能。
+ * エピソード本体・台本メタと同じく「本番かつSupabase設定あり」でのみ有効化し、
+ * ローカルで遠隔Supabaseに到達できず保存・履歴取得が壊れるのを防ぐ。
+ */
+function versionsEnabled(): boolean {
+  return isSupabaseConfigured() && shouldUsePersistedRuntimeStore();
+}
 import { syncScriptRecordBaseline } from "@/lib/file-manager";
 import {
   createScriptSnapshot,
@@ -24,12 +34,12 @@ export async function GET(req: NextRequest) {
 
   if (action === "status") {
     return NextResponse.json({
-      configured: isSupabaseConfigured(),
+      configured: versionsEnabled(),
       hint: getSupabaseConfigHint(),
     });
   }
 
-  if (!isSupabaseConfigured()) return notConfigured();
+  if (!versionsEnabled()) return notConfigured();
 
   const number = Number(searchParams.get("number"));
   const slug = searchParams.get("slug") ?? "";
@@ -77,7 +87,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isSupabaseConfigured()) return notConfigured();
+  if (!versionsEnabled()) return notConfigured();
 
   let body: {
     episodeNumber?: number;
