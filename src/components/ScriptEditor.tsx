@@ -397,7 +397,7 @@ export function ScriptEditor({
           <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className={`h-full ${progressColor} transition-all`} style={{ width: `${progress}%` }} />
           </div>
-          <span className="text-xs text-muted-foreground hidden md:inline">目標 4,000〜6,000 字</span>
+          <span className="text-xs text-muted-foreground hidden md:inline whitespace-nowrap">目標 4,000〜6,000 字</span>
           {(isGenerating || selectionBusy) && (
             <span
               role="status"
@@ -460,8 +460,8 @@ export function ScriptEditor({
             </button>
           )}
           {saveError ? (
-            <span role="alert" className="text-xs font-medium text-destructive whitespace-nowrap">
-              保存失敗: {saveError}
+            <span className="text-xs font-medium text-destructive whitespace-nowrap">
+              ⚠ 保存に失敗
             </span>
           ) : !saved && !editorLocked ? (
             <span role="status" aria-live="polite" className="text-xs text-muted-foreground whitespace-nowrap">
@@ -474,6 +474,23 @@ export function ScriptEditor({
           ) : null}
         </div>
       </div>
+
+      {saveError ? (
+        <div
+          role="alert"
+          className="shrink-0 flex items-start gap-2 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-xs leading-relaxed text-destructive"
+        >
+          <span className="min-w-0 flex-1 break-words">保存失敗: {saveError}</span>
+          <button
+            type="button"
+            onClick={() => setSaveError(null)}
+            aria-label="閉じる"
+            className="shrink-0 leading-none text-destructive/60 hover:text-destructive"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
       {navOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex" onClick={() => setNavOpen(false)}>
