@@ -19,7 +19,7 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   if (!isSiteAccessEnabled()) {
     return NextResponse.next();
   }
