@@ -9,6 +9,8 @@ import {
 } from "./ScriptEditor";
 import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
+import { GitHistoryModal } from "./GitHistoryModal";
+import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
 import {
   scriptBtnAbort,
   scriptBtnDisabled,
@@ -133,6 +135,8 @@ export function ScriptPane({
   const [versionsHint, setVersionsHint] = useState("");
   const [commitOpen, setCommitOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [gitHistoryOpen, setGitHistoryOpen] = useState(false);
+  const gitMirrorConfigured = useGitMirrorStatus();
   const [previousSnapshotContent, setPreviousSnapshotContent] = useState("");
   const [commitCurrentContent, setCommitCurrentContent] = useState("");
   const latestScriptRef = useRef<string>("");
@@ -1060,6 +1064,7 @@ export function ScriptPane({
 
   // モバイルのハンバーガーメニューに出す操作があるか
   const showRecordActions = generated && versionsEnabled && Boolean(episodeNumber) && Boolean(episodeSlug);
+  const showGitHistory = generated && gitMirrorConfigured && Boolean(episodeNumber) && Boolean(episodeSlug);
   const showManualSync = generated && showOutlineNotice && !loading;
 
   return (
@@ -1100,6 +1105,17 @@ export function ScriptPane({
                 履歴
               </button>
             </>
+          )}
+          {showGitHistory && (
+            <button
+              type="button"
+              onClick={() => setGitHistoryOpen(true)}
+              disabled={loading}
+              className={scriptBtnSecondary}
+              title="Git に記録された過去の版を確認・復元"
+            >
+              Git履歴
+            </button>
           )}
           {showManualSync && (
             <button
@@ -1178,6 +1194,17 @@ export function ScriptPane({
               履歴
             </button>
           </>
+        )}
+        {showGitHistory && (
+          <button
+            type="button"
+            onClick={() => setGitHistoryOpen(true)}
+            disabled={loading}
+            className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+            title="Git に記録された過去の版を確認・復元"
+          >
+            Git履歴
+          </button>
         )}
         {scriptMeta && generated && (
           <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap pl-1">
@@ -1311,6 +1338,15 @@ export function ScriptPane({
             episodeTitle={plan.episodeTitle}
             episodeNumber={episodeNumber}
             episodeSlug={episodeSlug}
+            onRestore={handleRestoreSnapshot}
+          />
+          <GitHistoryModal
+            open={gitHistoryOpen}
+            onOpenChange={setGitHistoryOpen}
+            episodeNumber={episodeNumber}
+            episodeSlug={episodeSlug}
+            filename="01-script-draft.md"
+            label="台本"
             onRestore={handleRestoreSnapshot}
           />
         </>

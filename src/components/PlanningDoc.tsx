@@ -8,9 +8,7 @@ import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
 import { GitHistoryModal } from "./GitHistoryModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
-
-// Git ミラー設定の有無はセッション内で不変なので 1 度だけ確認してキャッシュする。
-let gitMirrorConfiguredCache: boolean | null = null;
+import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
@@ -50,27 +48,9 @@ export function PlanningDoc({
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [gitConfigured, setGitConfigured] = useState(gitMirrorConfiguredCache ?? false);
+  const gitConfigured = useGitMirrorStatus();
   const planLoadKeyRef = useRef("");
   const planRequestRef = useRef(0);
-
-  useEffect(() => {
-    // 既に判定済みなら初期 state に反映済み。null のときだけ 1 度だけ問い合わせる。
-    if (gitMirrorConfiguredCache !== null) return;
-    let cancelled = false;
-    fetch("/api/git-history?action=status")
-      .then((res) => res.json())
-      .then((data) => {
-        gitMirrorConfiguredCache = Boolean(data?.configured);
-        if (!cancelled) setGitConfigured(gitMirrorConfiguredCache);
-      })
-      .catch(() => {
-        if (!cancelled) setGitConfigured(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // タイトル変更でキーが変わらないよう slug / 候補テーマのみで判定
   const planLoadKey = `${episodeNumber ?? "new"}:${episodeSlug ?? "new"}:${candidate?.title ?? ""}`;
