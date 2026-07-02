@@ -1,6 +1,15 @@
 import type { CompetitorChannel } from "@/lib/types";
 import { getSupabaseServer, isSupabaseConfigured } from "@/lib/supabase-server";
-import { ensurePersistedRuntimeStoreConfigured } from "@/lib/runtime-persistence";
+import {
+  ensurePersistedRuntimeStoreConfigured,
+  shouldUsePersistedRuntimeStore,
+} from "@/lib/runtime-persistence";
+
+// エピソード本体・台本メタと同じく「本番かつSupabase設定あり」のときだけ Supabase を使う。
+// ローカルでは Supabase を触らず、config のローカルファイルにフォールバックする。
+function remoteCompetitorsEnabled(): boolean {
+  return shouldUsePersistedRuntimeStore() && isSupabaseConfigured();
+}
 
 const COMPETITORS_BUCKET = "scriptstudio-competitors-config";
 const COMPETITORS_OBJECT_PATH = "competitors.json";
@@ -40,7 +49,7 @@ function parsePersistedCompetitors(raw: string): CompetitorChannel[] | null {
 }
 
 async function ensureCompetitorsBucket(): Promise<void> {
-  if (bucketReady || !isSupabaseConfigured()) return;
+  if (bucketReady || !remoteCompetitorsEnabled()) return;
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.storage.listBuckets();
   if (error) throw new Error(error.message);
@@ -59,7 +68,7 @@ async function ensureCompetitorsBucket(): Promise<void> {
 }
 
 export async function readPersistedCompetitorsConfig(): Promise<CompetitorChannel[] | null> {
-  if (!isSupabaseConfigured()) return null;
+  if (!remoteCompetitorsEnabled()) return null;
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.storage
     .from(COMPETITORS_BUCKET)
@@ -93,7 +102,7 @@ export async function writePersistedCompetitorsConfig(
   channels: CompetitorChannel[],
 ): Promise<CompetitorChannel[]> {
   ensurePersistedRuntimeStoreConfigured("競合チャンネル設定");
-  if (!isSupabaseConfigured()) return channels;
+  if (!remoteCompetitorsEnabled()) return channels;
   try {
     await ensureCompetitorsBucket();
     await uploadPersistedCompetitorsConfig(channels);

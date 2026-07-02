@@ -1,4 +1,15 @@
 import { getSupabaseServer, isSupabaseConfigured } from "./supabase-server";
+import { shouldUsePersistedRuntimeStore } from "./runtime-persistence";
+
+/**
+ * 台本メタ（更新者/日時/fingerprint）は「本番かつSupabase設定あり」のときだけ
+ * Supabase に保存する。エピソード本体（episode-files-store）と同じ判定に揃える。
+ * ローカルでは Supabase を触らず、manifest 側のメタだけを使う
+ * （ローカルなのにメタだけ遠隔アクセスして到達失敗で保存が落ちるのを防ぐ）。
+ */
+function remoteScriptMetaEnabled(): boolean {
+  return shouldUsePersistedRuntimeStore() && isSupabaseConfigured();
+}
 
 export interface PersistedScriptMeta {
   updatedAt: string;
@@ -41,7 +52,7 @@ function parsePersistedScriptMeta(raw: string): PersistedScriptMeta | null {
 }
 
 async function ensureScriptMetaBucket(): Promise<void> {
-  if (bucketReady || !isSupabaseConfigured()) return;
+  if (bucketReady || !remoteScriptMetaEnabled()) return;
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.storage.listBuckets();
   if (error) throw new Error(error.message);
@@ -63,7 +74,7 @@ export async function readPersistedScriptMeta(
   number: number,
   slug: string,
 ): Promise<PersistedScriptMeta | null> {
-  if (!isSupabaseConfigured()) return null;
+  if (!remoteScriptMetaEnabled()) return null;
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.storage
     .from(SCRIPT_META_BUCKET)
@@ -100,7 +111,7 @@ export async function writePersistedScriptMeta(
   slug: string,
   meta: PersistedScriptMeta,
 ): Promise<PersistedScriptMeta> {
-  if (!isSupabaseConfigured()) return meta;
+  if (!remoteScriptMetaEnabled()) return meta;
   try {
     await ensureScriptMetaBucket();
     await uploadPersistedScriptMeta(number, slug, meta);
