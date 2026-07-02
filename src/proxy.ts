@@ -9,7 +9,9 @@ import {
   verifySiteAccess,
 } from "@/lib/site-access";
 
-const PUBLIC_PATHS = ["/login", "/api/site-auth/login"];
+// /api/keep-alive は Vercel Cron から叩かれる。サイト認証（ログイン）ではなく
+// CRON_SECRET で保護するため、ここでは認証対象外にする。
+const PUBLIC_PATHS = ["/login", "/api/site-auth/login", "/api/keep-alive"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
