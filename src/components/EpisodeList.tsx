@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { PanelLeftClose, RefreshCw } from "lucide-react";
 import type { Episode, EpisodeStatus } from "@/lib/types";
 import { toUserMessage } from "@/lib/error-message";
 import {
@@ -34,6 +34,8 @@ interface Props {
   onSelect: (episode: Episode) => void;
   onStatusChange?: (episode: Episode, status: EpisodeStatus) => void;
   onDeleted?: (deletedSlugs: string[]) => void;
+  /** 指定時、ヘッダーに「たたむ」ボタンを表示する（PC のペイン開閉用） */
+  onCollapse?: () => void;
 }
 
 export function EpisodeList({
@@ -48,6 +50,7 @@ export function EpisodeList({
   onSelect,
   onStatusChange,
   onDeleted,
+  onCollapse,
 }: Props) {
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
@@ -130,6 +133,19 @@ export function EpisodeList({
       <div className="h-[52px] px-3 border-b border-gray-200 flex items-center justify-between gap-2">
         <h1 className="text-sm font-semibold text-gray-700 shrink-0">エピソード</h1>
         <div className="flex items-center gap-1.5 min-w-0">
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="エピソード一覧をたたむ"
+              aria-label="エピソード一覧をたたむ"
+              aria-expanded={true}
+              aria-controls="episode-pane"
+              className="p-1 rounded-md border border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <PanelLeftClose className="size-3.5" />
+            </button>
+          )}
           {deleteMode ? (
             <>
               <span className="text-[10px] text-gray-500 truncate">

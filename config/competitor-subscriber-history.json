@@ -7,6 +7,10 @@
     {
       "date": "2026-05-25",
       "subscriberCount": 9230
+    },
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 10300
     }
   ],
   "UCCIPlDofGZVef3HArQBRrEw": [
@@ -17,6 +21,10 @@
     {
       "date": "2026-05-25",
       "subscriberCount": 108000
+    },
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 116000
     }
   ],
   "UCFy2R0BE58JGfJuM5jUd4Yg": [
@@ -27,6 +35,10 @@
     {
       "date": "2026-05-25",
       "subscriberCount": 88200
+    },
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 99600
     }
   ],
   "UCboaqA4fwGpljEKeUjO1iVQ": [
@@ -37,12 +49,44 @@
     {
       "date": "2026-05-25",
       "subscriberCount": 61600
+    },
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 66200
     }
   ],
   "UC4Cm8mh5_OlQlj5kJh0zY9A": [
     {
       "date": "2026-05-25",
       "subscriberCount": 103000
+    },
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 109000
+    }
+  ],
+  "UCfapRkagDtoQEkGeyD3uERQ": [
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 204000
+    }
+  ],
+  "UCr4-5xht5q4xvwOoSvQuwCA": [
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 69000
+    }
+  ],
+  "UCRvvn1iG_FBoYlWv1XJliZQ": [
+    {
+      "date": "2026-06-30",
+      "subscriberCount": 189000
+    }
+  ],
+  "UCYhXmcP7xSyGd5RFe15YJOg": [
+    {
+      "date": "2026-07-02",
+      "subscriberCount": 1770000
     }
   ]
 }

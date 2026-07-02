@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import AppIcon from "@image/ScriptStudioIcon.svg";
-import { Loader2 } from "lucide-react";
+import { Loader2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { CompetitorSettingsDialog } from "@/components/CompetitorSettingsDialog";
 import { EpisodeList } from "@/components/EpisodeList";
 import { PatternSelector } from "@/components/PatternSelector";
@@ -21,7 +22,32 @@ function StepBadge({ n }: { n: number }) {
   );
 }
 
+/** 各ペインの開閉状態の記憶キー（"0" = たたむ） */
+const EPISODE_PANE_KEY = "scriptstudio_episode_pane_open";
+const THEME_PANE_KEY = "scriptstudio_theme_pane_open";
+
 export function DesktopStudio({ studio }: { studio: StudioState }) {
+  // ペインの開閉（ワンタップ切替・リロード後も維持）
+  const [episodePaneOpen, setEpisodePaneOpen] = useState(true);
+  const [themePaneOpen, setThemePaneOpen] = useState(true);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEpisodePaneOpen(localStorage.getItem(EPISODE_PANE_KEY) !== "0");
+    setThemePaneOpen(localStorage.getItem(THEME_PANE_KEY) !== "0");
+  }, []);
+  const toggleEpisodePane = () => {
+    setEpisodePaneOpen((prev) => {
+      localStorage.setItem(EPISODE_PANE_KEY, prev ? "0" : "1");
+      return !prev;
+    });
+  };
+  const toggleThemePane = () => {
+    setThemePaneOpen((prev) => {
+      localStorage.setItem(THEME_PANE_KEY, prev ? "0" : "1");
+      return !prev;
+    });
+  };
+
   const {
     selectedEpisode,
     pattern,
@@ -62,26 +88,50 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
-      {/* Pane 1: エピソード一覧 */}
-      <div className="w-52 shrink-0 border-r border-gray-200 overflow-hidden flex flex-col">
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <EpisodeList
-            episodes={episodes}
-            loading={episodesLoading}
-            onRefresh={loadEpisodes}
-            selectedId={selectedEpisode?.id ?? null}
-            selectedSlug={selectedEpisode?.slug ?? null}
-            titleOverride={titleOverride}
-            numberOverride={numberOverride}
-            statusOverride={statusOverride}
-            onSelect={handleEpisodeSelect}
-            onStatusChange={handleStatusChange}
-            onDeleted={handleEpisodesDeleted}
-          />
-        </div>
-        {/* アカウント：ログイン中のユーザー名とログアウト */}
-        <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
-          <UserMenu className="justify-between" />
+      {/* Pane 1: エピソード一覧（ワンタップで開閉。たたむと縦ラベルのレールになる） */}
+      {!episodePaneOpen && (
+        <button
+          type="button"
+          onClick={toggleEpisodePane}
+          aria-expanded={false}
+          aria-controls="episode-pane"
+          title="エピソード一覧を開く"
+          className="w-10 shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col items-center gap-3 pt-3 hover:bg-gray-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+        >
+          <PanelLeftOpen className="size-4 text-gray-400" />
+          <span className="text-xs font-semibold text-gray-500 [writing-mode:vertical-rl] tracking-widest">
+            エピソード
+          </span>
+        </button>
+      )}
+      <div
+        id="episode-pane"
+        className={`shrink-0 overflow-hidden transition-[width,visibility] duration-200 ${
+          episodePaneOpen ? "w-52 visible border-r border-gray-200" : "w-0 invisible"
+        }`}
+      >
+        {/* 開閉アニメーション中も中身が潰れないよう、内側は固定幅で保持する */}
+        <div className="w-52 h-full flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <EpisodeList
+              episodes={episodes}
+              loading={episodesLoading}
+              onRefresh={loadEpisodes}
+              selectedId={selectedEpisode?.id ?? null}
+              selectedSlug={selectedEpisode?.slug ?? null}
+              titleOverride={titleOverride}
+              numberOverride={numberOverride}
+              statusOverride={statusOverride}
+              onSelect={handleEpisodeSelect}
+              onStatusChange={handleStatusChange}
+              onDeleted={handleEpisodesDeleted}
+              onCollapse={toggleEpisodePane}
+            />
+          </div>
+          {/* アカウント：ログイン中のユーザー名とログアウト */}
+          <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
+            <UserMenu className="justify-between" />
+          </div>
         </div>
       </div>
 
@@ -110,37 +160,72 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">
-          {/* Pane 2: テーマ選定 */}
-          <div className="w-80 shrink-0 border-r border-gray-200 bg-white flex flex-col overflow-hidden">
-            <div className="h-[52px] px-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                <StepBadge n={1} />
+          {/* Pane 2: テーマ選定（ワンタップで開閉。たたむと縦ラベルのレールになる） */}
+          {!themePaneOpen && (
+            <button
+              type="button"
+              onClick={toggleThemePane}
+              aria-expanded={false}
+              aria-controls="theme-pane"
+              title="テーマ選定を開く"
+              className="w-10 shrink-0 border-r border-gray-200 bg-white flex flex-col items-center gap-3 pt-3 hover:bg-gray-50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+            >
+              <PanelLeftOpen className="size-4 text-gray-400" />
+              <StepBadge n={1} />
+              <span className="text-xs font-semibold text-gray-500 [writing-mode:vertical-rl] tracking-widest">
                 テーマ選定
-              </h2>
-              <div className="flex items-center gap-1.5">
-                <CompetitorSettingsDialog />
-                <button
-                  onClick={handleNewEpisode}
-                  className="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-md transition-colors"
-                >
-                  リセット
-                </button>
+              </span>
+            </button>
+          )}
+          <div
+            id="theme-pane"
+            className={`shrink-0 bg-white overflow-hidden transition-[width,visibility] duration-200 ${
+              themePaneOpen ? "w-80 visible border-r border-gray-200" : "w-0 invisible"
+            }`}
+          >
+            {/* 開閉アニメーション中も中身が潰れないよう、内側は固定幅で保持する */}
+            <div className="w-80 h-full flex flex-col overflow-hidden">
+              <div className="h-[52px] px-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <StepBadge n={1} />
+                  テーマ選定
+                </h2>
+                <div className="flex items-center gap-1.5">
+                  <CompetitorSettingsDialog />
+                  <button
+                    onClick={handleNewEpisode}
+                    className="text-xs text-gray-400 hover:text-blue-500 border border-gray-200 hover:border-blue-300 px-2 py-1 rounded-md transition-colors"
+                  >
+                    リセット
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleThemePane}
+                    aria-expanded={true}
+                    aria-controls="theme-pane"
+                    title="テーマ選定をたたむ"
+                    aria-label="テーマ選定をたたむ"
+                    className="text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 p-1 rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  >
+                    <PanelLeftClose className="size-3.5" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <PatternSelector
-                pattern={pattern}
-                onChange={(p) => {
-                  setPattern(p);
-                  setSelectedCandidate(null);
-                }}
-              />
-              <ThemeInput
-                key={workspaceResetKey}
-                pattern={pattern}
-                onSelect={(c) => setSelectedCandidate(c)}
-                onAnalysisStart={handleAnalysisStart}
-              />
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <PatternSelector
+                  pattern={pattern}
+                  onChange={(p) => {
+                    setPattern(p);
+                    setSelectedCandidate(null);
+                  }}
+                />
+                <ThemeInput
+                  key={workspaceResetKey}
+                  pattern={pattern}
+                  onSelect={(c) => setSelectedCandidate(c)}
+                  onAnalysisStart={handleAnalysisStart}
+                />
+              </div>
             </div>
           </div>
 

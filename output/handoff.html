@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta property="og:title" content="セッション引き継ぎ（handoff / pickup）の仕組み">
+  <meta property="og:description" content="Claude Code のカスタムスラッシュコマンドで、セッションを跨いで作業を確実に引き継ぐ仕組みを図解。終了時に /handoff で状態を1ファイルに保存し、次回 /pickup で読み込んで続きから再開する。">
+  <meta property="og:type" content="article">
+  <title>セッション引き継ぎ（handoff / pickup）の仕組み</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23ffffff'/><rect x='8' y='8' width='84' height='84' rx='12' fill='none' stroke='%23000' stroke-width='4'/><rect x='20' y='55' width='60' height='12' rx='2' fill='%23c9fe6e'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Gothic+Expanded+One&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            giz: {
+              lime: '#c9fe6e',
+              'lime-dark': '#8fbc3a',
+              'lime-deep': '#5a7c2a',
+              forest: '#2d6a4f',
+              'forest-light': '#40916c',
+              moss: '#52796f',
+              'moss-light': '#6d8f7a',
+              sea: '#3d8b7a',
+              'sea-light': '#5ab3a0',
+              violet: '#8B6BB8',
+              'violet-dark': '#6B4F9A',
+              orange: '#FF9500',
+              'orange-dark': '#e08600',
+              honey: '#FF9500',
+              'honey-dark': '#e08600',
+              coral: '#e76f51',
+              'coral-dark': '#c44a32',
+              mist: '#eef8dc',
+              'mist-deep': '#d8f0b8',
+              'mist-ink': '#2f4a28',
+              terminal: '#1a2e22',
+              'terminal-bar': '#243d2e',
+              black: '#000000',
+              white: '#ffffff',
+              gray: '#737373',
+              'gray-mid': '#bfbfbf',
+              surface: '#f5f5f5',
+              ink: '#262626',
+            }
+          },
+          fontFamily: {
+            /* 英数字 → Special Gothic、日本語 → Noto（記事ページと同じフォールバック順） */
+            sans: ['"Special Gothic Expanded One"', '"Noto Sans JP"', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Yu Gothic UI"', '"Meiryo"', 'sans-serif'],
+            jp: ['"Noto Sans JP"', '"Hiragino Sans"', 'sans-serif'],
+            display: ['"Special Gothic Expanded One"', '"Noto Sans JP"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Gizmodo Japan: 英数字は Special Gothic、日本語は Noto にフォールバック */
+    :root {
+      --giz-font-stack: 'Special Gothic Expanded One', 'Noto Sans JP', 'Hiragino Sans',
+        'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', Meiryo, sans-serif;
+      --giz-font-jp: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+      --giz-shell-max: 48rem;
+      --giz-content-max: 48rem;
+      --giz-shell-radius: 1.25rem;
+      --giz-header-offset: 4.5rem;
+      --giz-lime: #c9fe6e;
+      --giz-toc-width: 16rem;
+      --giz-toc-gap: 1.25rem;
+      --giz-toc-rail-min: 64rem;
+    }
+
+    @media (min-width: 768px) {
+      :root {
+        --giz-shell-radius: 6rem;
+        --giz-header-offset: 5.25rem;
+      }
+    }
+
+    html {
+      font-family: var(--giz-font-stack);
+      scroll-behavior: smooth;
+    }
+
+    body::after {
+      content: '';
+      display: block;
+      height: 3px;
+      width: 100%;
+      background-color: #000;
+      border-radius: 3px;
+    }
+
+    @media (min-width: 768px) {
+      body.giz-page-body::after {
+        display: none;
+      }
+    }
+
+    .giz-page-body {
+      min-height: 100vh;
+      background: #000;
+      padding: 0;
+    }
+
+    .giz-page-shell {
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      background: #fff;
+      border-radius: var(--giz-shell-radius);
+      overflow: hidden;
+    }
+
+    .giz-site-footer {
+      background: #000;
+      color: #fff;
+    }
+
+    @media (min-width: 768px) {
+      .giz-site-footer {
+        padding: 2.5rem 1.25rem 3rem;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .giz-site-footer {
+        padding: 2rem 0.625rem 2.5rem;
+      }
+    }
+
+    .giz-footer-inner {
+      max-width: var(--giz-content-max);
+      margin: 0 auto;
+    }
+
+    .giz-footer-top-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .giz-footer-social {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .giz-footer-icon-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.5rem;
+      height: 2.25rem;
+      padding: 0 0.75rem;
+      border-radius: 0.5rem;
+      background: #333;
+      color: #fff;
+      text-decoration: none;
+      transition: background 0.15s ease;
+    }
+
+    .giz-footer-icon-pill:hover {
+      background: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-icon-pill:focus-visible {
+      outline: 2px solid var(--giz-lime);
+      outline-offset: 2px;
+      background: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-icon-pill i {
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+
+    .giz-footer-label {
+      font-family: var(--giz-font-jp);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.55);
+      margin-bottom: 0.75rem;
+    }
+
+    .giz-footer-topic-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .giz-footer-topic-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.55rem 1rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: #141414;
+      color: #fff;
+      font-family: var(--giz-font-jp);
+      font-size: 0.75rem;
+      line-height: 1.35;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .giz-footer-topic-btn:hover {
+      background: var(--giz-lime);
+      border-color: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-topic-btn:focus-visible {
+      outline: 2px solid var(--giz-lime);
+      outline-offset: 2px;
+      background: var(--giz-lime);
+      border-color: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-footer-topic-btn i {
+      font-size: 0.65rem;
+      opacity: 0.7;
+    }
+
+    main {
+      font-family: inherit;
+      font-weight: 400;
+      line-height: 1.85;
+      color: #262626;
+      background: #fff;
+    }
+
+    main h1.diagram-page-title {
+      font-family: var(--giz-font-stack);
+      font-weight: 600;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+      color: #000;
+    }
+
+    /* タイトル内の API など英字はディスプレイ体を明示 */
+    main h1.diagram-page-title .giz-latin {
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+    }
+
+    main h2 {
+      font-family: var(--giz-font-stack);
+      font-weight: 600;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+      color: #262626;
+    }
+
+    main h3,
+    main h4 {
+      font-family: inherit;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    main strong {
+      font-weight: 600;
+    }
+
+    main pre,
+    main pre code,
+    main .font-mono {
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+      line-height: 1.7;
+    }
+
+    /* ダークコードブロック: main の giz-ink 継承を打ち消す */
+    main pre,
+    main pre code {
+      color: #e2e8f0;
+    }
+
+    main pre .text-slate-500 { color: #94a3b8; }
+    main pre .text-slate-400 { color: #cbd5e1; }
+    main pre .text-purple-400 { color: #c4b5fd; }
+    main pre .text-blue-400 { color: #7dd3fc; }
+    main pre .text-emerald-400 { color: #86efac; }
+    main pre .text-giz-orange { color: #ffb84d; }
+
+    main i.fa-solid:not(.hidden) {
+      display: inline-block;
+      line-height: 1;
+      vertical-align: -0.12em;
+    }
+
+    main i.fa-solid.hidden {
+      display: none !important;
+    }
+
+    @media (min-width: 768px) {
+      main i.fa-solid.hidden.md\:block {
+        display: inline-block !important;
+      }
+      main i.fa-solid.md\:hidden {
+        display: none !important;
+      }
+    }
+
+    main i.fa-solid.w-3\.5,
+    main i.fa-solid[class*="w-3.5"] { font-size: 0.875rem; }
+    main i.fa-solid.w-4 { font-size: 1rem; }
+    main i.fa-solid.w-5 { font-size: 1.25rem; }
+    main i.fa-solid.w-6 { font-size: 1.5rem; }
+    main i.fa-solid.w-7 { font-size: 1.75rem; }
+    main i.fa-solid.w-8 { font-size: 2rem; }
+    main i.fa-solid.w-10 { font-size: 2.5rem; }
+
+    main section.giz-section h2 {
+      padding-bottom: 0.5rem;
+      border-bottom: 3px solid #000;
+      border-radius: 0 0 3px 3px;
+    }
+
+    .giz-latin,
+    .giz-badge,
+    .giz-label,
+    .font-display {
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-synthesis: weight;
+    }
+
+    .giz-badge,
+    .giz-label,
+    .font-display {
+      font-weight: 400;
+      letter-spacing: 0.04em;
+    }
+
+    .giz-label {
+      text-transform: uppercase;
+    }
+
+    /* 日本語のみの段落は Noto を優先（英数字混在段落はスタックで自動切替） */
+    .font-jp {
+      font-family: var(--giz-font-jp);
+    }
+
+    .giz-badge {
+      font-size: 0.65rem;
+    }
+
+    /* ヒーローのジャンル表示のみ Chrome ライム */
+    .giz-genre-badge {
+      background-color: color-mix(in srgb, var(--giz-lime) 38%, #fff);
+      color: #5a7c2a;
+      border: 1px solid color-mix(in srgb, var(--giz-lime) 60%, #bfbfbf);
+    }
+
+    .giz-genre-badge i {
+      color: inherit;
+    }
+
+    .giz-label {
+      font-size: 0.6875rem;
+    }
+
+    .level-primary { font-weight: 600; color: #000; }
+    .level-secondary { font-size: 0.9375rem; font-weight: 400; color: #737373; line-height: 1.85; }
+    .level-tertiary { font-size: 0.75rem; font-weight: 400; color: #737373; }
+
+    .giz-site-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      border-radius: var(--giz-shell-radius) var(--giz-shell-radius) 0 0;
+      overflow: hidden;
+      isolation: isolate;
+      background: transparent;
+    }
+
+    /* 角丸は親、膜（blur）は子 — 同一要素だと角が黒ずむ */
+    .giz-site-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: rgba(255, 255, 255, 0.78);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2) brightness(1.06);
+      backdrop-filter: blur(14px) saturate(1.2) brightness(1.06);
+      pointer-events: none;
+    }
+
+    .giz-site-header .giz-header-bar {
+      position: relative;
+      z-index: 1;
+    }
+
+    .giz-page-shell > main {
+      padding-top: calc(var(--giz-header-offset) + 1.5rem);
+    }
+
+    @media (min-width: 768px) {
+      .giz-page-shell > main {
+        padding-top: calc(var(--giz-header-offset) + 2.5rem);
+      }
+    }
+
+    @media (min-width: 768px) {
+      .giz-site-header .giz-header-bar {
+        padding: 1.25rem 1.5rem 1.35rem;
+        max-width: var(--giz-content-max);
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .giz-site-header .giz-header-bar {
+        padding: 0.85rem 1rem 1rem;
+      }
+    }
+
+    .giz-header-clock-time {
+      display: block;
+      font-size: 1.125rem;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: #000;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .giz-header-clock-tz {
+      display: block;
+      font-size: 0.625rem;
+      letter-spacing: 0.16em;
+      color: #000;
+      margin-top: 0.15rem;
+    }
+
+    .giz-site-header i.fa-solid {
+      display: inline-block;
+      line-height: 1;
+    }
+
+    .giz-header-actions {
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      position: relative;
+    }
+
+    .giz-header-toc-wrap {
+      position: relative;
+    }
+
+    .giz-header-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      border: 2px solid #000;
+      border-radius: 9999px;
+      padding: 0.45rem 1rem 0.45rem 1.2rem;
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      color: #000;
+      background: #fff;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .giz-header-menu-btn:hover:not([aria-expanded="true"]) {
+      background: var(--giz-lime);
+    }
+
+    .giz-header-menu-dots span {
+      display: block;
+      width: 3px;
+      height: 3px;
+      border-radius: 9999px;
+      background: #000;
+    }
+
+    .giz-header-menu-btn[aria-expanded="true"] {
+      background: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-header-menu-btn[aria-expanded="true"] .giz-header-menu-dots span {
+      background: #000;
+    }
+
+    .giz-header-pdf-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 2px solid #000;
+      border-radius: 9999px;
+      padding: 0.45rem 1rem;
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      color: #000;
+      background: #fff;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .giz-header-pdf-btn:hover {
+      background: var(--giz-lime);
+    }
+
+    .giz-toc-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 55;
+      background: rgba(0, 0, 0, 0.55);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+
+    .giz-toc-backdrop[hidden] {
+      display: none;
+    }
+
+    .giz-header-toc-panel {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+      z-index: 60;
+      padding: 0;
+    }
+
+    .giz-header-toc-panel[hidden] {
+      display: none !important;
+    }
+
+    .giz-toc-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.9rem 0.9rem 0.85rem 1rem;
+      background: #000;
+      border-bottom: 3px solid var(--giz-lime);
+      flex-shrink: 0;
+    }
+
+    .giz-toc-head-text {
+      min-width: 0;
+    }
+
+    .giz-toc-head-label {
+      margin: 0;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-size: 0.625rem;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      line-height: 1;
+      color: var(--giz-lime);
+    }
+
+    .giz-toc-head-title {
+      margin: 0.3rem 0 0;
+      font-family: var(--giz-font-jp);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+    }
+
+    .giz-toc-close {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.125rem;
+      height: 2.125rem;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-radius: 9999px;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .giz-toc-close i {
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    .giz-toc-close:hover {
+      background: var(--giz-lime);
+      border-color: var(--giz-lime);
+      color: #000;
+    }
+
+    .giz-header-toc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0.65rem;
+      overflow-y: auto;
+      flex: 1;
+      counter-reset: giz-toc;
+      font-family: var(--giz-font-jp);
+      font-size: 0.8125rem;
+      line-height: 1.45;
+    }
+
+    .giz-header-toc-list li {
+      counter-increment: giz-toc;
+    }
+
+    .giz-header-toc-list a {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.7rem 0.75rem;
+      margin-bottom: 0.3rem;
+      border-radius: 0.75rem;
+      border: 1px solid transparent;
+      color: #262626;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .giz-header-toc-list a::before {
+      content: counter(giz-toc, decimal-leading-zero);
+      flex-shrink: 0;
+      min-width: 1.35rem;
+      font-family: 'Special Gothic Expanded One', sans-serif;
+      font-size: 0.6875rem;
+      letter-spacing: 0.02em;
+      line-height: 1.45;
+      color: #737373;
+    }
+
+    .giz-header-toc-list li:last-child a {
+      margin-bottom: 0;
+    }
+
+    .giz-header-toc-list a:hover,
+    .giz-header-toc-list a:focus-visible {
+      background: rgba(201, 254, 110, 0.38);
+      border-color: rgba(0, 0, 0, 0.1);
+      color: #000;
+      outline: none;
+    }
+
+    .giz-header-toc-list a.is-active {
+      background: rgba(201, 254, 110, 0.55);
+      border-color: rgba(0, 0, 0, 0.15);
+      color: #000;
+      font-weight: 600;
+    }
+
+    .giz-header-toc-list a.is-active::before {
+      color: #000;
+    }
+
+    @media (max-width: 63.9375rem) {
+      body.giz-toc-open {
+        overflow: hidden;
+      }
+
+      .giz-header-toc-panel {
+        position: fixed;
+        left: 50%;
+        right: auto;
+        top: auto;
+        bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        width: min(22rem, calc(100vw - 1.25rem));
+        max-height: min(70vh, 32rem);
+      }
+
+      .giz-header-toc-panel:not([hidden]) {
+        animation: giz-toc-rise 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes giz-toc-rise {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(1.25rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+    }
+
+    @media (min-width: 64rem) {
+      .giz-toc-backdrop {
+        display: none !important;
+      }
+
+      .giz-header-toc-panel {
+        position: fixed;
+        top: calc(var(--giz-header-offset) + 1.25rem);
+        left: calc(50% + (var(--giz-content-max) / 2) + var(--giz-toc-gap));
+        right: auto;
+        width: var(--giz-toc-width);
+        max-height: calc(100vh - var(--giz-header-offset) - 2.5rem);
+        border-radius: 1rem;
+        transform: none;
+      }
+
+      .giz-toc-rail .giz-toc-close {
+        display: none;
+      }
+
+      .giz-header-toc-panel:not([hidden]) {
+        animation: giz-toc-slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes giz-toc-slide-in {
+        from {
+          opacity: 0;
+          transform: translateX(0.75rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      body::after { display: none !important; }
+      .giz-page-body { background: #fff !important; padding: 0 !important; }
+      .giz-page-shell { border-radius: 0 !important; box-shadow: none !important; }
+      .giz-site-footer { display: none !important; }
+      .giz-toc-backdrop { display: none !important; }
+      .rounded-xl { break-inside: avoid; }
+      .md\:flex-row { flex-direction: row !important; }
+      .md\:hidden { display: none !important; }
+      .hidden.md\:block { display: block !important; }
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    }
+  </style>
+</head>
+<body class="giz-page-body text-giz-gray font-sans antialiased leading-relaxed">
+  <div class="giz-page-shell">
+  <header class="giz-site-header no-print">
+    <div class="giz-header-bar max-w-full mx-auto grid grid-cols-[1fr_auto] items-center gap-3">
+      <div class="giz-latin justify-self-start">
+        <time id="giz-header-clock-time" class="giz-header-clock-time" datetime="">00:00:00</time>
+        <span class="giz-header-clock-tz">JST</span>
+      </div>
+      <div class="giz-header-actions">
+        <div class="giz-header-toc-wrap">
+          <button type="button" id="giz-toc-toggle" class="giz-header-menu-btn giz-latin" aria-expanded="false" aria-controls="giz-toc-panel" aria-label="目次を開く">
+            <span>MENU</span>
+            <span class="giz-header-menu-dots inline-flex flex-col gap-[3px]" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+          </button>
+        </div>
+        <button type="button" onclick="window.print()" class="giz-header-pdf-btn giz-latin">
+          <i class="fa-solid fa-download text-[0.7rem]" aria-hidden="true"></i>
+          PDF
+        </button>
+      </div>
+    </div>
+  </header>
+  <div id="giz-toc-backdrop" class="giz-toc-backdrop no-print" hidden aria-hidden="true"></div>
+  <nav id="giz-toc-panel" class="giz-header-toc-panel no-print" hidden aria-label="目次">
+    <div class="giz-toc-head">
+      <div class="giz-toc-head-text">
+        <p class="giz-toc-head-label giz-latin">CONTENTS</p>
+        <p class="giz-toc-head-title">目次</p>
+      </div>
+      <button type="button" id="giz-toc-close" class="giz-toc-close" aria-label="目次を閉じる">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <ol class="giz-header-toc-list">
+      <li><a href="#top">引き継ぎの全体像</a></li>
+      <li><a href="#sec-summary">ひと目でわかる概要</a></li>
+      <li><a href="#sec-what-is-handoff">そもそも「引き継ぎ」って何？</a></li>
+      <li><a href="#sec-how">3つの登場人物（仕組み）</a></li>
+      <li><a href="#sec-where">どこに置く？（共通 vs 専用）</a></li>
+      <li><a href="#sec-tokens">トークンを節約する設計</a></li>
+      <li><a href="#sec-examples">使い方の具体例</a></li>
+      <li><a href="#sec-benefits">メリット</a></li>
+      <li><a href="#sec-misconceptions">よくある誤解</a></li>
+      <li><a href="#sec-summary-end">まとめ</a></li>
+    </ol>
+  </nav>
+  <main class="max-w-3xl mx-auto px-5 md:px-10 pb-10 md:pb-20 font-sans text-giz-ink bg-giz-white">
+
+<!-- CONTENT_START -->
+
+<!-- ===== HERO ===== -->
+<div id="top" class="text-center mb-10 md:mb-14 scroll-mt-24">
+  <div class="inline-flex items-center gap-2 giz-badge giz-genre-badge px-4 py-1.5 rounded-full mb-6">
+    <i class="fa-solid fa-arrows-spin" aria-hidden="true"></i> ワークフロー / Claude Code
+  </div>
+  <h1 class="diagram-page-title text-3xl md:text-5xl tracking-tight mb-5">
+    セッション<span class="giz-latin bg-gradient-to-r from-giz-lime-deep to-giz-sea bg-clip-text text-transparent">引き継ぎ</span>の仕組み
+  </h1>
+  <p class="giz-latin text-base md:text-lg text-giz-gray mb-5 tracking-wide">/handoff &nbsp;→&nbsp; /pickup</p>
+  <p class="text-lg text-giz-gray max-w-xl mx-auto leading-relaxed">
+    会話を閉じても作業を失わない。終わりに <strong class="text-giz-ink">/handoff</strong> で状態を1枚のメモに残し、次に <strong class="text-giz-ink">/pickup</strong> で読み直して、<strong class="text-giz-ink">続きから</strong>再開する仕組みです。
+  </p>
+</div>
+
+<!-- ===== SUMMARY ===== -->
+<section id="sec-summary" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">ひと目でわかる概要</h2>
+
+  <div class="bg-giz-surface border border-giz-gray-mid rounded-2xl p-6 md:p-10">
+    <p class="text-center text-lg md:text-xl font-bold text-giz-ink leading-relaxed mb-8">
+      引き継ぎとは、<span class="text-giz-lime-deep">作業の状態</span>を<span class="text-giz-lime-deep">1つのメモ</span>に書き残し、<br class="hidden md:block">
+      次のセッションがそれを読んで<span class="text-giz-lime-deep">続きから動く</span>こと。
+    </p>
+
+    <!-- フロー図 -->
+    <div class="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-3 md:gap-2">
+      <!-- node -->
+      <div class="flex-1 flex flex-col items-center text-center bg-white border border-giz-gray-mid rounded-xl p-4">
+        <div class="w-14 h-14 rounded-xl bg-giz-lime/25 flex items-center justify-center mb-2">
+          <i class="fa-solid fa-keyboard w-7 text-giz-lime-deep" aria-hidden="true"></i>
+        </div>
+        <p class="text-sm font-bold text-giz-ink">作業する</p>
+        <p class="level-tertiary mt-1">コードを書く・直す</p>
+      </div>
+      <div class="flex items-center justify-center text-giz-gray-mid md:px-1"><i class="fa-solid fa-arrow-down md:hidden" aria-hidden="true"></i><i class="fa-solid fa-arrow-right hidden md:block" aria-hidden="true"></i></div>
+      <!-- node -->
+      <div class="flex-1 flex flex-col items-center text-center bg-white border border-giz-gray-mid rounded-xl p-4">
+        <div class="w-14 h-14 rounded-xl bg-giz-lime/25 flex items-center justify-center mb-2">
+          <i class="fa-solid fa-floppy-disk w-7 text-giz-lime-deep" aria-hidden="true"></i>
+        </div>
+        <p class="text-sm font-bold text-giz-ink"><span class="giz-latin">/handoff</span></p>
+        <p class="level-tertiary mt-1">終わりに状態を保存</p>
+      </div>
+      <div class="flex items-center justify-center text-giz-gray-mid md:px-1"><i class="fa-solid fa-arrow-down md:hidden" aria-hidden="true"></i><i class="fa-solid fa-arrow-right hidden md:block" aria-hidden="true"></i></div>
+      <!-- node -->
+      <div class="flex-1 flex flex-col items-center text-center bg-white border-2 border-giz-sea rounded-xl p-4">
+        <div class="w-14 h-14 rounded-xl bg-giz-sea/15 flex items-center justify-center mb-2">
+          <i class="fa-solid fa-file-lines w-7 text-giz-sea" aria-hidden="true"></i>
+        </div>
+        <p class="text-sm font-bold text-giz-ink giz-latin">.claude/HANDOFF.md</p>
+        <p class="level-tertiary mt-1">引き継ぎメモ（1枚）</p>
+      </div>
+      <div class="flex items-center justify-center text-giz-gray-mid md:px-1"><i class="fa-solid fa-arrow-down md:hidden" aria-hidden="true"></i><i class="fa-solid fa-arrow-right hidden md:block" aria-hidden="true"></i></div>
+      <!-- node -->
+      <div class="flex-1 flex flex-col items-center text-center bg-white border border-giz-gray-mid rounded-xl p-4">
+        <div class="w-14 h-14 rounded-xl bg-giz-orange/20 flex items-center justify-center mb-2">
+          <i class="fa-solid fa-play w-7 text-giz-orange-dark" aria-hidden="true"></i>
+        </div>
+        <p class="text-sm font-bold text-giz-ink"><span class="giz-latin">/pickup</span></p>
+        <p class="level-tertiary mt-1">次回これで再開</p>
+      </div>
+    </div>
+
+    <p class="text-center level-secondary mt-8">
+      コマンド（<span class="giz-latin">/handoff</span>・<span class="giz-latin">/pickup</span>）は<strong class="text-giz-ink">全プロジェクト共通</strong>、メモ（<span class="giz-latin">HANDOFF.md</span>）は<strong class="text-giz-ink">プロジェクトごと</strong>に自動で分かれます。
+    </p>
+  </div>
+</section>
+
+<!-- ===== WHAT IS ===== -->
+<section id="sec-what-is-handoff" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">そもそも「引き継ぎ」って何？</h2>
+
+  <div class="bg-giz-surface border-l-4 border-l-giz-lime-deep border border-giz-gray-mid rounded-xl p-6 md:p-8 mb-6">
+    <p class="text-base md:text-lg leading-relaxed">
+      たとえるなら <strong class="text-giz-ink">駅伝のタスキ</strong>、あるいは <strong class="text-giz-ink">退勤前に残す引き継ぎノート</strong>。
+      走者（セッション）は途中で交代しても、タスキ（メモ）が渡れば次の走者は同じレースを続けられます。
+      AI との会話も同じで、1回のセッションは<strong class="text-giz-ink">いつか終わる</strong>——けれど作業はまだ途中。
+      その「途中」を文字で残しておけば、次のまっさらなセッションでも迷わず再開できます。
+    </p>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-3">
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5">
+      <div class="w-10 h-10 rounded-lg bg-giz-lime/25 flex items-center justify-center mb-3"><i class="fa-solid fa-circle-question w-5 text-giz-lime-deep" aria-hidden="true"></i></div>
+      <p class="font-bold text-giz-ink mb-1">何を残す？</p>
+      <p class="level-secondary">残タスク・決定事項・未コミットの状態・環境メモ。「次の人が即動ける情報」だけ。</p>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5">
+      <div class="w-10 h-10 rounded-lg bg-giz-sea/15 flex items-center justify-center mb-3"><i class="fa-solid fa-location-dot w-5 text-giz-sea" aria-hidden="true"></i></div>
+      <p class="font-bold text-giz-ink mb-1">どこに残す？</p>
+      <p class="level-secondary">プロジェクト直下の <span class="giz-latin text-xs bg-giz-surface px-1 rounded">.claude/HANDOFF.md</span> という1枚のテキスト。</p>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5">
+      <div class="w-10 h-10 rounded-lg bg-giz-orange/20 flex items-center justify-center mb-3"><i class="fa-solid fa-clock-rotate-left w-5 text-giz-orange-dark" aria-hidden="true"></i></div>
+      <p class="font-bold text-giz-ink mb-1">いつ使う？</p>
+      <p class="level-secondary">作業を中断するとき <span class="giz-latin">/handoff</span>、再開するとき <span class="giz-latin">/pickup</span>。</p>
+    </div>
+  </div>
+
+  <div class="bg-giz-mist border border-giz-mist-deep rounded-xl p-5 mt-6 flex gap-3">
+    <i class="fa-solid fa-lightbulb w-5 text-giz-lime-deep mt-0.5 shrink-0" aria-hidden="true"></i>
+    <p class="level-secondary text-giz-mist-ink">
+      ポイントは「<strong>会話の記憶</strong>」ではなく「<strong>ファイルの記憶</strong>」にすること。会話はセッションが終われば消えますが、ファイルはディスクに残るので、次のセッションが確実に読み直せます。
+    </p>
+  </div>
+</section>
+
+<!-- ===== HOW (3 roles) ===== -->
+<section id="sec-how" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">3つの登場人物（仕組み）</h2>
+
+  <div class="grid gap-4 md:grid-cols-3 mb-8">
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-6 border-l-4 border-l-giz-lime-deep">
+      <p class="giz-label text-giz-gray mb-1">ROLE 01 — 書記</p>
+      <p class="text-lg font-bold text-giz-ink giz-latin mb-2">/handoff</p>
+      <p class="level-secondary">いまの状態を集めて <span class="giz-latin">HANDOFF.md</span> に書き出す。古いログは5件に剪定して軽く保つ。</p>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-6 border-l-4 border-l-giz-sea">
+      <p class="giz-label text-giz-gray mb-1">ROLE 02 — ノート</p>
+      <p class="text-lg font-bold text-giz-ink giz-latin mb-2">.claude/HANDOFF.md</p>
+      <p class="level-secondary">状態の置き場所。プロジェクト直下に1枚。コマンドではなく「データ」。</p>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-6 border-l-4 border-l-giz-orange-dark">
+      <p class="giz-label text-giz-gray mb-1">ROLE 03 — 再開係</p>
+      <p class="text-lg font-bold text-giz-ink giz-latin mb-2">/pickup</p>
+      <p class="level-secondary">ノートを読み、現状を要約して「最優先の残タスク」から再開する。</p>
+    </div>
+  </div>
+
+  <p class="font-bold text-giz-ink mb-3">コマンドの正体＝マークダウン1枚</p>
+  <p class="level-secondary mb-4">スラッシュコマンドは <span class="giz-latin text-xs bg-giz-surface px-1 rounded">~/.claude/commands/</span> に置いた <span class="giz-latin">.md</span> ファイル。ファイル名がそのままコマンド名になり、中身が「指示文」として実行されます。</p>
+
+  <pre class="bg-giz-terminal rounded-xl p-5 overflow-x-auto text-sm"><code><span class="text-slate-500"># ~/.claude/commands/handoff.md  →  /handoff</span>
+<span class="text-purple-400">---</span>
+<span class="text-blue-400">description</span>: 作業状態を .claude/HANDOFF.md に保存
+<span class="text-blue-400">allowed-tools</span>: Bash(git status:*), Read, Edit, Write
+<span class="text-purple-400">---</span>
+このプロジェクトの .claude/HANDOFF.md を最新化して。
+残タスク / 未コミット状態 / 環境メモ を含め、
+セッション指示ログは最新5件だけ残す。</code></pre>
+
+  <pre class="bg-giz-terminal rounded-xl p-5 overflow-x-auto text-sm mt-4"><code><span class="text-slate-500"># ~/.claude/commands/pickup.md  →  /pickup</span>
+<span class="text-purple-400">---</span>
+<span class="text-blue-400">description</span>: HANDOFF.md を読んで前回の続きから再開
+<span class="text-blue-400">allowed-tools</span>: Read
+<span class="text-purple-400">---</span>
+.claude/HANDOFF.md を読み、現状を3行で要約して
+「最優先の残タスク」から再開して。</code></pre>
+</section>
+
+<!-- ===== WHERE ===== -->
+<section id="sec-where" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">どこに置く？（共通 vs 専用）</h2>
+
+  <p class="level-secondary mb-6">置き場所で「効く範囲」が決まります。<strong class="text-giz-ink">コマンドは全プロジェクト共通</strong>、<strong class="text-giz-ink">メモはプロジェクト専用</strong>——この2階建てが肝です。</p>
+
+  <div class="grid gap-4 md:grid-cols-2 mb-6">
+    <div class="bg-white border-2 border-giz-lime-deep rounded-xl p-6">
+      <div class="flex items-center gap-2 mb-3">
+        <i class="fa-solid fa-globe w-5 text-giz-lime-deep" aria-hidden="true"></i>
+        <p class="font-bold text-giz-ink">ユーザー階層（全プロジェクト共通）</p>
+      </div>
+      <p class="giz-latin text-sm bg-giz-surface px-2 py-1 rounded inline-block mb-3">~/.claude/commands/</p>
+      <ul class="space-y-2 level-secondary">
+        <li class="flex gap-2"><i class="fa-solid fa-check w-4 text-giz-lime-deep mt-1 shrink-0" aria-hidden="true"></i><span><span class="giz-latin">handoff.md</span> / <span class="giz-latin">pickup.md</span> をここに置く</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-4 text-giz-lime-deep mt-1 shrink-0" aria-hidden="true"></i><span>どのプロジェクトでも同じ <span class="giz-latin">/handoff</span>・<span class="giz-latin">/pickup</span> が使える</span></li>
+      </ul>
+    </div>
+    <div class="bg-white border-2 border-giz-sea rounded-xl p-6">
+      <div class="flex items-center gap-2 mb-3">
+        <i class="fa-solid fa-folder w-5 text-giz-sea" aria-hidden="true"></i>
+        <p class="font-bold text-giz-ink">プロジェクト階層（そのリポジトリ専用）</p>
+      </div>
+      <p class="giz-latin text-sm bg-giz-surface px-2 py-1 rounded inline-block mb-3">&lt;project&gt;/.claude/HANDOFF.md</p>
+      <ul class="space-y-2 level-secondary">
+        <li class="flex gap-2"><i class="fa-solid fa-check w-4 text-giz-sea mt-1 shrink-0" aria-hidden="true"></i><span><span class="giz-latin">/handoff</span> 実行時に、いまいるプロジェクト直下へ自動作成</span></li>
+        <li class="flex gap-2"><i class="fa-solid fa-check w-4 text-giz-sea mt-1 shrink-0" aria-hidden="true"></i><span>内容はプロジェクトごとに独立（混ざらない）</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <pre class="bg-giz-terminal rounded-xl p-5 overflow-x-auto text-sm"><code><span class="text-slate-500"># 置き場所のイメージ</span>
+~/.claude/commands/
+├─ handoff.md        <span class="text-emerald-400"># /handoff（全プロジェクト共通）</span>
+└─ pickup.md         <span class="text-emerald-400"># /pickup （全プロジェクト共通）</span>
+
+ProjectA/.claude/HANDOFF.md   <span class="text-slate-400"># A の引き継ぎ</span>
+ProjectB/.claude/HANDOFF.md   <span class="text-slate-400"># B の引き継ぎ（別物）</span></code></pre>
+
+  <div class="bg-giz-mist border border-giz-mist-deep rounded-xl p-5 mt-6 flex gap-3">
+    <i class="fa-solid fa-circle-info w-5 text-giz-sea mt-0.5 shrink-0" aria-hidden="true"></i>
+    <p class="level-secondary text-giz-mist-ink"><span class="giz-latin">.claude/</span> を <span class="giz-latin">.gitignore</span> 済みなら、<span class="giz-latin">HANDOFF.md</span> は自動的にリポジトリ非追跡になり、コミットを汚しません。チームで共有したいなら逆に追跡対象にします。</p>
+  </div>
+</section>
+
+<!-- ===== TOKENS ===== -->
+<section id="sec-tokens" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">トークンを節約する設計</h2>
+
+  <p class="level-secondary mb-6">「引き継ぎ」を <span class="giz-latin">CLAUDE.md</span> に書く方法もありますが、トークン効率では不利です。違いはこうです。</p>
+
+  <div class="grid gap-4 md:grid-cols-2 mb-6">
+    <div class="bg-white border border-giz-coral rounded-xl p-6 border-l-4 border-l-giz-coral">
+      <div class="flex items-center gap-2 mb-2"><i class="fa-solid fa-fire w-5 text-giz-coral-dark" aria-hidden="true"></i><p class="font-bold text-giz-ink"><span class="giz-latin">CLAUDE.md</span> に書く（自動ロード）</p></div>
+      <p class="level-secondary"><span class="giz-latin">CLAUDE.md</span> は<strong class="text-giz-ink">毎セッションの開始時に必ず読み込まれる</strong>。流動的な作業ログまで入れると、使う・使わないに関わらず<strong class="text-giz-ink">毎回トークンを消費</strong>します。</p>
+    </div>
+    <div class="bg-white border border-giz-lime-deep rounded-xl p-6 border-l-4 border-l-giz-lime-deep">
+      <div class="flex items-center gap-2 mb-2"><i class="fa-solid fa-feather w-5 text-giz-lime-deep" aria-hidden="true"></i><p class="font-bold text-giz-ink"><span class="giz-latin">/pickup</span> で読む（オンデマンド）</p></div>
+      <p class="level-secondary">コマンドの中身もメモも、<strong class="text-giz-ink">呼んだ時だけ</strong>ロード。待機中は<strong class="text-giz-ink">ゼロトークン</strong>。再開コストはファイルの長さ分だけ。</p>
+    </div>
+  </div>
+
+  <p class="font-bold text-giz-ink mb-3">効かせる唯一のレバー＝メモを肥大させない</p>
+  <div class="grid gap-3 md:grid-cols-3">
+    <div class="bg-giz-surface border border-giz-gray-mid rounded-xl p-5 text-center">
+      <p class="giz-latin text-2xl font-bold text-giz-lime-deep mb-1">0</p>
+      <p class="level-tertiary">待機中のトークン<br>（自動ロードしない）</p>
+    </div>
+    <div class="bg-giz-surface border border-giz-gray-mid rounded-xl p-5 text-center">
+      <p class="giz-latin text-2xl font-bold text-giz-sea mb-1">≤ 5</p>
+      <p class="level-tertiary">ログは最新5件に剪定<br>（全体60行目安）</p>
+    </div>
+    <div class="bg-giz-surface border border-giz-gray-mid rounded-xl p-5 text-center">
+      <p class="giz-latin text-2xl font-bold text-giz-orange-dark mb-1">1</p>
+      <p class="level-tertiary">再開時に読むのは<br>1ファイルだけ</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== EXAMPLES ===== -->
+<section id="sec-examples" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">使い方の具体例</h2>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5 flex gap-4">
+      <div class="w-12 h-12 rounded-xl bg-giz-lime/25 flex items-center justify-center shrink-0"><i class="fa-solid fa-mug-hot w-6 text-giz-lime-deep" aria-hidden="true"></i></div>
+      <div><p class="font-bold text-giz-ink mb-1">退勤前に保存</p><p class="level-secondary">作業を中断する前に <span class="giz-latin">/handoff</span>。残タスクと未コミット状態が1枚に残る。</p></div>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5 flex gap-4">
+      <div class="w-12 h-12 rounded-xl bg-giz-orange/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-sun w-6 text-giz-orange-dark" aria-hidden="true"></i></div>
+      <div><p class="font-bold text-giz-ink mb-1">翌朝に再開</p><p class="level-secondary">新しいセッションで <span class="giz-latin">/pickup</span>。3行要約のあと、続きから着手。</p></div>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5 flex gap-4">
+      <div class="w-12 h-12 rounded-xl bg-giz-sea/15 flex items-center justify-center shrink-0"><i class="fa-solid fa-layer-group w-6 text-giz-sea" aria-hidden="true"></i></div>
+      <div><p class="font-bold text-giz-ink mb-1">別プロジェクトでも同じ2語</p><p class="level-secondary">コマンドは共通なので、どのリポジトリでも <span class="giz-latin">/handoff</span>・<span class="giz-latin">/pickup</span> がそのまま効く。</p></div>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5 flex gap-4">
+      <div class="w-12 h-12 rounded-xl bg-giz-lime/25 flex items-center justify-center shrink-0"><i class="fa-solid fa-gauge-high w-6 text-giz-lime-deep" aria-hidden="true"></i></div>
+      <div><p class="font-bold text-giz-ink mb-1">コンテキスト上限が近い</p><p class="level-secondary">会話が長くなったら <span class="giz-latin">/handoff</span> → 新セッションで <span class="giz-latin">/pickup</span>。要点だけ持ち越して身軽に続行。</p></div>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5 flex gap-4">
+      <div class="w-12 h-12 rounded-xl bg-giz-orange/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-clock w-6 text-giz-orange-dark" aria-hidden="true"></i></div>
+      <div><p class="font-bold text-giz-ink mb-1">長時間タスクの中断/再開</p><p class="level-secondary">ビルド待ち・レビュー待ちで一旦離脱しても、状態をメモに固定して安全に戻れる。</p></div>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-5 flex gap-4">
+      <div class="w-12 h-12 rounded-xl bg-giz-sea/15 flex items-center justify-center shrink-0"><i class="fa-solid fa-people-arrows w-6 text-giz-sea" aria-hidden="true"></i></div>
+      <div><p class="font-bold text-giz-ink mb-1">担当を渡す</p><p class="level-secondary"><span class="giz-latin">HANDOFF.md</span> を共有（追跡）すれば、別の人・別のマシンでも同じ続きから。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== BENEFITS ===== -->
+<section id="sec-benefits" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">メリット</h2>
+
+  <div class="grid gap-4 md:grid-cols-3">
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-6 border-l-4 border-l-giz-lime-deep">
+      <i class="fa-solid fa-bullseye w-7 text-giz-lime-deep mb-3" aria-hidden="true"></i>
+      <p class="font-bold text-giz-ink mb-1">確実性</p>
+      <p class="level-secondary">毎回「同じ2語」。手打ちの定型文と違い、収集項目がブレない・忘れない。</p>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-6 border-l-4 border-l-giz-sea">
+      <i class="fa-solid fa-feather-pointed w-7 text-giz-sea mb-3" aria-hidden="true"></i>
+      <p class="font-bold text-giz-ink mb-1">低トークン</p>
+      <p class="level-secondary">自動ロードしないので待機中はゼロ。再開時に小さな1ファイルを読むだけ。</p>
+    </div>
+    <div class="bg-white border border-giz-gray-mid rounded-xl p-6 border-l-4 border-l-giz-orange-dark">
+      <i class="fa-solid fa-cubes-stacked w-7 text-giz-orange-dark mb-3" aria-hidden="true"></i>
+      <p class="font-bold text-giz-ink mb-1">汎用</p>
+      <p class="level-secondary">コマンドは全プロジェクト共通、メモはプロジェクト専用。新しいリポジトリでも即使える。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MISCONCEPTIONS ===== -->
+<section id="sec-misconceptions" class="giz-section mb-14 md:mb-20 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">よくある誤解</h2>
+
+  <div class="space-y-4">
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="bg-white border-2 border-giz-coral rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-coral-dark mb-1"><i class="fa-solid fa-xmark w-5" aria-hidden="true"></i>誤解</p>
+        <p class="level-secondary">引き継ぎは <span class="giz-latin">CLAUDE.md</span> に全部書けばいい。</p>
+      </div>
+      <div class="bg-white border-2 border-giz-lime-deep rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-lime-deep mb-1"><i class="fa-solid fa-check w-5" aria-hidden="true"></i>正解</p>
+        <p class="level-secondary"><span class="giz-latin">CLAUDE.md</span> は毎回課金される自動ロード。<strong class="text-giz-ink">流動的な作業状態</strong>は <span class="giz-latin">HANDOFF.md</span> に分離して、必要時だけ読む。</p>
+      </div>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="bg-white border-2 border-giz-coral rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-coral-dark mb-1"><i class="fa-solid fa-xmark w-5" aria-hidden="true"></i>誤解</p>
+        <p class="level-secondary">再開コマンドは <span class="giz-latin">/resume</span> で作ればいい。</p>
+      </div>
+      <div class="bg-white border-2 border-giz-lime-deep rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-lime-deep mb-1"><i class="fa-solid fa-check w-5" aria-hidden="true"></i>正解</p>
+        <p class="level-secondary"><span class="giz-latin">/resume</span> は Claude Code 組み込みコマンドと衝突する。別名の <strong class="text-giz-ink"><span class="giz-latin">/pickup</span></strong> にする。</p>
+      </div>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="bg-white border-2 border-giz-coral rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-coral-dark mb-1"><i class="fa-solid fa-xmark w-5" aria-hidden="true"></i>誤解</p>
+        <p class="level-secondary">履歴は全部メモに残したほうが安心。</p>
+      </div>
+      <div class="bg-white border-2 border-giz-lime-deep rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-lime-deep mb-1"><i class="fa-solid fa-check w-5" aria-hidden="true"></i>正解</p>
+        <p class="level-secondary">読むたびにトークンを食う。<strong class="text-giz-ink">最新5件に剪定</strong>して軽く保つほうが、結果的に長く使える。</p>
+      </div>
+    </div>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="bg-white border-2 border-giz-coral rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-coral-dark mb-1"><i class="fa-solid fa-xmark w-5" aria-hidden="true"></i>誤解</p>
+        <p class="level-secondary">毎回チャットに長い引き継ぎ文を貼ればいい。</p>
+      </div>
+      <div class="bg-white border-2 border-giz-lime-deep rounded-xl p-5">
+        <p class="flex items-center gap-2 font-bold text-giz-lime-deep mb-1"><i class="fa-solid fa-check w-5" aria-hidden="true"></i>正解</p>
+        <p class="level-secondary">自然文は揺れる・忘れる。<strong class="text-giz-ink">コマンド化</strong>すれば毎回同じ項目で確実・均一に書ける。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SUMMARY END ===== -->
+<section id="sec-summary-end" class="giz-section mb-10 md:mb-16 scroll-mt-24">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6 md:mb-8">まとめ</h2>
+
+  <div class="grid gap-4 md:grid-cols-3 mb-8">
+    <div class="bg-giz-surface border border-giz-gray-mid rounded-xl p-6">
+      <p class="giz-latin text-3xl font-bold text-giz-lime-deep mb-2">01</p>
+      <p class="font-bold text-giz-ink mb-1">2語で回す</p>
+      <p class="level-secondary">終了時 <span class="giz-latin">/handoff</span>、再開時 <span class="giz-latin">/pickup</span>。これだけ。</p>
+    </div>
+    <div class="bg-giz-surface border border-giz-gray-mid rounded-xl p-6">
+      <p class="giz-latin text-3xl font-bold text-giz-sea mb-2">02</p>
+      <p class="font-bold text-giz-ink mb-1">コマンドは共通・メモは専用</p>
+      <p class="level-secondary"><span class="giz-latin">~/.claude/commands</span> に置けば全プロジェクトで使え、<span class="giz-latin">HANDOFF.md</span> は自動で分かれる。</p>
+    </div>
+    <div class="bg-giz-surface border border-giz-gray-mid rounded-xl p-6">
+      <p class="giz-latin text-3xl font-bold text-giz-orange-dark mb-2">03</p>
+      <p class="font-bold text-giz-ink mb-1">軽く保つ</p>
+      <p class="level-secondary">自動ロードせず、ログは5件に剪定。待機中ゼロ・再開は1ファイルだけ。</p>
+    </div>
+  </div>
+
+  <div class="bg-giz-terminal rounded-2xl p-6 md:p-8 text-center">
+    <p class="text-giz-lime giz-latin text-sm tracking-widest mb-3">REMEMBER</p>
+    <p class="text-white text-lg md:text-xl font-bold leading-relaxed">
+      会話は消えても、<span class="text-giz-lime">ファイルは残る</span>。<br>
+      だから「記憶」ではなく「<span class="text-giz-lime">メモ</span>」に託す——それが確実な引き継ぎ。
+    </p>
+  </div>
+</section>
+
+<!-- CONTENT_END -->
+
+
+  </main>
+  </div>
+
+  <footer class="giz-site-footer no-print">
+    <div class="giz-footer-inner px-5 md:px-10 pb-6">
+      <div class="giz-footer-top-row">
+        <div class="giz-footer-social">
+          <!-- FOOTER_SOCIAL -->
+        </div>
+      </div>
+
+      <p class="giz-footer-label">もっと詳しく知る（公式・信頼できる情報）</p>
+      <div class="giz-footer-topic-grid">
+        <a href="https://code.claude.com/docs/en/slash-commands" class="giz-footer-topic-btn" target="_blank" rel="noopener noreferrer">
+          Claude Code Docs — Slash commands
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+        <a href="https://code.claude.com/docs/en/memory" class="giz-footer-topic-btn" target="_blank" rel="noopener noreferrer">
+          Claude Code Docs — Memory（CLAUDE.md）
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+        <a href="https://code.claude.com/docs/en/agent-sdk/slash-commands" class="giz-footer-topic-btn" target="_blank" rel="noopener noreferrer">
+          Claude Code Docs — Slash Commands (SDK)
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+        <a href="https://www.anthropic.com/engineering/claude-code-best-practices" class="giz-footer-topic-btn" target="_blank" rel="noopener noreferrer">
+          Anthropic — Claude Code best practices
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+        <a href="https://code.claude.com/docs" class="giz-footer-topic-btn" target="_blank" rel="noopener noreferrer">
+          Claude Code Docs — トップ
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+      </div>
+
+    </div>
+  </footer>
+  <script>
+    (function () {
+      var el = document.getElementById('giz-header-clock-time');
+      if (el) {
+        var fmt = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Tokyo',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        var tick = function () {
+          var now = new Date();
+          el.textContent = fmt.format(now);
+          el.setAttribute('datetime', now.toISOString());
+        };
+        tick();
+        setInterval(tick, 1000);
+      }
+
+      var tocToggle = document.getElementById('giz-toc-toggle');
+      var tocPanel = document.getElementById('giz-toc-panel');
+      var tocBackdrop = document.getElementById('giz-toc-backdrop');
+      var tocClose = document.getElementById('giz-toc-close');
+      if (!tocToggle || !tocPanel) return;
+
+      var tocMq = window.matchMedia('(max-width: 63.9375rem)');
+
+      var usesTocOverlay = function () {
+        return tocMq.matches;
+      };
+
+      var isTocRail = function () {
+        return !usesTocOverlay();
+      };
+
+      var setTocRailMode = function (rail) {
+        tocPanel.classList.toggle('giz-toc-rail', rail);
+      };
+
+      var closeToc = function (force) {
+        if (!force && isTocRail()) return;
+        tocPanel.hidden = true;
+        if (tocBackdrop) {
+          tocBackdrop.hidden = true;
+          tocBackdrop.setAttribute('aria-hidden', 'true');
+        }
+        document.body.classList.remove('giz-toc-open');
+        tocToggle.setAttribute('aria-expanded', 'false');
+        tocToggle.setAttribute('aria-label', '目次を開く');
+      };
+
+      var openToc = function () {
+        tocPanel.hidden = false;
+        if (tocBackdrop && usesTocOverlay()) {
+          tocBackdrop.hidden = false;
+          tocBackdrop.setAttribute('aria-hidden', 'false');
+          document.body.classList.add('giz-toc-open');
+        }
+        tocToggle.setAttribute('aria-expanded', 'true');
+        tocToggle.setAttribute('aria-label', '目次を閉じる');
+      };
+
+      var syncTocLayout = function () {
+        var rail = isTocRail();
+        setTocRailMode(rail);
+        if (rail) {
+          openToc();
+        } else if (tocPanel.hidden) {
+          if (tocBackdrop) {
+            tocBackdrop.hidden = true;
+            tocBackdrop.setAttribute('aria-hidden', 'true');
+          }
+          document.body.classList.remove('giz-toc-open');
+          tocToggle.setAttribute('aria-expanded', 'false');
+          tocToggle.setAttribute('aria-label', '目次を開く');
+        }
+      };
+
+      syncTocLayout();
+      if (typeof tocMq.addEventListener === 'function') {
+        tocMq.addEventListener('change', syncTocLayout);
+      } else if (typeof tocMq.addListener === 'function') {
+        tocMq.addListener(syncTocLayout);
+      }
+
+      tocToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (tocPanel.hidden) openToc();
+        else closeToc(true);
+      });
+
+      if (tocBackdrop) {
+        tocBackdrop.addEventListener('click', closeToc);
+      }
+
+      if (tocClose) {
+        tocClose.addEventListener('click', function (e) {
+          e.stopPropagation();
+          closeToc(true);
+        });
+      }
+
+      tocPanel.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          if (usesTocOverlay()) closeToc(true);
+        });
+      });
+
+      var tocLinks = tocPanel.querySelectorAll('.giz-header-toc-list a');
+      var tocSectionIds = [];
+      tocLinks.forEach(function (link) {
+        var href = link.getAttribute('href');
+        if (href && href.charAt(0) === '#') {
+          tocSectionIds.push(href.slice(1));
+        }
+      });
+
+      var updateTocActive = function () {
+        if (!tocSectionIds.length) return;
+        var headerOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--giz-header-offset')) || 72;
+        var scrollPos = window.scrollY + headerOffset + 24;
+        var currentId = tocSectionIds[0];
+        tocSectionIds.forEach(function (id) {
+          var section = document.getElementById(id);
+          if (section && section.offsetTop <= scrollPos) {
+            currentId = id;
+          }
+        });
+        tocLinks.forEach(function (link) {
+          var isActive = link.getAttribute('href') === '#' + currentId;
+          link.classList.toggle('is-active', isActive);
+          if (isActive) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      };
+
+      updateTocActive();
+      window.addEventListener('scroll', updateTocActive, { passive: true });
+      window.addEventListener('resize', updateTocActive);
+
+      document.addEventListener('click', function (e) {
+        if (tocPanel.hidden || usesTocOverlay()) return;
+        if (tocClose && (e.target === tocClose || tocClose.contains(e.target))) return;
+        if (!tocPanel.contains(e.target) && e.target !== tocToggle && !tocToggle.contains(e.target)) {
+          closeToc();
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && usesTocOverlay()) closeToc(true);
+      });
+    })();
+  </script>
+</body>
+</html>

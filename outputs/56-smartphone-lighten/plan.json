@@ -22,16 +22,20 @@
       "content": "Chrome・Safari・Edgeごとのキャッシュ削除手順と注意点"
     },
     {
-      "section": "Yahoo!アプリ（任意）",
-      "content": "Yahoo!アプリ内のキャッシュ・Cookie・履歴の整理方法"
-    },
-    {
       "section": "LINEのキャッシュ整理",
       "content": "LINE全体および特定トークルームのデータ削除手順"
     },
     {
+      "section": "Yahoo!アプリ（任意）",
+      "content": "Yahoo!アプリ内のキャッシュ・Cookie・履歴の整理方法"
+    },
+    {
       "section": "アプリのアップデート",
       "content": "更新放置のリスクと適度に追いかけるバランスの取り方"
+    },
+    {
+      "section": "",
+      "content": ""
     }
   ],
   "competitorAnalysis": "スマホ軽量化系は再生数が取りやすい定番テーマ。怪しいアプリ紹介や誇大表現が多い中、公式手順ベースの誠実なアプローチで差別化",
