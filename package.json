@@ -2,6 +2,7 @@
   "name": "scriptstudio",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
     "studio": "node scripts/dev-studio.mjs",
     "dev": "node scripts/dev-studio.mjs",
