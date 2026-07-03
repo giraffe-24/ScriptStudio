@@ -836,7 +836,6 @@
       position: relative;
       flex: 0 0 auto;
       width: min(14rem, 62vw);
-      aspect-ratio: 9 / 19;
       background: #0c0c0c;
       border-radius: 2.25rem;
       padding: 0.5rem;
@@ -870,12 +869,13 @@
     .giz-phone__screen {
       position: relative;
       width: 100%;
-      height: 100%;
       display: flex;
       flex-direction: column;
-      background: #f5f5f5;
-      border-radius: 1.85rem;
+      background: #fff;
+      border-radius: 1.4rem;
       overflow: hidden;
+      /* 角丸がスクショ四隅の内容（ロゴ・フッター）を削らないよう、上下に余白帯を挟む */
+      padding: 0.9rem 0;
     }
 
     .giz-phone__notch {
@@ -904,9 +904,7 @@
 
     .giz-phone__img {
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: top center;
+      height: auto;
       display: block;
     }
 
@@ -935,40 +933,6 @@
       font-size: 0.7rem;
       line-height: 1.5;
       color: #737373;
-    }
-
-    /* フッターアイコン：スマホの主要操作を集約したバー（レスポンシブの肝） */
-    .giz-phone__nav {
-      flex: 0 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      gap: 0.15rem;
-      padding: 0.45rem 0.3rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
-      background: #fff;
-      border-top: 1px solid #e5e5e5;
-    }
-
-    .giz-phone__nav-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.2rem;
-      font-family: var(--giz-font-jp);
-      font-size: 0.5rem;
-      font-weight: 700;
-      color: #9a9a9a;
-      line-height: 1;
-    }
-
-    .giz-phone__nav-btn i {
-      font-size: 0.85rem;
-      color: #9a9a9a;
-    }
-
-    .giz-phone__nav-btn.is-active,
-    .giz-phone__nav-btn.is-active i {
-      color: #2d6a4f;
     }
 
     @media print {
@@ -1231,65 +1195,6 @@
 <section id="section-1" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
   <p class="giz-label text-giz-gray">SECTION 1</p>
   <h2 class="mt-1 text-2xl">ツールの画面（キャプチャ）</h2>
-  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
-    まず入口の<strong>ログイン画面</strong>、そのあとの操作は大きく <strong>3画面</strong>。エディタのツールバーから「記録」と「履歴」を開く。
-    <strong class="text-giz-forest">PC・スマホどちらでも</strong>同じように使え、狭い画面では主要操作を画面下のフッターアイコンに集約している。
-  </p>
-
-  <!-- 機能ピックアップ：競合チャンネル登録 -->
-  <div class="mt-6 rounded-2xl border border-giz-sea bg-white p-5 md:p-6">
-    <div class="flex items-center gap-2 text-giz-sea">
-      <i class="fa-solid fa-satellite-dish w-5" aria-hidden="true"></i>
-      <p class="giz-label text-giz-sea">PICK UP ／ 競合調査の中身</p>
-    </div>
-    <h3 class="mt-1 font-jp text-lg font-bold text-giz-ink">競合チャンネル登録 — 伸びているチャンネルを、数値で追う</h3>
-    <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-      テーマ選定のとき、自分のチャンネルと<strong class="text-giz-ink">類似性が高いチャンネル</strong>が候補として提示されるので、気になったものはその場で競合に追加できる。登録したチャンネルは管理画面で一覧でき、<strong class="text-giz-ink">足し・引き</strong>も自由。
-    </p>
-
-    <div class="mt-4 flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-1.5">
-      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
-        <i class="fa-solid fa-magnifying-glass w-6 text-giz-sea" aria-hidden="true"></i>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">見つける</p>
-        <p class="font-jp text-xs text-giz-gray">テーマ選定時に類似性の高いチャンネルを提案</p>
-      </div>
-      <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
-      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
-        <i class="fa-solid fa-list-check w-6 text-giz-sea" aria-hidden="true"></i>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">育てる</p>
-        <p class="font-jp text-xs text-giz-gray">管理画面の一覧で確認し、追加・削除でリストを整える</p>
-      </div>
-      <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
-      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
-        <i class="fa-solid fa-arrow-trend-up w-6 text-giz-sea" aria-hidden="true"></i>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">追いかける</p>
-        <p class="font-jp text-xs text-giz-gray">1週間でどれだけ伸びたかを数値で確認</p>
-      </div>
-    </div>
-
-    <div class="mt-4 rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-5 py-12 md:py-16 text-center">
-      <!-- スクショ差し込み時：この dashed div を丸ごと下の <img> に置き換える。
-        <img src="assets/screen-competitors.png" class="w-full rounded-2xl border border-giz-gray-mid"
-             alt="競合チャンネル設定画面。登録済みチャンネルの一覧、追加・削除ボタン、1週間の登録者数の伸び"> -->
-      <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
-        <i class="fa-solid fa-image w-6 text-giz-gray" aria-hidden="true"></i>
-      </div>
-      <p class="giz-label text-giz-gray">SCREENSHOT</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
-      <p class="mx-auto mt-1 max-w-md font-jp text-xs text-giz-gray leading-relaxed">
-        競合チャンネル設定画面。登録済みチャンネルの一覧、追加・削除、週間の伸びの数値が写った状態を貼る。
-      </p>
-    </div>
-
-    <div class="mt-4 rounded-xl border-l-4 border-giz-sea bg-giz-mist/60 p-4">
-      <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
-        <i class="fa-solid fa-chart-line w-4" aria-hidden="true"></i>ねらい ── 「伸びているチャンネル」は市場の先行指標
-      </p>
-      <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
-        登録者数の推移を記録し続けるので、<strong>いま勢いのあるチャンネル</strong>がひと目でわかる。伸びているチャンネルを追い続けることで、<span class="giz-mark">市場が求めているテーマを AI に学習させる</span>ことができる。
-      </p>
-    </div>
-  </div>
 
   <!-- placeholder 0：ログイン画面（入口） -->
   <div class="mt-6">
@@ -1297,19 +1202,8 @@
       <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white"><i class="fa-solid fa-lock text-[0.6rem]" aria-hidden="true"></i></span>
       <p class="font-jp text-sm font-bold text-giz-ink">ログイン画面（入口）</p>
     </div>
-    <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-5 py-12 md:py-16 text-center">
-      <!-- スクショ差し込み時：この dashed div を丸ごと下の <img> に置き換える。
-        <img src="assets/screen-login.png" class="w-full rounded-2xl border border-giz-gray-mid"
-             alt="ログイン画面。ScriptStudio ロゴ、ユーザー名・パスワードの入力欄、ログインボタン"> -->
-      <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
-        <i class="fa-solid fa-image w-6 text-giz-gray" aria-hidden="true"></i>
-      </div>
-      <p class="giz-label text-giz-gray">SCREENSHOT</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
-      <p class="mx-auto mt-1 max-w-md font-jp text-xs text-giz-gray leading-relaxed">
-        ScriptStudio ロゴ、ユーザー名・パスワードの入力欄、「ログイン」ボタンが写ったログイン画面。
-      </p>
-    </div>
+    <img src="assets/screen-login.png" class="w-full rounded-2xl border border-giz-gray-mid"
+         alt="ログイン画面。ScriptStudio ロゴ、ユーザー名・パスワードの入力欄、ログインボタン">
 
     <!-- 認証方式の選定（費用対効果） -->
     <div class="mt-4 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
@@ -1330,60 +1224,47 @@
       <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">1</span>
       <p class="font-jp text-sm font-bold text-giz-ink">メイン画面（エディタ＋ツールバー）</p>
     </div>
-    <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-5 py-12 md:py-16 text-center">
-      <!-- スクショ差し込み時：この dashed div を丸ごと下の <img> に置き換える。alt は画面内容を具体的に。
-        <img src="assets/screen-main.png" class="w-full rounded-2xl border border-giz-gray-mid"
-             alt="台本／企画書エディタの全体画面。上部ツールバーに『記録』『履歴』ボタンが並ぶ"> -->
-      <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
-        <i class="fa-solid fa-image w-6 text-giz-gray" aria-hidden="true"></i>
-      </div>
-      <p class="giz-label text-giz-gray">SCREENSHOT</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
-      <p class="mx-auto mt-1 max-w-md font-jp text-xs text-giz-gray leading-relaxed">
-        台本／企画書エディタの全体。ツールバーの「記録」「履歴」ボタンが見える状態を貼る。
+    <img src="assets/screen-main.png" class="w-full rounded-2xl border border-giz-gray-mid"
+         alt="台本／企画書エディタの全体画面。上部ツールバーに『記録』『履歴』ボタンが並ぶ">
+  </div>
+
+  <!-- placeholder 2：競合チャンネル登録 -->
+  <div class="mt-6">
+    <div class="mb-2 flex items-center gap-2">
+      <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">2</span>
+      <p class="font-jp text-sm font-bold text-giz-ink">競合チャンネル登録（設定画面）</p>
+    </div>
+    <img src="assets/screen-competitors.png" class="w-full rounded-2xl border border-giz-gray-mid"
+         alt="競合チャンネル設定画面。登録済みチャンネルの一覧、追加・削除ボタン、1週間の登録者数の伸び">
+
+    <!-- ねらい：伸びているチャンネルは市場の先行指標 -->
+    <div class="mt-4 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
+      <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+        <i class="fa-solid fa-chart-line w-4" aria-hidden="true"></i>ねらい ── 「伸びているチャンネル」は市場の先行指標
+      </p>
+      <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+        テーマ選定のとき、自分のチャンネルと<strong>類似性が高いチャンネル</strong>が候補として提示され、その場で競合に追加できる。登録したチャンネルはこの画面で一覧でき、<strong>足し・引き</strong>も自由。さらに<strong>1週間でどれだけ登録者が伸びたか</strong>を数値で確認できるので、伸びているチャンネルを追い続けることで、<span class="giz-mark">市場が求めているテーマを AI に学習させる</span>ことができる。
       </p>
     </div>
   </div>
 
-  <!-- placeholder 2 & 3 -->
+  <!-- placeholder 3 & 4 -->
   <div class="mt-5 grid gap-5 md:grid-cols-2">
     <div>
       <div class="mb-2 flex items-center gap-2">
-        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">2</span>
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">3</span>
         <p class="font-jp text-sm font-bold text-giz-ink">「記録」モーダル</p>
       </div>
-      <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-4 py-10 md:py-14 text-center h-full">
-        <!-- スクショ差し込み時：この dashed div を下の <img> に置き換える。
-          <img src="assets/screen-record.png" class="w-full rounded-2xl border border-giz-gray-mid"
-               alt="『記録』モーダル。変更の差分プレビュー、AI が書いた変更要約、作成者名の入力欄が並ぶ"> -->
-        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
-          <i class="fa-solid fa-image w-5 text-giz-gray" aria-hidden="true"></i>
-        </div>
-        <p class="giz-label text-giz-gray">SCREENSHOT</p>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
-        <p class="mx-auto mt-1 max-w-xs font-jp text-xs text-giz-gray leading-relaxed">
-          差分プレビュー・AI が書いた変更要約・作成者名の入力欄が写ったモーダル。
-        </p>
-      </div>
+      <img src="assets/screen-record.png" class="w-full rounded-2xl border border-giz-gray-mid"
+           alt="『記録』モーダル。変更の差分プレビュー、AI が書いた変更要約、作成者名の入力欄が並ぶ">
     </div>
     <div>
       <div class="mb-2 flex items-center gap-2">
-        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">3</span>
+        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">4</span>
         <p class="font-jp text-sm font-bold text-giz-ink">「履歴」モーダル</p>
       </div>
-      <div class="rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-4 py-10 md:py-14 text-center h-full">
-        <!-- スクショ差し込み時：この dashed div を下の <img> に置き換える。
-          <img src="assets/screen-history.png" class="w-full rounded-2xl border border-giz-gray-mid"
-               alt="『履歴』モーダル。版の一覧（記録した人・日時・要約）、差分表示、『この版に戻す』ボタンが並ぶ"> -->
-        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
-          <i class="fa-solid fa-image w-5 text-giz-gray" aria-hidden="true"></i>
-        </div>
-        <p class="giz-label text-giz-gray">SCREENSHOT</p>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
-        <p class="mx-auto mt-1 max-w-xs font-jp text-xs text-giz-gray leading-relaxed">
-          版の一覧（誰が・いつ・要約）、差分表示、「この版に戻す」ボタンが写った履歴画面。
-        </p>
-      </div>
+      <img src="assets/screen-history.png" class="w-full rounded-2xl border border-giz-gray-mid"
+           alt="『履歴』モーダル。版の一覧（記録した人・日時・要約）、差分表示、『この版に戻す』ボタンが並ぶ">
     </div>
   </div>
 
@@ -1394,63 +1275,37 @@
       <p class="font-jp text-sm font-bold text-giz-ink">モバイル表示（レスポンシブ）</p>
     </div>
     <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-      PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作がしたい</span>と思ったので、スマホでも使えるようにした。狭い画面では主要操作（記録・履歴など）を<strong class="text-giz-forest">画面下のフッターアイコン</strong>へ集約し、片手・親指の届く位置で完結する。
+      PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作がしたい</span>と思ったので、スマホでも使えるようにした。狭い画面では主要操作（一覧・テーマ・企画・台本）を<strong class="text-giz-forest">画面下のフッタータブ</strong>へ集約し、片手・親指の届く位置で完結する。
     </p>
 
     <div class="mt-5 giz-phone-row">
-      <!-- スマホ①：メイン画面 -->
+      <!-- スマホ①：エピソード一覧 -->
       <figure class="m-0">
         <div class="giz-phone">
           <div class="giz-phone__screen">
-            <span class="giz-phone__notch" aria-hidden="true"></span>
-            <!-- 画像を入れるとき：この .giz-phone__slot の中身を丸ごと下の <img> に置き換える。
-              <img class="giz-phone__img" src="assets/mobile-main.png"
-                   alt="スマホで開いた台本エディタ。下部にフッターアイコン"> -->
             <div class="giz-phone__slot">
-              <div class="giz-phone__ph">
-                <i class="fa-solid fa-image" aria-hidden="true"></i>
-                <p class="giz-phone__ph-label">SCREENSHOT</p>
-                <p class="giz-phone__ph-cap">スマホのメイン画面を貼る</p>
-              </div>
+              <img class="giz-phone__img" src="assets/mobile-episodes.png"
+                   alt="スマホで開いたエピソード一覧。下部にフッタータブ">
             </div>
-            <nav class="giz-phone__nav" aria-hidden="true">
-              <span class="giz-phone__nav-btn"><i class="fa-solid fa-pen-to-square"></i>執筆</span>
-              <span class="giz-phone__nav-btn is-active"><i class="fa-solid fa-floppy-disk"></i>記録</span>
-              <span class="giz-phone__nav-btn"><i class="fa-solid fa-clock-rotate-left"></i>履歴</span>
-              <span class="giz-phone__nav-btn"><i class="fa-solid fa-lightbulb"></i>企画</span>
-            </nav>
           </div>
         </div>
         <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
-          メイン画面。主要操作を<strong class="text-giz-forest">フッターアイコン</strong>に集約。
+          エピソード画面。案件ごとの台本・企画書を<strong class="text-giz-forest">一覧</strong>から開く。
         </figcaption>
       </figure>
 
-      <!-- スマホ②：履歴モーダル -->
+      <!-- スマホ②：テーマ選定 -->
       <figure class="m-0">
         <div class="giz-phone">
           <div class="giz-phone__screen">
-            <span class="giz-phone__notch" aria-hidden="true"></span>
-            <!-- 画像を入れるとき：この .giz-phone__slot の中身を丸ごと下の <img> に置き換える。
-              <img class="giz-phone__img" src="assets/mobile-history.png"
-                   alt="スマホで開いた履歴モーダル。版の一覧と『この版に戻す』"> -->
             <div class="giz-phone__slot">
-              <div class="giz-phone__ph">
-                <i class="fa-solid fa-image" aria-hidden="true"></i>
-                <p class="giz-phone__ph-label">SCREENSHOT</p>
-                <p class="giz-phone__ph-cap">スマホの履歴画面を貼る</p>
-              </div>
+              <img class="giz-phone__img" src="assets/mobile-theme.png"
+                   alt="スマホで開いたテーマ選定画面。テーマ候補の一覧と入力欄">
             </div>
-            <nav class="giz-phone__nav" aria-hidden="true">
-              <span class="giz-phone__nav-btn"><i class="fa-solid fa-pen-to-square"></i>執筆</span>
-              <span class="giz-phone__nav-btn"><i class="fa-solid fa-floppy-disk"></i>記録</span>
-              <span class="giz-phone__nav-btn is-active"><i class="fa-solid fa-clock-rotate-left"></i>履歴</span>
-              <span class="giz-phone__nav-btn"><i class="fa-solid fa-lightbulb"></i>企画</span>
-            </nav>
           </div>
         </div>
         <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
-          履歴画面。一覧から<strong class="text-giz-forest">この版に戻す</strong>まで片手で完結。
+          テーマ選定画面。ここでテーマを決めて<strong class="text-giz-forest">企画へつなぐ</strong>。
         </figcaption>
       </figure>
     </div>

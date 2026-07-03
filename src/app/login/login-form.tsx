@@ -7,6 +7,11 @@ import { toUserMessage } from "@/lib/error-message";
 import { TypingText } from "@/components/TypingText";
 import { LOGIN_BACKGROUND_SAGA } from "./saga-text";
 
+// ログイン画面で公開している閲覧専用デモアカウント。
+// 実際の認証情報は環境変数（SITE_ACCESS_CREDENTIALS 等）側にあり、ここは案内表示のみ。
+const DEMO_USERNAME = "examiner";
+const DEMO_PASSWORD = "ADS_manager";
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -185,6 +190,35 @@ export function LoginForm() {
               {loading ? "ログイン中…" : "ログイン"}
             </button>
           </form>
+
+          {/* デモアカウント案内（閲覧専用・デモデータ） */}
+          <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-3.5 text-xs text-gray-600">
+            <p className="font-medium text-gray-700">デモアカウント（閲覧専用）</p>
+            <dl className="mt-1.5 space-y-0.5">
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-gray-500">ユーザー名</dt>
+                <dd className="font-mono text-gray-800">{DEMO_USERNAME}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-gray-500">パスワード</dt>
+                <dd className="font-mono text-gray-800">{DEMO_PASSWORD}</dd>
+              </div>
+            </dl>
+            <p className="mt-1.5 text-gray-500">
+              表示される内容はすべてデモ用データです。編集・保存はできません。
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setUsername(DEMO_USERNAME);
+                setPassword(DEMO_PASSWORD);
+                setError("");
+              }}
+              className="mt-2 text-blue-500 underline underline-offset-2 transition hover:text-blue-600"
+            >
+              この内容を入力欄にセット
+            </button>
+          </div>
         </div>
         )}
       </div>
