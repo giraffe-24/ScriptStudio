@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppIcon from "@image/ScriptStudioIcon.svg";
-import { setStudioAuthorName } from "@/lib/studio-author";
 import { toUserMessage } from "@/lib/error-message";
 import { TypingText } from "@/components/TypingText";
 import { LOGIN_BACKGROUND_SAGA } from "./saga-text";
@@ -66,7 +65,7 @@ export function LoginForm() {
         return;
       }
 
-      setStudioAuthorName(username.trim());
+      // 記録者名は session（サーバー側）が唯一の情報源。localStorage には保存しない。
       router.replace(safeNext);
       router.refresh();
     } catch (err) {

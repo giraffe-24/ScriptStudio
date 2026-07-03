@@ -30,8 +30,8 @@ interface Props {
   plan?: EpisodePlan | null;
   episodeNumber?: number | null;
   episodeSlug?: string;
-  onPlanReady: (plan: EpisodePlan, title: string) => void;
-  onPlanSave?: (plan: EpisodePlan, title: string) => void;
+  onPlanReady: (plan: EpisodePlan, title: string) => void | Promise<void>;
+  onPlanSave?: (plan: EpisodePlan, title: string) => void | Promise<void>;
   onTitleChange?: (title: string) => void;
   onEpisodeNumberChange?: (number: number) => void;
   onPlanChange?: (plan: EpisodePlan) => void;
@@ -393,11 +393,13 @@ export function PlanningDoc({
 
           {/* アクションボタン */}
           <div className="pt-2 pb-6 space-y-2">
+            {/* 企画書バージョン保存/履歴は台本生成(submitting)とは独立。
+                submitting で無効化しない（＝編集後すぐ保存できる）。 */}
             {canUsePlanVersions && (
               <div className="flex gap-2">
                 <Button
                   onClick={() => setPlanCommitOpen(true)}
-                  disabled={submitting || !planUnrecorded}
+                  disabled={!planUnrecorded}
                   variant={planUnrecorded ? "default" : "outline"}
                   size="lg"
                   className="flex-1 py-3 rounded-xl font-semibold"
@@ -411,7 +413,6 @@ export function PlanningDoc({
                 </Button>
                 <Button
                   onClick={() => setPlanHistoryOpen(true)}
-                  disabled={submitting}
                   variant="outline"
                   size="lg"
                   className="flex-1 py-3 rounded-xl font-semibold"
@@ -421,11 +422,16 @@ export function PlanningDoc({
                 </Button>
               </div>
             )}
+            {/* 台本生成の submit。完了で必ず submitting を戻す（一方向ラッチを防ぐ）。 */}
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (submitting) return;
                 setSubmitting(true);
-                onPlanReady(plan, plan.episodeTitle);
+                try {
+                  await onPlanReady(plan, plan.episodeTitle);
+                } finally {
+                  setSubmitting(false);
+                }
               }}
               disabled={submitting}
               aria-busy={submitting}
@@ -436,7 +442,15 @@ export function PlanningDoc({
             </Button>
             {onPlanSave && (
               <Button
-                onClick={() => onPlanSave(plan, plan.episodeTitle)}
+                onClick={async () => {
+                  if (submitting) return;
+                  setSubmitting(true);
+                  try {
+                    await onPlanSave(plan, plan.episodeTitle);
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
                 disabled={submitting}
                 variant="outline"
                 size="lg"
@@ -451,7 +465,6 @@ export function PlanningDoc({
             {episodeNumber != null && !!episodeSlug && gitConfigured && onPlanChange && (
               <Button
                 onClick={() => setHistoryOpen(true)}
-                disabled={submitting}
                 variant="ghost"
                 size="sm"
                 className="w-full text-gray-500"

@@ -18,7 +18,7 @@ import {
   type DiffStats,
 } from "@/lib/script-diff";
 import { ScriptDiffPreview } from "@/components/ScriptDiffPreview";
-import { resolveStudioAuthorName } from "@/lib/studio-author";
+import { resolveStudioAuthor, setStudioAuthorName } from "@/lib/studio-author";
 
 type Props = {
   open: boolean;
@@ -82,9 +82,9 @@ export function SnapshotCommitModal({
     setError("");
     setSummaryNotice(null);
 
-    void resolveStudioAuthorName().then((name) => {
+    void resolveStudioAuthor().then(({ name, fromLogin }) => {
       setAuthorName(name);
-      setAuthorFromLogin(Boolean(name));
+      setAuthorFromLogin(fromLogin);
     });
 
     const diff = computeScriptDiff(previousContent, currentContent);
@@ -124,7 +124,7 @@ export function SnapshotCommitModal({
     const name = authorName.trim();
     const text = summary.trim();
     if (!name) {
-      setError("著者名を入力してください");
+      setError("記録者名を入力してください");
       return;
     }
     if (!text) {
@@ -152,6 +152,8 @@ export function SnapshotCommitModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "保存に失敗しました");
+      // 未ログイン（手入力）のときだけ、次回の初期値として記憶する
+      if (!authorFromLogin) setStudioAuthorName(name);
       await onCommitted({
         recordedContent: data.snapshot?.content ?? storedContent,
         scriptMeta: data.scriptMeta ?? null,
@@ -200,18 +202,13 @@ export function SnapshotCommitModal({
             ) : null}
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="snapshot-author" className="block text-xs font-medium">
-              記録者
-            </label>
-            {authorFromLogin ? (
-              <p
-                id="snapshot-author"
-                className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-foreground"
-              >
-                {authorName}
-              </p>
-            ) : (
+          {/* ログイン時はサーバー（session）が記録者を決めるため入力欄は出さない。
+              未ログイン（ローカル等）のときだけ記録者名を入力してもらう。 */}
+          {!authorFromLogin ? (
+            <div className="space-y-1.5">
+              <label htmlFor="snapshot-author" className="block text-xs font-medium">
+                記録者
+              </label>
               <input
                 id="snapshot-author"
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -220,8 +217,8 @@ export function SnapshotCommitModal({
                 disabled={saving}
                 placeholder="ログイン ID または名前"
               />
-            )}
-          </div>
+            </div>
+          ) : null}
 
           {error ? (
             <p className="text-xs text-destructive" role="alert">
@@ -231,6 +228,11 @@ export function SnapshotCommitModal({
         </div>
 
         <DialogFooter>
+          {authorFromLogin && authorName ? (
+            <p className="self-center text-xs text-muted-foreground sm:mr-auto">
+              <span className="font-medium text-foreground">{authorName}</span> として記録
+            </p>
+          ) : null}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             キャンセル
           </Button>

@@ -1,0 +1,8 @@
+# pnpm v11 の設定ファイル（モノレポではないので packages: は書かない）。
+# ネイティブバイナリを持つ依存の postinstall（ビルドスクリプト）を明示的に許可する。
+# これが true でないと pnpm がスクリプトをスキップし、クリーンインストール（Vercel など）で
+# unrs-resolver 等のネイティブバイナリがリンクされず、実行時（middleware 等）に落ちる。
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
