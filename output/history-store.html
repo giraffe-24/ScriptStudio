@@ -89,6 +89,35 @@
       scroll-behavior: smooth;
     }
 
+    /* ============ テキスト選択の描画対策 ============
+       Safari(WebKit) は選択範囲内のブロック間余白を「選択ギャップ」として塗る。
+       塗り幅は最も近い selection root（positioned / overflow クリップ / body 等）
+       まで広がるため、全要素が static だと root が body になり、
+       ページ余白まで帯状に塗られてしまう。
+       main と各 section を position: relative で selection root 化し、
+       塗りを本文カラム内に閉じ込める（レイアウトへの影響はゼロ。
+       fixed ヘッダー z-50 / 目次 z-55,60 の重なり順も不変）。 */
+    .giz-page-shell > main,
+    .giz-page-shell > main section {
+      position: relative;
+    }
+
+    /* Firefox / Blink 系向け：ブロック間の空白テキストノード（改行・インデント）
+       が選択色で描画されるのを防ぐ。コンテナ直下に実テキストは存在しないため、
+       本文の選択ハイライトには影響しない */
+    body::selection,
+    main::selection,
+    section::selection,
+    div::selection,
+    figure::selection,
+    header::selection,
+    footer::selection,
+    nav::selection,
+    ol::selection,
+    ul::selection {
+      background: transparent;
+    }
+
     body::after {
       content: '';
       display: block;
@@ -988,7 +1017,7 @@
     </div>
     <ol class="giz-header-toc-list">
       <li><a href="#top">はじめに ── ScriptStudio とは</a></li>
-      <li><a href="#features">全体像（5つの役割）と本題</a></li>
+      <li><a href="#features">全体像（6ステップの流れ）と本題</a></li>
       <li><a href="#section-1">ツールの画面（キャプチャ）</a></li>
       <li><a href="#section-2">保持できるようにしたデータ</a></li>
       <li><a href="#section-3">保存先と、選んだ理由</a></li>
@@ -1007,7 +1036,7 @@
   <!-- eyebrow -->
   <span class="giz-genre-badge giz-badge inline-flex items-center gap-1.5 rounded-full px-4 py-1.5">
     <i class="fa-solid fa-layer-group w-3.5" aria-hidden="true"></i>
-    ScriptStudio ／ 5つの役割のひとつ「保存・管理」
+    ScriptStudio ／ 6ステップのひとつ「台本作成（履歴管理）」
   </span>
 
   <!-- ブランド＋モットー：ひとかたまりの識別ロックアップ -->
@@ -1064,7 +1093,7 @@
 
   <!-- リード文：この資料が扱う範囲（保存・管理＝履歴） -->
   <p class="mt-10 mx-auto max-w-xl level-secondary">
-    この資料が掘り下げるのは、その中の <strong class="text-giz-forest">「保存・管理」</strong>。
+    この資料が掘り下げるのは、その中の <strong class="text-giz-forest">「台本作成」を支える履歴管理</strong>。
     台本や企画書を<strong class="text-giz-ink">〈スナップショット〉</strong>で丸ごと残し、差分を見て<strong class="text-giz-ink">その版に戻せる</strong>仕組みの話です。
   </p>
 
@@ -1073,67 +1102,114 @@
 <!-- ============ SECTION: 機能（ScriptStudio でできること） ============ -->
 <section id="features" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
   <p class="giz-label text-giz-gray">OVERVIEW ／ 全体像</p>
-  <h2 class="mt-1 text-2xl">ScriptStudio の全体像 — 5つの役割</h2>
+  <h2 class="mt-1 text-2xl">ScriptStudio の全体像 — 6ステップの流れ</h2>
   <p class="mt-3 font-jp text-giz-ink leading-relaxed">
-    5つの役割が、1つの画面で地続きにつながっています。この資料が開くのは、そのうちの <strong class="text-giz-forest">「保存・管理」</strong>だけ。残り4つは「こんなこともできる」という地図として眺めてください。
+    エピソードの管理から推敲まで、制作はこの順で<strong class="text-giz-forest">ひと回り</strong>する。
   </p>
 
-  <div class="mt-6 grid gap-4 sm:grid-cols-2">
-    <!-- 1 企画立案 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-forest">
-        <i class="fa-solid fa-lightbulb w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">企画立案</p>
+  <!-- 6ステップの縦フロー：番号レール＋カード。本題（5）だけ強調 -->
+  <ol class="mt-6">
+    <!-- STEP 1 管理 -->
+    <li class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-ink text-white font-bold" aria-hidden="true">1</span>
+        <span class="w-0.5 flex-1 bg-giz-gray-mid" aria-hidden="true"></span>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-        テーマ調査・市場分析でネタと<strong class="text-giz-ink">根拠</strong>を洗い出し、「設計思想の6本柱」で軸を固めてから企画書に落とす。
-      </p>
-    </div>
-    <!-- 2 競合調査 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-sea">
-        <i class="fa-solid fa-binoculars w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">競合調査</p>
+      <div class="mb-4 flex-1 rounded-2xl border border-giz-gray-mid bg-white p-5">
+        <div class="flex items-center gap-2 text-giz-forest">
+          <i class="fa-solid fa-folder-open w-5" aria-hidden="true"></i>
+          <p class="font-jp text-sm font-bold text-giz-ink">管理</p>
+        </div>
+        <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+          すべての作業の入口。エピソード（案件）を<strong class="text-giz-ink">一覧</strong>で管理し、開く・作る・<strong class="text-giz-ink">並べ替え</strong>・<strong class="text-giz-ink">字数確認</strong>もここで。
+        </p>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-        類似チャンネルの提案から競合を登録し、<strong class="text-giz-ink">週間の伸び</strong>を数値で追って<strong class="text-giz-ink">ブレない差別化</strong>の材料にする。
-      </p>
-    </div>
-    <!-- 3 台本作成 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-orange">
-        <i class="fa-solid fa-file-pen w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">台本作成</p>
+    </li>
+    <!-- STEP 2 テーマ選定 -->
+    <li class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-ink text-white font-bold" aria-hidden="true">2</span>
+        <span class="w-0.5 flex-1 bg-giz-gray-mid" aria-hidden="true"></span>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-        自分の声で執筆。気になる箇所だけ選んで前後の文脈ごと書き直す<strong class="text-giz-ink">部分再生成</strong>で、トークンも節約。
-      </p>
-    </div>
-    <!-- 4 保存・管理（履歴＝この資料のテーマ） -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-forest">
-        <i class="fa-solid fa-box-archive w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">保存・管理</p>
+      <div class="mb-4 flex-1 rounded-2xl border border-giz-gray-mid bg-white p-5">
+        <div class="flex items-center gap-2 text-giz-orange">
+          <i class="fa-solid fa-lightbulb w-5" aria-hidden="true"></i>
+          <p class="font-jp text-sm font-bold text-giz-ink">テーマ選定</p>
+        </div>
+        <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+          市場分析・テーマ分析でネタと<strong class="text-giz-ink">根拠</strong>を洗い出し、今日つくるテーマを決める。
+        </p>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-        ドキュメント感覚の使い勝手——<strong class="text-giz-ink">並べ替え</strong>・<strong class="text-giz-ink">字数確認</strong>に加え、版を残す<strong class="text-giz-ink">履歴管理（保存／履歴／復元）</strong>。この資料が掘り下げるのはここ。
-      </p>
-    </div>
-    <!-- 5 AI育成（横幅いっぱい） -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5 sm:col-span-2">
-      <div class="flex items-center gap-2 text-giz-coral">
-        <i class="fa-solid fa-seedling w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">AI育成</p>
+    </li>
+    <!-- STEP 3 競合分析 -->
+    <li class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-ink text-white font-bold" aria-hidden="true">3</span>
+        <span class="w-0.5 flex-1 bg-giz-gray-mid" aria-hidden="true"></span>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-        確定稿と AI の原稿を読み比べる推敲や、ブランド定義・成功台本の蓄積で、<span class="giz-mark">AI を“自分の書き手”に育てていく。使うほど自分の色に寄る。</span>
-      </p>
-    </div>
-  </div>
+      <div class="mb-4 flex-1 rounded-2xl border border-giz-gray-mid bg-white p-5">
+        <div class="flex items-center gap-2 text-giz-sea">
+          <i class="fa-solid fa-binoculars w-5" aria-hidden="true"></i>
+          <p class="font-jp text-sm font-bold text-giz-ink">競合分析</p>
+        </div>
+        <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+          類似チャンネルの提案から競合を登録し、<strong class="text-giz-ink">週間の伸び</strong>を数値で追って<strong class="text-giz-ink">ブレない差別化</strong>の材料にする。
+        </p>
+      </div>
+    </li>
+    <!-- STEP 4 企画立案 -->
+    <li class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-ink text-white font-bold" aria-hidden="true">4</span>
+        <span class="w-0.5 flex-1 bg-giz-gray-mid" aria-hidden="true"></span>
+      </div>
+      <div class="mb-4 flex-1 rounded-2xl border border-giz-gray-mid bg-white p-5">
+        <div class="flex items-center gap-2 text-giz-coral">
+          <i class="fa-solid fa-clipboard-list w-5" aria-hidden="true"></i>
+          <p class="font-jp text-sm font-bold text-giz-ink">企画立案</p>
+        </div>
+        <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+          決めたテーマを「設計思想の6本柱」で軸を固めてから<strong class="text-giz-ink">企画書</strong>に落とす。
+        </p>
+      </div>
+    </li>
+    <!-- STEP 5 台本作成（履歴管理）＝この資料の本題 -->
+    <li class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold" aria-hidden="true">5</span>
+        <span class="w-0.5 flex-1 bg-giz-gray-mid" aria-hidden="true"></span>
+      </div>
+      <div class="mb-4 flex-1 rounded-2xl border-2 border-giz-forest bg-white p-5">
+        <div class="flex flex-wrap items-center gap-2 text-giz-forest">
+          <i class="fa-solid fa-file-pen w-5" aria-hidden="true"></i>
+          <p class="font-jp text-sm font-bold text-giz-ink">台本作成（履歴管理）</p>
+          <span class="giz-label rounded-full bg-giz-forest px-2.5 py-1 text-[0.55rem] text-white">この資料の本題</span>
+        </div>
+        <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+          自分の声で執筆し、<strong class="text-giz-ink">部分再生成</strong>でトークンも節約。版を残す<strong class="text-giz-ink">履歴管理（記録／履歴／復元）</strong>があるから、書き直しを恐れず進める。この資料が掘り下げるのはここ。
+        </p>
+      </div>
+    </li>
+    <!-- STEP 6 推敲 -->
+    <li class="flex gap-4">
+      <div class="flex flex-col items-center">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-ink text-white font-bold" aria-hidden="true">6</span>
+      </div>
+      <div class="flex-1 rounded-2xl border border-giz-gray-mid bg-white p-5">
+        <div class="flex items-center gap-2 text-giz-coral">
+          <i class="fa-solid fa-seedling w-5" aria-hidden="true"></i>
+          <p class="font-jp text-sm font-bold text-giz-ink">推敲（AIの精度を調整）</p>
+        </div>
+        <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+          確定稿と AI の原稿を読み比べ、ブランド定義・成功台本を蓄積して、<span class="giz-mark">AI を“自分の書き手”に育てていく。使うほど自分の色に寄る。</span>
+        </p>
+      </div>
+    </li>
+  </ol>
 
-  <!-- ここから本題：全体像から「保存・管理」へズームイン（要点3つ＋流れ） -->
+  <!-- ここから本題：全体像からステップ5「履歴管理」へズームイン（要点3つ＋流れ） -->
   <div class="mt-10 border-t-2 border-giz-ink pt-8">
-    <p class="giz-label text-giz-forest">ここから本題 ／ 「保存・管理」を開く</p>
+    <p class="giz-label text-giz-forest">ここから本題 ／ ステップ5「履歴管理」を開く</p>
     <h3 class="mt-1 font-jp text-lg font-bold text-giz-ink">読みどころは、この3つだけ</h3>
     <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
       <strong class="text-giz-ink">何を保存し・どこに置き・どう壊れないようにしたか</strong>。以降のセクションは、この3点を順にくわしく見ていきます。
@@ -1168,21 +1244,21 @@
 
     <div class="mt-6 rounded-2xl border border-giz-gray-mid bg-giz-mist/50 p-5">
       <p class="giz-label text-giz-forest">ひと目でわかる流れ</p>
-      <div class="mt-3 flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-1.5">
-        <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
-          <i class="fa-solid fa-pen-to-square w-6 text-giz-forest" aria-hidden="true"></i>
+      <div class="mt-3 flex flex-col items-stretch gap-2 md:flex-row md:items-stretch md:gap-1.5">
+        <div class="flex-1 flex flex-col justify-center rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+          <i class="fa-solid fa-pen-to-square w-6 mx-auto text-giz-forest" aria-hidden="true"></i>
           <p class="mt-1 font-jp text-sm font-bold text-giz-ink">編集</p>
           <p class="font-jp text-xs text-giz-gray">台本・企画書を書く</p>
         </div>
-        <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
-        <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
-          <i class="fa-solid fa-floppy-disk w-6 text-giz-forest" aria-hidden="true"></i>
+        <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 self-center text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
+        <div class="flex-1 flex flex-col justify-center rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+          <i class="fa-solid fa-floppy-disk w-6 mx-auto text-giz-forest" aria-hidden="true"></i>
           <p class="mt-1 font-jp text-sm font-bold text-giz-ink">記録</p>
           <p class="font-jp text-xs text-giz-gray">差分＋AI要約つきで1版を保存</p>
         </div>
-        <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
-        <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
-          <i class="fa-solid fa-clock-rotate-left w-6 text-giz-forest" aria-hidden="true"></i>
+        <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 self-center text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
+        <div class="flex-1 flex flex-col justify-center rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+          <i class="fa-solid fa-clock-rotate-left w-6 mx-auto text-giz-forest" aria-hidden="true"></i>
           <p class="mt-1 font-jp text-sm font-bold text-giz-ink">履歴・復元</p>
           <p class="font-jp text-xs text-giz-gray">一覧・差分を見て、この版に戻す</p>
         </div>
@@ -1213,7 +1289,7 @@
       <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
         当初は <strong>Google 認証（OAuth 認証）</strong> を入れようとした。ただし利用者は基本的に<strong>本人</strong>。
         OAuth は同意画面の審査・連携設定・運用の手間まで抱える割に、この規模では見合わない。
-        <strong class="text-giz-forest">費用対効果</strong>を踏まえ、<strong>ID＋パスワードの自前認証</strong>（ログイン成功でサーバーがセッションを発行し、Cookie で保持）を採用した。小さく閉じた利用なら、これで必要十分。
+        <span class="giz-mark">費用対効果を踏まえ、ID＋パスワードの自前認証</span>（ログイン成功でサーバーがセッションを発行し、Cookie で保持）を採用した。小さく閉じた利用なら、これで必要十分。
       </p>
     </div>
   </div>
@@ -1266,6 +1342,16 @@
       <img src="assets/screen-history.png" class="w-full rounded-2xl border border-giz-gray-mid"
            alt="『履歴』モーダル。版の一覧（記録した人・日時・要約）、差分表示、『この版に戻す』ボタンが並ぶ">
     </div>
+  </div>
+
+  <!-- placeholder 5：推敲モーダル -->
+  <div class="mt-6">
+    <div class="mb-2 flex items-center gap-2">
+      <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white text-xs font-bold">5</span>
+      <p class="font-jp text-sm font-bold text-giz-ink">「推敲比較」欄</p>
+    </div>
+    <img src="assets/screen-calib.png" class="w-full rounded-2xl border border-giz-gray-mid"
+         alt="『推敲比較』欄。手直し後の確定稿を貼り付けるテキスト入力欄、文字数カウント、『推敲開始』ボタンとクリアボタンが並ぶ">
   </div>
 
   <!-- モバイル表示（レスポンシブ）：スマホフレームに貼る -->

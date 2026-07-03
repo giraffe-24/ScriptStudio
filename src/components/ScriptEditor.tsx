@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Menu, Loader2, Copy, Check } from "lucide-react";
+import { Menu, Loader2, Copy, Check, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toUserMessage } from "@/lib/error-message";
 import { useReadOnly } from "@/lib/useViewerRole";
@@ -10,6 +10,7 @@ import {
   splitScriptCalib,
 } from "@/lib/script-calib";
 import { extractSelectionContext } from "@/lib/script-selection";
+import { CalibReviewModal } from "@/components/CalibReviewModal";
 import { buildEditorNavSections } from "@/lib/script-outline";
 import { scrollTextareaToCharOffset } from "@/lib/script-editor-scroll";
 import {
@@ -134,6 +135,7 @@ function EditorLoadingOverlay({
 export function ScriptEditor({
   script,
   onSave,
+  episodeTitle,
   outline,
   onRevisionEntered,
   onRevisionCleared,
@@ -155,9 +157,12 @@ export function ScriptEditor({
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [activeSectionOffset, setActiveSectionOffset] = useState<number | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [calibReviewOpen, setCalibReviewOpen] = useState(false);
+  const [learnNotice, setLearnNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
   const saveRequestRef = useRef(0);
-  // 閲覧専用ログインでは編集と自動保存を止める（サーバー側でも 403 で遮断される）
+  // 閲覧専用ログインでは自動保存を止める（サーバー側でも 403 で遮断される）。
+  // 編集自体はデモ体験としてクライアント内でのみ許可する（疑似保存の差分表示用）
   const viewerReadOnly = useReadOnly();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -211,6 +216,9 @@ export function ScriptEditor({
     setCalibOpen(false);
     setSaved(true);
     setSaveError(null);
+    // エピソード切り替え時は推敲モーダルと結果表示をリセットする
+    setCalibReviewOpen(false);
+    setLearnNotice(null);
     hadRevisionRef.current = calib.trim().length > 0;
     if (latestContentRef) latestContentRef.current = script;
   }, [script, latestContentRef]);
@@ -267,6 +275,24 @@ export function ScriptEditor({
     }
     onDraftChange?.();
   }, [content, latestContentRef, onDraftChange]);
+
+  // 推敲開始：モーダルで差分を確認し、AI 提案の「あらきりらしさ」更新案を
+  // ユーザーが確認・修正・確定してから保存する（CalibReviewModal）
+  const handleCalibCommitted = useCallback((summary: string) => {
+    if (viewerReadOnly) {
+      setLearnNotice({
+        kind: "success",
+        text: "推敲の疑似体験が完了しました（デモ・実際には保存されていません）。",
+      });
+      return;
+    }
+    setLearnNotice({
+      kind: "success",
+      text: summary
+        ? `あらきりらしさを更新しました。${summary}`
+        : "あらきりらしさを更新しました。",
+    });
+  }, [viewerReadOnly]);
 
   function syncHighlightScroll(scrollTop: number) {
     if (highlightRef.current) {
@@ -467,6 +493,14 @@ export function ScriptEditor({
             <span className="text-xs font-medium text-destructive whitespace-nowrap">
               ⚠ 保存に失敗
             </span>
+          ) : viewerReadOnly ? (
+            <span
+              role="status"
+              aria-live="polite"
+              className={`text-xs whitespace-nowrap ${saved ? "text-muted-foreground" : "font-medium text-amber-600"}`}
+            >
+              {saved ? "デモ編集可（保存されません）" : "デモ編集中（保存されません）"}
+            </span>
           ) : !saved && !editorLocked ? (
             <span role="status" aria-live="polite" className="text-xs text-muted-foreground whitespace-nowrap">
               自動保存中…
@@ -663,7 +697,7 @@ export function ScriptEditor({
               onMouseUp={syncSelectionFromTextarea}
               onKeyUp={syncSelectionFromTextarea}
               onScroll={(e) => syncHighlightScroll(e.currentTarget.scrollTop)}
-              readOnly={editorLocked || viewerReadOnly}
+              readOnly={editorLocked}
               aria-label="台本本文"
               className={editorTextareaClass}
               placeholder="台本をここに入力…"
@@ -720,7 +754,7 @@ export function ScriptEditor({
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-amber-700">推敲比較</span>
             <span className="text-xs text-amber-600">
-              手直し後の確定稿をここに貼り付けて /推敲比較 で使用
+              手直し後の確定稿を貼り付けて推敲を開始
             </span>
           </div>
           <span className={`text-amber-600 text-xs transition-transform duration-200 ${calibOpen ? "rotate-180" : ""}`} aria-hidden>
@@ -733,7 +767,6 @@ export function ScriptEditor({
             <textarea
               value={calibText}
               onChange={(e) => handleCalibChange(e.target.value)}
-              readOnly={viewerReadOnly}
               rows={8}
               placeholder="手直し後の台本をここに全文貼り付けてください…"
               aria-label="推敲比較用の確定稿（手直し後の台本全文）"
@@ -741,22 +774,60 @@ export function ScriptEditor({
               spellCheck={false}
             />
             {calibText && (
-              <div className="px-4 pb-2 flex items-center justify-between">
+              <div className="px-4 pb-2 flex items-center justify-between gap-3">
                 <span className="text-xs text-amber-600">
                   {calibText.replace(/\s/g, "").length.toLocaleString()} 字
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleCalibChange("")}
-                  className="text-xs text-amber-600 hover:text-amber-800 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none rounded"
-                >
-                  クリア
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* 閲覧専用はデモ体験（CalibReviewModal の demoMode で AI・保存を遮断） */}
+                  <button
+                    type="button"
+                    onClick={() => setCalibReviewOpen(true)}
+                    disabled={!content.trim()}
+                    title={
+                      viewerReadOnly
+                        ? "推敲の流れを疑似体験できます（デモ・実際には保存されません）"
+                        : "元原稿と確定稿の差分を確認し、AIが執筆・修正時に参照する「あらきりらしさ」を更新します"
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-bold text-white transition-colors hover:bg-amber-700 disabled:opacity-50 disabled:hover:bg-amber-600 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+                  >
+                    <Sparkles className="size-3" aria-hidden />
+                    {viewerReadOnly ? "推敲開始（デモ）" : "推敲開始"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCalibChange("")}
+                    className="text-xs text-amber-600 hover:text-amber-800 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none rounded"
+                  >
+                    クリア
+                  </button>
+                </div>
               </div>
+            )}
+            {learnNotice && (
+              <p
+                role="status"
+                aria-live="polite"
+                className={`px-4 pb-3 text-xs leading-relaxed ${
+                  learnNotice.kind === "error" ? "text-red-600" : "text-emerald-700"
+                }`}
+              >
+                {learnNotice.text}
+              </p>
             )}
           </div>
         )}
       </div>
+
+      <CalibReviewModal
+        open={calibReviewOpen}
+        onOpenChange={setCalibReviewOpen}
+        originalText={content}
+        finalText={calibText}
+        episodeTitle={episodeTitle}
+        onCommitted={handleCalibCommitted}
+        demoMode={viewerReadOnly}
+      />
     </div>
   );
 }

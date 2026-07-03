@@ -9,6 +9,8 @@ export interface ChannelConfig {
   planning?: string;
   themeSelection?: string;
   marketAnalysisRubric?: string;
+  /** あらきりらしさメモ（推敲差分から学習した文体データ。style-learnings.ts） */
+  voiceLearnings?: string;
 }
 
 export interface Episode {
