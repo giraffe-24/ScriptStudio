@@ -7,14 +7,12 @@ import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
 import { GitHistoryModal } from "./GitHistoryModal";
-import { HistoryModal } from "./HistoryModal";
 import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
 import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
 import {
   planToSnapshotText,
   planSnapshotContentToText,
-  parsePlanSnapshotContent,
 } from "@/lib/plan-snapshot-text";
 import { toUserMessage } from "@/lib/error-message";
 
@@ -60,9 +58,9 @@ export function PlanningDoc({
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const gitConfigured = useGitMirrorStatus();
-  // 企画書のバージョン履歴（保存/履歴）。ローカルはファイル、本番は Supabase。
+  // 企画書のバージョン保存。ローカルはファイル、本番は Supabase。
+  // 履歴の閲覧・復元は台本ペインの統合履歴モーダル（企画書＋台本）に集約した。
   const [planVersionsEnabled, setPlanVersionsEnabled] = useState(false);
-  const [planHistoryOpen, setPlanHistoryOpen] = useState(false);
   const [planCommitOpen, setPlanCommitOpen] = useState(false);
   const [latestPlanContent, setLatestPlanContent] = useState<string | null>(null);
   // 「最新スナップショットの取得が完了したか」。未取得のまま自動記録すると
@@ -325,7 +323,7 @@ export function PlanningDoc({
 
   if (!plan) return null;
 
-  // 企画書バージョン履歴（保存/履歴）の派生値
+  // 企画書バージョン保存の派生値
   const canUsePlanVersions = planVersionsEnabled && episodeNumber != null && !!episodeSlug;
   const planText = planToSnapshotText(plan);
   const recordedPlanText = latestPlanContent ? planSnapshotContentToText(latestPlanContent) : "";
@@ -473,34 +471,24 @@ export function PlanningDoc({
 
           {/* アクションボタン */}
           <div className="pt-2 pb-6 space-y-2">
-            {/* 企画書バージョン保存/履歴は台本生成(submitting)とは独立。
-                submitting で無効化しない（＝編集後すぐ保存できる）。 */}
+            {/* 企画書バージョン保存は台本生成(submitting)とは独立。
+                submitting で無効化しない（＝編集後すぐ保存できる）。
+                履歴の閲覧・復元は台本ペインの「履歴」（企画書＋台本の統合表示）から行う。 */}
             {canUsePlanVersions && (
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setPlanCommitOpen(true)}
-                  disabled={!planUnrecorded}
-                  variant={planUnrecorded ? "default" : "outline"}
-                  size="lg"
-                  className="flex-1 py-3 rounded-xl font-semibold"
-                  title={
-                    planUnrecorded
-                      ? "現在の企画書をバージョンとして保存（履歴に記録）"
-                      : "前回の保存から変更はありません"
-                  }
-                >
-                  {planUnrecorded ? "保存（未保存）" : "保存"}
-                </Button>
-                <Button
-                  onClick={() => setPlanHistoryOpen(true)}
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 py-3 rounded-xl font-semibold"
-                  title="保存した企画書の履歴を見る・以前の版に戻す"
-                >
-                  履歴
-                </Button>
-              </div>
+              <Button
+                onClick={() => setPlanCommitOpen(true)}
+                disabled={!planUnrecorded}
+                variant={planUnrecorded ? "default" : "outline"}
+                size="lg"
+                className="w-full py-3 rounded-xl font-semibold"
+                title={
+                  planUnrecorded
+                    ? "現在の企画書をバージョンとして保存（履歴に記録）"
+                    : "前回の保存から変更はありません"
+                }
+              >
+                {planUnrecorded ? "保存（未保存）" : "保存"}
+              </Button>
             )}
             {/* 台本生成の submit。完了で必ず submitting を戻す（一方向ラッチを防ぐ）。 */}
             <Button
@@ -591,39 +579,19 @@ export function PlanningDoc({
       )}
 
       {planVersionsEnabled && episodeNumber != null && !!episodeSlug && (
-        <>
-          <SnapshotCommitModal
-            open={planCommitOpen}
-            onOpenChange={setPlanCommitOpen}
-            episodeTitle={plan.episodeTitle}
-            episodeNumber={episodeNumber}
-            episodeSlug={episodeSlug}
-            currentContent={planText}
-            previousContent={recordedPlanText}
-            endpoint="/api/plan-versions"
-            docLabel="企画書"
-            contentToStore={JSON.stringify(plan, null, 2)}
-            onCommitted={() => void refreshLatestPlanSnapshot()}
-          />
-          <HistoryModal
-            open={planHistoryOpen}
-            onOpenChange={setPlanHistoryOpen}
-            episodeTitle={plan.episodeTitle}
-            episodeNumber={episodeNumber}
-            episodeSlug={episodeSlug}
-            endpoint="/api/plan-versions"
-            renderContent={planSnapshotContentToText}
-            contentLabel="企画書"
-            onRestore={async (content) => {
-              const parsed = parsePlanSnapshotContent(content);
-              if (!parsed) throw new Error("保存された企画データを読み込めませんでした");
-              const restored = sanitizePlanOutline(parsed) ?? parsed;
-              onPlanChange?.(restored);
-              onTitleChange?.(restored.episodeTitle);
-              await refreshLatestPlanSnapshot();
-            }}
-          />
-        </>
+        <SnapshotCommitModal
+          open={planCommitOpen}
+          onOpenChange={setPlanCommitOpen}
+          episodeTitle={plan.episodeTitle}
+          episodeNumber={episodeNumber}
+          episodeSlug={episodeSlug}
+          currentContent={planText}
+          previousContent={recordedPlanText}
+          endpoint="/api/plan-versions"
+          docLabel="企画書"
+          contentToStore={JSON.stringify(plan, null, 2)}
+          onCommitted={() => void refreshLatestPlanSnapshot()}
+        />
       )}
     </div>
   );

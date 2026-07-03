@@ -227,6 +227,8 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
                 onRevisionEntered={handleRevisionEntered}
                 onRevisionCleared={handleRevisionCleared}
                 onRecordStateChange={handleRecordStateChange}
+                onPlanChange={handlePlanChange}
+                onTitleChange={handleTitleChange}
               />
             </div>
           ) : (

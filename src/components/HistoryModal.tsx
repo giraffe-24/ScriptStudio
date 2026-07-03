@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   Dialog,
@@ -16,20 +16,42 @@ import { computeScriptDiff, formatDiffStats } from "@/lib/script-diff";
 import type { ScriptSnapshot } from "@/lib/script-versions";
 import { toUserMessage } from "@/lib/error-message";
 
+/**
+ * 履歴の取得元（企画書・台本など）。複数指定すると 1 つのタイムラインに
+ * 時系列で混ぜて表示し、各項目はラベルのバッジで見分ける。
+ */
+export type HistorySource = {
+  key: string;
+  /** list を提供する API（例: /api/plan-versions） */
+  endpoint: string;
+  /** バッジ・全文・確認文言に使うラベル（例: 企画書） */
+  label: string;
+  /** バッジの配色クラス */
+  badgeClass: string;
+  /** 保存 content を表示・差分用テキストへ変換（既定: そのまま。企画書は JSON→整形テキスト） */
+  renderContent?: (raw: string) => string;
+  onRestore: (content: string) => Promise<void>;
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   episodeTitle: string;
   episodeNumber: number;
   episodeSlug: string;
-  onRestore: (content: string) => Promise<void>;
-  /** 履歴 API のエンドポイント（既定: 台本） */
-  endpoint?: string;
-  /** 保存 content を表示・差分用テキストへ変換（既定: そのまま。企画書は JSON→整形テキスト） */
-  renderContent?: (raw: string) => string;
-  /** 全文・確認文言のラベル（既定: 台本） */
-  contentLabel?: string;
+  sources: HistorySource[];
 };
+
+/** 企画書スナップショットは diffStats を持たないため optional で受ける */
+type HistoryEntry = Omit<ScriptSnapshot, "diffStats"> & {
+  diffStats?: ScriptSnapshot["diffStats"] | null;
+  sourceKey: string;
+};
+
+/** id はソースをまたぐと重複しうるため、ソースキーを含めて一意にする */
+function entryId(entry: HistoryEntry): string {
+  return `${entry.sourceKey}:${entry.id}`;
+}
 
 function formatDate(iso: string): string {
   try {
@@ -46,20 +68,20 @@ function formatDate(iso: string): string {
 }
 
 function SnapshotDetail({
-  snap,
+  entry,
   previousContent,
   isFirstRecord,
   renderContent,
   contentLabel,
 }: {
-  snap: ScriptSnapshot;
+  entry: HistoryEntry;
   previousContent: string;
   isFirstRecord: boolean;
   renderContent: (raw: string) => string;
   contentLabel: string;
 }) {
   const [showFullContent, setShowFullContent] = useState(false);
-  const currentText = renderContent(snap.content);
+  const currentText = renderContent(entry.content);
 
   if (isFirstRecord) {
     return (
@@ -121,17 +143,21 @@ export function HistoryModal({
   episodeTitle,
   episodeNumber,
   episodeSlug,
-  onRestore,
-  endpoint = "/api/script-versions",
-  renderContent = (raw) => raw,
-  contentLabel = "台本",
+  sources,
 }: Props) {
-  const [snapshots, setSnapshots] = useState<ScriptSnapshot[]>([]);
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // sources は呼び出し側で毎レンダー新しい配列になるため、取得エフェクトの
+  // 依存に直接入れず ref 経由で参照する（無限リフェッチを防ぐ）。
+  const sourcesRef = useRef(sources);
+  useEffect(() => {
+    sourcesRef.current = sources;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -141,26 +167,42 @@ export function HistoryModal({
     setConfirmId(null);
     setExpandedId(null);
 
-    fetch(
-      `${endpoint}?action=list&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
-    )
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "履歴の取得に失敗しました");
-        setSnapshots(data.snapshots ?? []);
-      })
-      .catch((err) => {
-        setError(toUserMessage(err));
-        setSnapshots([]);
-      })
-      .finally(() => setLoading(false));
-  }, [open, episodeNumber, episodeSlug, endpoint]);
+    let cancelled = false;
+    void (async () => {
+      const results = await Promise.allSettled(
+        sourcesRef.current.map(async (source) => {
+          const res = await fetch(
+            `${source.endpoint}?action=list&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
+          );
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? `${source.label}の履歴の取得に失敗しました`);
+          return ((data.snapshots ?? []) as ScriptSnapshot[]).map((snap) => ({
+            ...snap,
+            sourceKey: source.key,
+          }));
+        }),
+      );
+      if (cancelled) return;
+      const loaded = results
+        .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      setEntries(loaded);
+      const failed = results.find((r) => r.status === "rejected");
+      if (failed && failed.status === "rejected") setError(toUserMessage(failed.reason));
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, episodeNumber, episodeSlug]);
 
-  async function handleRestore(snapshot: ScriptSnapshot) {
-    setRestoringId(snapshot.id);
+  async function handleRestore(entry: HistoryEntry) {
+    const source = sources.find((s) => s.key === entry.sourceKey);
+    if (!source) return;
+    setRestoringId(entryId(entry));
     setError("");
     try {
-      await onRestore(snapshot.content);
+      await source.onRestore(entry.content);
       onOpenChange(false);
     } catch (err) {
       setError(toUserMessage(err));
@@ -179,28 +221,41 @@ export function HistoryModal({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>変更履歴</DialogTitle>
-          <DialogDescription>{episodeTitle}</DialogDescription>
+          <DialogDescription>
+            {episodeTitle}（{sources.map((s) => s.label).join("・")}の保存版を時系列で表示）
+          </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[min(28rem,70vh)] space-y-3 overflow-y-auto">
           {loading && <p className="text-xs text-muted-foreground">読み込み中…</p>}
-          {!loading && snapshots.length === 0 && (
+          {!loading && entries.length === 0 && (
             <p className="text-xs text-muted-foreground">まだ保存された版がありません。</p>
           )}
-          {snapshots.map((snap, index) => {
-            const isFirstRecord = index === snapshots.length - 1;
-            const isExpanded = expandedId === snap.id;
-            const previousContent = snapshots[index + 1]?.content ?? "";
+          {entries.map((entry, index) => {
+            const id = entryId(entry);
+            const source = sources.find((s) => s.key === entry.sourceKey);
+            const label = source?.label ?? entry.sourceKey;
+            const renderContent = source?.renderContent ?? ((raw: string) => raw);
+            // 差分は「同じソースのひとつ前の版」と比較する
+            const previous = entries
+              .slice(index + 1)
+              .find((e) => e.sourceKey === entry.sourceKey);
+            const isFirstRecord = !previous;
+            const isExpanded = expandedId === id;
 
             return (
-              <div
-                key={snap.id}
-                className="rounded-lg border bg-card p-3 space-y-2"
-              >
+              <div key={id} className="rounded-lg border bg-card p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-medium">
-                      [{snap.authorName}] {formatDate(snap.createdAt)}
+                      <span
+                        className={`mr-1.5 inline-block rounded px-1.5 py-0.5 text-xs font-semibold ${
+                          source?.badgeClass ?? "bg-secondary text-secondary-foreground"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                      [{entry.authorName}] {formatDate(entry.createdAt)}
                     </p>
                     {isFirstRecord && (
                       <span className="mt-1 inline-block rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
@@ -209,17 +264,17 @@ export function HistoryModal({
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-foreground">{snap.summary}</p>
-                {snap.diffStats && (
+                <p className="text-sm text-foreground">{entry.summary}</p>
+                {entry.diffStats && (
                   <p className="text-xs text-muted-foreground">
-                    {formatDiffStats(snap.diffStats)}
+                    {formatDiffStats(entry.diffStats)}
                   </p>
                 )}
 
                 <button
                   type="button"
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => toggleDetail(snap.id)}
+                  onClick={() => toggleDetail(id)}
                   aria-expanded={isExpanded}
                 >
                   {isExpanded ? (
@@ -232,40 +287,40 @@ export function HistoryModal({
 
                 {isExpanded ? (
                   <SnapshotDetail
-                    snap={snap}
-                    previousContent={previousContent}
+                    entry={entry}
+                    previousContent={previous?.content ?? ""}
                     isFirstRecord={isFirstRecord}
                     renderContent={renderContent}
-                    contentLabel={contentLabel}
+                    contentLabel={label}
                   />
                 ) : null}
 
-                {confirmId === snap.id ? (
+                {confirmId === id ? (
                   <div className="flex items-center gap-2 pt-1">
                     <p className="text-xs text-destructive flex-1">
-                      現在の内容をこの版で置き換えます。よろしいですか？
+                      現在の{label}をこの版で置き換えます。よろしいですか？
                     </p>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setConfirmId(null)}
-                      disabled={restoringId === snap.id}
+                      disabled={restoringId === id}
                     >
                       取消
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => void handleRestore(snap)}
-                      disabled={restoringId === snap.id}
+                      onClick={() => void handleRestore(entry)}
+                      disabled={restoringId === id}
                     >
-                      {restoringId === snap.id ? "復元中…" : "確定"}
+                      {restoringId === id ? "復元中…" : "確定"}
                     </Button>
                   </div>
                 ) : (
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => setConfirmId(snap.id)}
+                    onClick={() => setConfirmId(id)}
                     disabled={!!restoringId}
                   >
                     この版に戻す
