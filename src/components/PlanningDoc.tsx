@@ -22,6 +22,9 @@ import { toUserMessage } from "@/lib/error-message";
 const EDITABLE =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 leading-relaxed placeholder:text-gray-400 transition-colors";
 
+/** 企画書の自動記録：最後の記録との差分がこの時間続いたらスナップショットを作る */
+const AUTO_RECORD_DELAY_MS = 30_000;
+
 const EDITABLE_INPUT =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 placeholder:text-gray-400 transition-colors";
 
@@ -62,6 +65,10 @@ export function PlanningDoc({
   const [planHistoryOpen, setPlanHistoryOpen] = useState(false);
   const [planCommitOpen, setPlanCommitOpen] = useState(false);
   const [latestPlanContent, setLatestPlanContent] = useState<string | null>(null);
+  // 「最新スナップショットの取得が完了したか」。未取得のまま自動記録すると
+  // 既存履歴があるのに初稿として誤記録するため、完了を確認してから動かす。
+  const [latestPlanLoaded, setLatestPlanLoaded] = useState(false);
+  const autoRecordingRef = useRef(false);
   const planLoadKeyRef = useRef("");
   const planRequestRef = useRef(0);
 
@@ -101,6 +108,7 @@ export function PlanningDoc({
   const refreshLatestPlanSnapshot = useCallback(async () => {
     if (!planVersionsEnabled || episodeNumber == null || !episodeSlug) {
       setLatestPlanContent(null);
+      setLatestPlanLoaded(false);
       return;
     }
     try {
@@ -109,8 +117,10 @@ export function PlanningDoc({
       );
       const data = await res.json();
       setLatestPlanContent(res.ok ? (data.snapshot?.content ?? null) : null);
+      setLatestPlanLoaded(res.ok);
     } catch {
       setLatestPlanContent(null);
+      setLatestPlanLoaded(false);
     }
   }, [planVersionsEnabled, episodeNumber, episodeSlug]);
 
@@ -118,6 +128,76 @@ export function PlanningDoc({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshLatestPlanSnapshot();
   }, [refreshLatestPlanSnapshot]);
+
+  // 企画書の自動記録（台本の autoRecordSnapshot と体験を揃える）。
+  // イベント駆動ではなく状態差分ベース：最後の記録と現在の企画書が異なる状態が
+  // AUTO_RECORD_DELAY_MS 続いたら自動でスナップショット＋AI要約を作る。
+  // 編集・AI復元・エピソード切替による中断など、どの経路の変更でも取りこぼさない。
+  useEffect(() => {
+    if (!planVersionsEnabled || episodeNumber == null || !episodeSlug) return;
+    if (!latestPlanLoaded) return; // 既存履歴の取得前に初稿と誤認しない
+    if (!plan || loading || planCommitOpen) return; // 生成中・手動保存中は待つ
+
+    const currentText = planToSnapshotText(plan);
+    const recordedText = latestPlanContent ? planSnapshotContentToText(latestPlanContent) : "";
+    if (!currentText.trim() || currentText === recordedText) return;
+
+    const targetPlan = plan;
+    const targetNumber = episodeNumber;
+    const targetSlug = episodeSlug;
+    const timer = setTimeout(() => {
+      void (async () => {
+        if (autoRecordingRef.current) return;
+        autoRecordingRef.current = true;
+        try {
+          // AI要約（失敗しても定型文で記録は続行＝台本の自動記録と同じ方針）
+          let summary = "企画書を更新しました。";
+          try {
+            const sumRes = await fetch("/api/summarize-diff", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                episodeTitle: targetPlan.episodeTitle,
+                oldText: recordedText,
+                newText: currentText,
+                docLabel: "企画書",
+              }),
+            });
+            if (sumRes.ok) {
+              const sumData = await sumRes.json();
+              if (sumData.summary) summary = sumData.summary;
+            }
+          } catch {
+            // 要約失敗は記録を止めない
+          }
+          const res = await fetch("/api/plan-versions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              episodeNumber: targetNumber,
+              episodeSlug: targetSlug,
+              summary,
+              content: JSON.stringify(targetPlan, null, 2),
+            }),
+          });
+          if (res.ok) await refreshLatestPlanSnapshot();
+        } finally {
+          autoRecordingRef.current = false;
+        }
+      })();
+    }, AUTO_RECORD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [
+    plan,
+    latestPlanContent,
+    latestPlanLoaded,
+    planVersionsEnabled,
+    episodeNumber,
+    episodeSlug,
+    loading,
+    planCommitOpen,
+    refreshLatestPlanSnapshot,
+  ]);
 
   function isActivePlanRequest(requestId: number, requestKey: string) {
     return planRequestRef.current === requestId && planLoadKeyRef.current === requestKey;
