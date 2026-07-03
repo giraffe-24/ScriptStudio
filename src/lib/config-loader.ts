@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import type { ChannelConfig } from "./types";
+import { readCurrentStyleLearnings } from "./style-learnings";
 
 const ROOT = process.cwd();
 const CONFIG_DIR = path.join(ROOT, "config");
@@ -10,7 +11,7 @@ async function readConfigFile(name: string): Promise<string> {
 }
 
 export async function loadChannelConfig(): Promise<ChannelConfig> {
-  const [brand, audience, quality, planning, themeSelection, marketAnalysisRubric] =
+  const [brand, audience, quality, planning, themeSelection, marketAnalysisRubric, voiceLearnings] =
     await Promise.all([
     readConfigFile("brand.md"),
     readConfigFile("audience.md"),
@@ -18,11 +19,13 @@ export async function loadChannelConfig(): Promise<ChannelConfig> {
     readConfigFile("planning.md"),
     readConfigFile("theme-selection.md"),
     readConfigFile("market-analysis-rubric.md"),
+    readCurrentStyleLearnings().then((l) => l.content),
   ]);
-  return { brand, audience, quality, planning, themeSelection, marketAnalysisRubric };
+  return { brand, audience, quality, planning, themeSelection, marketAnalysisRubric, voiceLearnings };
 }
 
 export function buildSystemPrompt(config: ChannelConfig): string {
+  const voiceLearnings = config.voiceLearnings?.trim();
   return `あなたは「効率化オタクのあらきり」チャンネルの企画・台本作成AIアシスタントです。
 
 以下のチャンネル設定に厳密に従ってください。
@@ -43,5 +46,9 @@ ${config.planning ?? ""}
 ${config.themeSelection ?? ""}
 
 === 市場分析スコアリング ===
-${config.marketAnalysisRubric ?? ""}`;
+${config.marketAnalysisRubric ?? ""}${voiceLearnings ? `
+
+=== あらきりらしさ（推敲差分から学習した文体メモ） ===
+本人が AI 原稿を手直しした傾向の蓄積。執筆・修正ではこのメモを文体の参考にする。
+${voiceLearnings}` : ""}`;
 }

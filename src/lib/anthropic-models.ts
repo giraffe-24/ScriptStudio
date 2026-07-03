@@ -27,6 +27,7 @@ export function getAnthropicModel(
     | "inferPlan"
     | "script"
     | "sectionChat"
+    | "calibration"
     | "themeAdapt"
     | "marketStage1"
     | "marketStage2",
@@ -77,6 +78,14 @@ export function getAnthropicModel(
       return (
         firstDefined(
           sanitizeModel(process.env.ANTHROPIC_MODEL_SECTION_CHAT),
+          sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
+          globalModel,
+        ) ?? "claude-opus-4-7"
+      );
+    case "calibration":
+      return (
+        firstDefined(
+          sanitizeModel(process.env.ANTHROPIC_MODEL_CALIBRATION),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
         ) ?? "claude-opus-4-7"

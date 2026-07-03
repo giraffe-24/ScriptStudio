@@ -18,3 +18,4 @@
 | planning.md | 企画書・目次案（Studio / 台本 ## 見出し） |
 | theme-selection.md | テーマ選定（検索・ハルシネーション禁止） |
 | calibration.md | A/B マーカー |
+| voice-learnings.md | あらきりらしさ（Studio「らしさを学習」が推敲差分から自動更新する文体メモ。ローカル保存先。本番は Supabase `style_learnings`） |

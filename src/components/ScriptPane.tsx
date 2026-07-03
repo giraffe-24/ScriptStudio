@@ -160,7 +160,8 @@ export function ScriptPane({
   const [versionsEnabled, setVersionsEnabled] = useState(false);
   const [versionsHint, setVersionsHint] = useState("");
   const [commitOpen, setCommitOpen] = useState(false);
-  // 閲覧専用デモの疑似保存で「前回保存」とみなす台本（クライアント内のみ。null = デモ生成前）
+  // 閲覧専用デモの疑似保存で「前回保存」とみなす台本（クライアント内のみ。
+  // 既存台本の読込完了時またはデモ生成開始時にセットされる。null = 未確定）
   const [demoBaseline, setDemoBaseline] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitHistoryOpen, setGitHistoryOpen] = useState(false);
@@ -520,6 +521,13 @@ export function ScriptPane({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episodeNumber, episodeSlug]);
+
+  // 閲覧専用デモ：既存台本を開いた時点を「前回保存」とみなす。
+  // これでデモ編集→疑似保存（自分の編集の差分＋定型要約）を体験できる
+  useEffect(() => {
+    if (!viewerReadOnly || scriptLoading || !generated) return;
+    setDemoBaseline((prev) => prev ?? latestScriptRef.current);
+  }, [viewerReadOnly, scriptLoading, generated]);
 
   // 企画書「台本を作成する」→ 状態に関係なく新規生成開始（ディスクは上書きしない）
   useEffect(() => {
@@ -1231,14 +1239,15 @@ export function ScriptPane({
     (versionsEnabled || Boolean(planCommit?.enabled)) &&
     Boolean(episodeNumber) &&
     Boolean(episodeSlug);
-  // 閲覧専用デモ：デモ生成した台本に対して保存の疑似体験（差分＋定型要約）を出す
+  // 閲覧専用デモ：デモ生成・デモ編集した台本に対して保存の疑似体験（差分＋定型要約）を出す
   const demoSaveUnrecorded =
     viewerReadOnly &&
     generated &&
     !loading &&
     demoBaseline !== null &&
     hasScriptChangesSinceRecord(latestScriptRef.current, demoBaseline);
-  const showDemoSave = viewerReadOnly && generated && demoBaseline !== null;
+  // デモでも通常モードと同じく保存ボタンは常時表示し、差分がない間はグレーアウトにとどめる
+  const showDemoSave = viewerReadOnly;
   const saveButtonVisible = showRecordActions || showDemoSave;
   const savePending = viewerReadOnly ? demoSaveUnrecorded : anySaveUnrecorded;
   const saveButtonLabel = viewerReadOnly
@@ -1247,7 +1256,9 @@ export function ScriptPane({
   const saveButtonTitle = viewerReadOnly
     ? savePending
       ? "保存の流れを疑似体験できます（デモ・実際には記録されません）"
-      : "前回のデモ保存から変更はありません"
+      : generated
+        ? "台本を編集すると、保存の疑似体験（差分表示）ができます（デモ）"
+        : "デモ生成・編集した台本で保存の疑似体験ができます（デモ）"
     : savePending
       ? `未保存: ${unsavedDocsLabel}。クリックしてまとめて保存（履歴に記録）`
       : "前回の保存から変更はありません";
@@ -1480,7 +1491,8 @@ export function ScriptPane({
             latestContentRef={latestScriptRef}
             generationStatus={generationStatus}
             onRegenerateSelection={
-              generated && !loading ? handleRegenerateSelection : undefined
+              // 閲覧専用は AI を呼ぶ部分再生成を出さない（デモ編集は可能なため明示的に遮断）
+              generated && !loading && !viewerReadOnly ? handleRegenerateSelection : undefined
             }
             onSelectionRegenerated={(before, after) => void handleSelectionRegenerated(before, after)}
             onSave={(content) => {
