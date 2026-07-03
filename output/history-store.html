@@ -8,8 +8,8 @@
   <meta property="og:title" content="台本・企画書の「履歴」を残す仕組み ｜ ScriptStudio スナップショット保存基盤">
   <meta property="og:description" content="ScriptStudio で「記録・履歴・この版に戻す」を支える保存基盤。何を保存し（スナップショット）、どこに置き（Supabase＝クラウドDB）、どう壊れないようにしたか（キープアライブ・保存先診断・要約フォールバック）を図解でまとめる。">
   <meta property="og:type" content="article">
-  <title>ScriptStudio</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlNjcmlwdFN0dWRpbyI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNzR3JhZCIgeDE9IjE4IiB5MT0iOSIgeDI9IjQ3IiB5Mj0iNTEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZjE1YTk4Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMC41IiBzdG9wLWNvbG9yPSIjYWEyZTYxIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzNkMGYyNyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0icGVuQmFuZCIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmMTVhOTgiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2MxZjQ5Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KCiAgPCEtLSDog4zmma/jgr/jgqTjg6vvvIjlj4LnhafnlLvlg4/jga7mt6HjgYTjgrDjg6zjg7zvvIkgLS0+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiNmMWYxZjMiLz4KCiAgPCEtLSBTIC8gU++8iOODlOODs+OCr+KGkua/g+e0q+OCsOODqeODh++8iSAtLT4KICA8ZyBmaWxsPSJ1cmwoI3NzR3JhZCkiIGZvbnQtZmFtaWx5PSInQXJpYWwgQmxhY2snLCdIZWx2ZXRpY2EgTmV1ZScsSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiCiAgICAgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmb250LXNpemU9IjM3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIDx0ZXh0IHg9IjIwLjUiIHk9IjQ2Ij5TPC90ZXh0PgogICAgPHRleHQgeD0iNDMuNSIgeT0iNDYiPlM8L3RleHQ+CiAgPC9nPgoKICA8IS0tIOS4reWkruOBruWMuuWIh+OCiu+8neODmuODs++8iOOCquODquOCuOODiuODq+aAp++8j+WvvuinkumFjee9ru+8iSAtLT4KICA8ZyB0cmFuc2Zvcm09InJvdGF0ZSgyOSAzMiAzMikiPgogICAgPCEtLSDou7jvvIjkuIrjgaDjgZHop5LkuLjjg7vkuIvjga/lubPjgonjgafjg5rjg7PlhYjjgavmjqXntprvvIkgLS0+CiAgICA8cGF0aCBkPSJNMjguNCA0MSBMMjguNCAxNSBRMjguNCAxMiAzMS40IDEyIEwzMi42IDEyIFEzNS42IDEyIDM1LjYgMTUgTDM1LjYgNDEgWiIKICAgICAgICAgIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzNkMGYyNyIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICAgIDwhLS0g44Kw44Oq44OD44OX5biv77yI44Kw44Op44OH77yJIC0tPgogICAgPHJlY3QgeD0iMjkuMSIgeT0iMjkuNiIgd2lkdGg9IjUuOCIgaGVpZ2h0PSI1LjQiIGZpbGw9InVybCgjcGVuQmFuZCkiLz4KICAgIDwhLS0g44OO44OD44Kv77yI6aCt77yJIC0tPgogICAgPHJlY3QgeD0iMzAuMyIgeT0iOS4wIiB3aWR0aD0iMy40IiBoZWlnaHQ9IjMuNCIgcng9IjEuMyIgZmlsbD0iIzNkMGYyNyIvPgogICAgPCEtLSDjg5rjg7PlhYjvvIjjgrPjg7zjg7PvvIkgLS0+CiAgICA8cGF0aCBkPSJNMjguNCA0MSBMMzUuNiA0MSBMMzIgNTIuNCBaIiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiMzZDBmMjciIHN0cm9rZS13aWR0aD0iMS40IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgICA8IS0tIOODmuODs+WFiOODu+ODgeODg+ODlyAtLT4KICAgIDxwYXRoIGQ9Ik0zMC40IDQ3LjQgTDMzLjYgNDcuNCBMMzIgNTIuNCBaIiBmaWxsPSIjM2QwZjI3Ii8+CiAgICA8IS0tIOOCueODquODg+ODiCAtLT4KICAgIDxsaW5lIHgxPSIzMiIgeTE9IjQxLjQiIHgyPSIzMiIgeTI9IjQ2LjYiIHN0cm9rZT0iIzNkMGYyNyIgc3Ryb2tlLXdpZHRoPSIxLjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+Cg==">
+  <title>ScriptStudioの図解</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23ffffff'/><rect x='8' y='8' width='84' height='84' rx='12' fill='none' stroke='%23000' stroke-width='4'/><rect x='20' y='55' width='60' height='12' rx='2' fill='%23c9fe6e'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Special+Gothic+Expanded+One&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
@@ -1019,11 +1019,11 @@
       <li><a href="#top">はじめに ── ScriptStudio とは</a></li>
       <li><a href="#features">全体像（6ステップの流れ）と本題</a></li>
       <li><a href="#section-1">ツールの画面（キャプチャ）</a></li>
-      <li><a href="#section-2">保持できるようにしたデータ</a></li>
-      <li><a href="#section-3">保存先と、選んだ理由</a></li>
+      <li><a href="#section-2">保存しているデータ</a></li>
+      <li><a href="#section-ai">発展：AIが動く機能</a></li>
+      <li><a href="#section-3">保存先と、それを選んだ理由</a></li>
       <li><a href="#section-4">工夫したポイント</a></li>
       <li><a href="#section-5">苦戦したポイント</a></li>
-      <li><a href="#section-ai">発展：AIが動く機能</a></li>
       <li><a href="#summary">まとめ</a></li>
     </ol>
   </nav>
@@ -1036,11 +1036,11 @@
   <!-- eyebrow -->
   <span class="giz-genre-badge giz-badge inline-flex items-center gap-1.5 rounded-full px-4 py-1.5">
     <i class="fa-solid fa-layer-group w-3.5" aria-hidden="true"></i>
-    ScriptStudio ／ 6ステップのひとつ「台本作成（履歴管理）」
+    AI-Driven School ／ 月次課題 4か月目
   </span>
 
   <!-- ブランド＋モットー：ひとかたまりの識別ロックアップ -->
-  <div class="giz-wordmark mt-5 text-5xl md:text-6xl"><ruby class="giz-wordmark-ruby">ScriptStudio<rt>クリプトスタジオ</rt></ruby></div>
+  <div class="giz-wordmark mt-5 text-5xl md:text-6xl"><ruby class="giz-wordmark-ruby">ScriptStudio<rt>スクリプトスタジオ</rt></ruby></div>
   <h1 class="mt-3 font-jp text-2xl md:text-3xl font-bold leading-tight text-giz-ink">
     <span class="giz-mark">シームレス</span>こそ、正義。
   </h1>
@@ -1048,7 +1048,7 @@
   <!-- 何を・誰に（pitch） -->
   <div class="mt-10 mx-auto max-w-2xl">
     <p class="mx-auto max-w-xl level-secondary">
-      ScriptStudio は <strong class="text-giz-ink">調査→企画→執筆→推敲→管理</strong> をひとつの流れにして、<strong class="text-giz-forest">AIを“あなたの書き手”に育てる</strong>。量産しても、あなたの声のまま。
+      ScriptStudio は <strong class="text-giz-ink">管理→調査→企画→執筆→推敲</strong> をひとつの流れにして、<strong class="text-giz-forest">AIを“あなたの書き手”に育てる</strong>。量産しても、あなたの声のまま。
     </p>
     <div class="mt-5 flex flex-col items-center gap-2">
       <!-- 上段（頂点）2つ -->
@@ -1094,7 +1094,7 @@
   <!-- リード文：この資料が扱う範囲（保存・管理＝履歴） -->
   <p class="mt-10 mx-auto max-w-xl level-secondary">
     この資料が掘り下げるのは、その中の <strong class="text-giz-forest">「台本作成」を支える履歴管理</strong>。
-    台本や企画書を<strong class="text-giz-ink">〈スナップショット〉</strong>で丸ごと残し、差分を見て<strong class="text-giz-ink">その版に戻せる</strong>仕組みの話です。
+    台本や企画書を<strong class="text-giz-ink">スナップショット</strong>で丸ごと残し、差分を見て<strong class="text-giz-ink">その版に戻せる</strong>仕組みの話です。
   </p>
 
 </section>
@@ -1212,7 +1212,7 @@
     <p class="giz-label text-giz-forest">ここから本題 ／ ステップ5「履歴管理」を開く</p>
     <h3 class="mt-1 font-jp text-lg font-bold text-giz-ink">読みどころは、この3つだけ</h3>
     <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-      <strong class="text-giz-ink">何を保存し・どこに置き・どう壊れないようにしたか</strong>。以降のセクションは、この3点を順にくわしく見ていきます。
+      <strong class="text-giz-ink">何を保存し・どこに置き・どう壊れないようにしたか</strong>。SECTION 2 以降で、この3点を順にくわしく見ていきます。
     </p>
 
     <div class="mt-5 grid gap-3 sm:grid-cols-3">
@@ -1352,6 +1352,16 @@
     </div>
     <img src="assets/screen-calib.png" class="w-full rounded-2xl border border-giz-gray-mid"
          alt="『推敲比較』欄。手直し後の確定稿を貼り付けるテキスト入力欄、文字数カウント、『推敲開始』ボタンとクリアボタンが並ぶ">
+
+    <!-- ねらい：確定稿との差分から「自分らしさ」を学習させる -->
+    <div class="mt-4 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
+      <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+        <i class="fa-solid fa-seedling w-4" aria-hidden="true"></i>ねらい ── 確定稿との差分から「自分らしさ」を学習させる
+      </p>
+      <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+        手直しを終えた<strong>確定稿</strong>をここに貼って「推敲開始」を押すと、AI の原稿との<strong>差分</strong>が並び、そこから「どこを・なぜ直したか」を AI が読み取って提案してくる。採用した学びはブランド定義・成功台本として蓄積されるので、<span class="giz-mark">直せば直すほど、次の初稿が自分の声に近づいていく</span>。推敲を「その場の手直し」で終わらせず、AI を育てる材料に変える仕組み。
+      </p>
+    </div>
   </div>
 
   <!-- モバイル表示（レスポンシブ）：スマホフレームに貼る -->
@@ -1361,7 +1371,7 @@
       <p class="font-jp text-sm font-bold text-giz-ink">モバイル表示（レスポンシブ）</p>
     </div>
     <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-      PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作がしたい</span>と思ったので、スマホでも使えるようにした。狭い画面では主要操作（一覧・テーマ・企画・台本）を<strong class="text-giz-forest">画面下のフッタータブ</strong>へ集約し、片手・親指の届く位置で完結する。
+      PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作したい</span>と思ったので、スマホでも使えるようにした。狭い画面では主要操作（一覧・テーマ・企画・台本）を<strong class="text-giz-forest">画面下のフッタータブ</strong>へ集約し、片手・親指の届く位置で完結する。
     </p>
 
     <div class="mt-5 giz-phone-row">
@@ -1414,8 +1424,8 @@
     <table class="w-full border-collapse text-left font-jp text-sm">
       <thead>
         <tr class="bg-giz-terminal text-white">
-          <th class="px-4 py-2.5 font-bold">保存する内容</th>
-          <th class="px-4 py-2.5 font-bold">意味・使いみち</th>
+          <th scope="col" class="px-4 py-2.5 font-bold">保存する内容</th>
+          <th scope="col" class="px-4 py-2.5 font-bold">意味・使いみち</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-giz-gray-mid">
@@ -1436,7 +1446,7 @@
           <td class="px-4 py-2.5 text-giz-ink">この版へ<strong>そっくり戻す</strong>ための原本</td>
         </tr>
         <tr class="bg-white">
-          <td class="px-4 py-2.5 font-bold text-giz-ink">変更量</td>
+          <td class="px-4 py-2.5 font-bold text-giz-ink">変更量（差分サマリ）</td>
           <td class="px-4 py-2.5 text-giz-ink">追加・削除の行数。どれだけ変わったかの目安（台本のみ）</td>
         </tr>
         <tr class="bg-giz-surface">
@@ -1489,8 +1499,63 @@
       <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">想定尺</span>
       <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">ゴール</span>
     </div>
-    <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">
-      <strong class="text-giz-ink">狙い：</strong>保存は復元しやすい JSON、表示は人が差分を追える整形テキスト。「保存の形」と「見せる形」を分けている。
+    <p class="mt-3 font-jp text-xs text-giz-ink leading-relaxed">
+      <strong>ねらい：</strong>「保存の形（JSON）」と「見せる形（整形テキスト）」を分けるため。くわしくは SECTION 4 の工夫5へ。
+    </p>
+  </div>
+</section>
+
+<!-- ============ SECTION: 発展課題（AIが動く機能） ============ -->
+<section id="section-ai" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
+  <p class="giz-label text-giz-gray">発展課題（任意）</p>
+  <h2 class="mt-1 text-2xl">AIが動く機能</h2>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
+    基本の課題（画面〜苦戦）に加えて、アプリの随所に <strong class="text-giz-forest">「AIが動く機能」</strong> を組み込んだ。共通するのは、<strong class="text-giz-ink">全部を渡さず「対象だけ」を AI に渡す</strong>という設計。4つの例で示す。
+  </p>
+
+  <!-- AIが動く4機能：どれも「対象だけ渡す」 -->
+  <div class="mt-6 grid gap-4 sm:grid-cols-2">
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-wand-magic-sparkles w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">変更を AI が要約</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>前の版との差分 <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>1〜2文の要約</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">記録するたび、履歴に「何を変えたか」が自動で並ぶ。</p>
+    </div>
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-i-cursor w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">台本の部分再生成</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>選んだ箇所＋前後（各〜1000字）<span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その範囲だけ書き直し</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">執筆ペインで気になる箇所を選ぶだけ。<span class="giz-mark">全文を作り直さないので他がブレず、トークンも節約。</span></p>
+    </div>
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-file-pen w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">企画書の部分修正</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>直したい項目だけ <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その項目だけ更新</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">想定視聴者・悩みなど、項目単位で AI に相談。企画書ぜんぶは触らない。</p>
+    </div>
+    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
+      <div class="flex items-center gap-2 text-giz-forest">
+        <i class="fa-solid fa-seedling w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold text-giz-ink">推敲の差分から学習</p>
+      </div>
+      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>AI原稿と確定稿の差分 <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>「らしさメモ」の更新案</p>
+      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">「どこを・なぜ直したか」を AI が読み取り、採用した学びだけ蓄積。<span class="giz-mark">直すほど、次の初稿が自分の声に近づく。</span></p>
+    </div>
+  </div>
+
+  <!-- 道を外させない（ハーネス） -->
+  <div class="mt-6 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
+    <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+      <i class="fa-solid fa-shield-halved w-4" aria-hidden="true"></i>道を外させない工夫（ハーネス）
+    </p>
+    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+      どれも<strong>対象を絞って渡す</strong>のが肝。範囲が狭いほど、AI は<strong>暴走せず・他をブレさせず・トークンも軽い</strong>。落ちたときの守り（要約フォールバック）は後述の工夫2で触れる。「どの作業を AI に任せ、どうすれば道を外さず動くか」を設計した部分。
     </p>
   </div>
 </section>
@@ -1502,6 +1567,23 @@
   <p class="mt-3 font-jp text-giz-ink leading-relaxed">
     履歴は <strong class="text-giz-forest">Supabase（クラウド DB）</strong> に一元保存する。なぜファイルではなく外部 DB なのか、そして実際に<strong>どんな形でデータを持っているか</strong>を見ていく。
   </p>
+
+  <!-- 保存先の A/B 比較（結論） -->
+  <h3 class="mt-7 font-jp text-base font-bold text-giz-ink">保存先の選択肢を比べた結果</h3>
+  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+    <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
+      <p class="giz-label text-giz-coral">A</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Vercel のファイルに保存</p>
+      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-coral"><i class="fa-solid fa-xmark w-4" aria-hidden="true"></i>不採用</p>
+      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">サーバーレスで揮発し、書いても消える。</p>
+    </div>
+    <div class="rounded-xl border-2 border-giz-sea bg-giz-mist/40 p-4">
+      <p class="giz-label text-giz-sea">B</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase（Postgres）</p>
+      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-sea"><i class="fa-solid fa-circle-check w-4" aria-hidden="true"></i>採用</p>
+      <p class="mt-1 font-jp text-xs text-giz-mist-ink leading-relaxed">永続化できる。ただし無料枠は7日休止に注意。</p>
+    </div>
+  </div>
 
   <!-- 保存の流れ -->
   <div class="mt-6 rounded-2xl border border-giz-gray-mid bg-giz-mist/50 p-5">
@@ -1525,7 +1607,7 @@
         <p class="mt-0.5 font-jp text-xs text-giz-gray">クラウド DB に保存</p>
       </div>
     </div>
-    <p class="mt-4 font-jp text-xs text-giz-gray leading-relaxed">
+    <p class="mt-4 font-jp text-xs text-giz-mist-ink leading-relaxed">
       1回の保存で、そのときの台本を<strong class="text-giz-ink">まるごと1件ぶん</strong>追加する。台本も企画書も同じ仕組みで、記録するたびに下へ積み上がっていく。
     </p>
   </div>
@@ -1535,17 +1617,15 @@
     <div class="rounded-2xl border border-giz-sea bg-white p-5">
       <div class="flex items-center gap-2 text-giz-sea">
         <i class="fa-solid fa-cloud w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">Supabase（Postgres）に保存</p>
+        <p class="font-jp text-sm font-bold">Supabase を選んだ理由</p>
       </div>
-      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">なぜ外部 DB が必要？</p>
-      <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-        土台は Vercel の<strong class="text-giz-ink">サーバーレス</strong>。書き込んだファイルは処理が終わると消える（揮発する）。だから履歴のような「残さないと意味がないデータ」は外部に置くしかない。
+      <p class="mt-3 font-jp text-sm text-giz-gray leading-relaxed">
+        ファイルに書いても消えてしまうので、履歴は<strong class="text-giz-ink">確実に残るクラウド DB</strong> に置く。なかでも Supabase は——
       </p>
-      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">なぜ Supabase を選んだ？</p>
-      <ul class="mt-1 space-y-1.5 font-jp text-sm text-giz-ink">
-        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>マネージドの Postgres で運用が軽い</li>
-        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>無料枠で始められる</li>
-        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>サーバー用キーで直接読み書きでき、SQL で表を管理できる</li>
+      <ul class="mt-3 space-y-1.5 font-jp text-sm text-giz-ink">
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>無料で始められる</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>面倒なサーバー管理はおまかせできる</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>アプリから直接読み書きできる</li>
       </ul>
     </div>
     <div class="rounded-2xl border border-giz-forest bg-white p-5">
@@ -1555,17 +1635,9 @@
       </div>
       <p class="mt-3 font-jp text-sm font-bold text-giz-ink">1回の保存 ＝ 1件</p>
       <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-        台本の<strong class="text-giz-ink">全文をまるごと</strong>残し、そこに次の情報を添える。だから「その版に丸ごと戻す」ができる。
+        そのときの台本を<strong class="text-giz-ink">全文まるごと</strong>1件で残し、「誰が・いつ・何を変えたか」のメモを添える。だから<strong class="text-giz-forest">好きな版にそのまま戻せる</strong>。
       </p>
-      <p class="mt-3 font-jp text-sm font-bold text-giz-ink">1件に残しているもの</p>
-      <ul class="mt-1.5 space-y-1.5 font-jp text-sm text-giz-ink">
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>台本の全文（まるごと）</li>
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>保存メモ</li>
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>前版との差分サマリ</li>
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>保存した人</li>
-        <li class="flex gap-2"><i class="fa-solid fa-check w-3.5 mt-1 text-giz-forest" aria-hidden="true"></i>保存時刻</li>
-      </ul>
-      <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">取り出すときは<strong class="text-giz-ink">その回のぶんを新しい順</strong>に並べる → それが<strong class="text-giz-forest">履歴</strong>。企画書も同じ形で貯まる。</p>
+      <p class="mt-3 font-jp text-xs text-giz-gray leading-relaxed">これを<strong class="text-giz-ink">新しい順に並べたものが履歴</strong>。企画書も同じ形で貯まる。</p>
     </div>
   </div>
 </section>
@@ -1654,10 +1726,10 @@
         <p class="font-jp text-sm font-bold">① AI 要約の失敗が、保存まで道連れにした</p>
       </div>
       <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>記録のたびに変更点を AI で1〜2文に要約していたが、AI 側がタイムアウト・失敗すると<strong class="text-giz-coral">保存そのものが巻き添えで失敗</strong>。おまけ機能のはずが、履歴の生命線を止めていた。
+        <strong>症状：</strong>記録のたびに変更点を AI が1〜2文に要約していたが、AI が失敗すると<strong class="text-giz-coral">保存そのものが巻き添えで失敗</strong>。おまけ機能のはずが、履歴の生命線を止めていた。
       </p>
       <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>要約は「あれば嬉しいおまけ」と割り切り、失敗しても差分数（＋◯／−◯）から定型文へフォールバック。要約が無くても<strong>保存は必ず通す</strong>ようにした。
+        <strong>対策：</strong>要約は「あれば嬉しいおまけ」と割り切る。AI が失敗したら「追加◯行／削除◯行」の定型文に自動で切り替え、要約が無くても<strong>保存は必ず通す</strong>ようにした。
       </p>
     </div>
     <!-- struggle 2 -->
@@ -1667,10 +1739,10 @@
         <p class="font-jp text-sm font-bold">② Supabase 無料枠の7日自動休止</p>
       </div>
       <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>DB アクティビティが約7日ないと自動で一時停止。さらに放置すると削除され、<strong class="text-giz-coral">一度死ぬとキープアライブでも復活しない</strong>（ホスト名が引けなくなる）。
+        <strong>症状：</strong>無料枠の DB は7日間使わないと自動で眠り、さらに放置すると削除される。<strong class="text-giz-coral">一度削除されると、もう自動では戻せない</strong>。
       </p>
       <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>あくまで<strong>予防</strong>としてキープアライブ Cron を用意。停止済みはダッシュボードから復元／再作成が必要で、恒久的に止めない保証は有料プランのみ、と割り切って明文化した。
+        <strong>対策：</strong>数日おきに自動でアクセスして眠らせない仕組みを<strong>予防</strong>として用意。それでも止まったら管理画面から手動で復元、完全に防ぐなら有料プラン——と運用を決めて明文化した。
       </p>
     </div>
     <!-- struggle 3 -->
@@ -1683,7 +1755,7 @@
         <strong>症状：</strong>「保存に失敗」とだけ出て、回線なのかサーバーなのか、設定ミスなのか分からない。
       </p>
       <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>診断 API で事実ベースに分類。あわせて、サーバー用キーの取り違え（publishable キーを誤設定）も設定チェックで弾き、ヒントを返すようにした。
+        <strong>対策：</strong>どこでつまずいたかを自動で調べる診断機能を追加。設定ミス（キーの取り違え）もチェックして、原因のヒントを画面に出すようにした。
       </p>
     </div>
     <!-- struggle 4 -->
@@ -1693,76 +1765,12 @@
         <p class="font-jp text-sm font-bold">④ PC前提の画面で、スマホから使いづらい</p>
       </div>
       <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>いつでもどこでも手軽に使えることが大事なのに、当初は広い画面ありきのレイアウト。上部ツールバーに操作を並べていたため、外出先やスマホから台本を直そうとすると<strong class="text-giz-coral">窮屈で片手では届かない</strong>。「PCを開かないと作業できない」状態だった。
+        <strong>症状：</strong>いつでもどこでも手軽に使えることが大事なのに、当初は広い画面ありきのレイアウト。スマホから台本を直そうとすると<strong class="text-giz-coral">窮屈で片手では届かず</strong>、「PCを開かないと作業できない」状態だった。
       </p>
       <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong><strong>レスポンシブ化して PC 依存をなくした</strong>。主要操作（記録・履歴など）を画面下の<strong>フッターアイコン</strong>に集約し、スマホでも親指の届く位置で完結。PCは従来のツールバー、スマホはフッターへと切り替わる。
+        <strong>対策：</strong>スマホの画面に合わせて作り直し、よく使う操作（記録・履歴など）を<strong>画面下のボタン</strong>に集約。PC では従来どおり上部に表示され、画面幅で自動で切り替わる。
       </p>
     </div>
-  </div>
-
-  <!-- A/B/C 比較 -->
-  <h3 class="mt-7 font-jp text-base font-bold text-giz-ink">保存先の選択肢を比べた結果</h3>
-  <div class="mt-3 grid gap-3 sm:grid-cols-2">
-    <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
-      <p class="giz-label text-giz-coral">A</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Vercel のファイルに保存</p>
-      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-coral"><i class="fa-solid fa-xmark w-4" aria-hidden="true"></i>不採用</p>
-      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">サーバーレスで揮発し、書いても消える。</p>
-    </div>
-    <div class="rounded-xl border-2 border-giz-sea bg-giz-mist/40 p-4">
-      <p class="giz-label text-giz-sea">B</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase（Postgres）</p>
-      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-sea"><i class="fa-solid fa-circle-check w-4" aria-hidden="true"></i>採用</p>
-      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">永続化できる。ただし無料枠は7日休止に注意。</p>
-    </div>
-  </div>
-</section>
-
-<!-- ============ SECTION: 発展課題（AIが動く機能） ============ -->
-<section id="section-ai" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
-  <p class="giz-label text-giz-gray">発展課題（任意）</p>
-  <h2 class="mt-1 text-2xl">AIが動く機能</h2>
-  <p class="mt-3 font-jp text-giz-ink leading-relaxed">
-    基本の課題（画面〜苦戦）に加えて、アプリの随所に <strong class="text-giz-forest">「AIが動く機能」</strong> を組み込んだ。共通するのは、<strong class="text-giz-ink">全部を渡さず「対象だけ」を AI に渡す</strong>という設計。3つの例で示す。
-  </p>
-
-  <!-- AIが動く3機能：どれも「対象だけ渡す」 -->
-  <div class="mt-6 grid gap-4 sm:grid-cols-3">
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-forest">
-        <i class="fa-solid fa-wand-magic-sparkles w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">変更を AI が要約</p>
-      </div>
-      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>前の版との差分 <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>1〜2文の要約</p>
-      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">記録するたび、履歴に「何を変えたか」が自動で並ぶ。</p>
-    </div>
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-forest">
-        <i class="fa-solid fa-i-cursor w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">台本の部分再生成</p>
-      </div>
-      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>選んだ箇所＋前後（各〜1000字）<span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その範囲だけ書き直し</p>
-      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">執筆ペインで気になる箇所を選ぶだけ。<span class="giz-mark">全文を作り直さないので他がブレず、トークンも節約。</span></p>
-    </div>
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-forest">
-        <i class="fa-solid fa-file-pen w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold text-giz-ink">企画書の部分修正</p>
-      </div>
-      <p class="mt-2 font-jp text-xs text-giz-forest leading-relaxed"><strong>渡す：</strong>直したい項目だけ <span class="text-giz-gray-mid">→</span> <strong>返る：</strong>その項目だけ更新</p>
-      <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">想定視聴者・悩みなど、項目単位で AI に相談。企画書ぜんぶは触らない。</p>
-    </div>
-  </div>
-
-  <!-- 道を外させない（ハーネス） -->
-  <div class="mt-6 rounded-xl border-l-4 border-giz-forest bg-giz-mist/60 p-4">
-    <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
-      <i class="fa-solid fa-shield-halved w-4" aria-hidden="true"></i>道を外させない工夫（ハーネス）
-    </p>
-    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
-      どれも<strong>対象を絞って渡す</strong>のが肝。範囲が狭いほど、AI は<strong>暴走せず・他をブレさせず・トークンも軽い</strong>。さらに要約は、API が落ちても「追加◯行／削除◯行」の定型文に<strong>フォールバック</strong>して<strong>本体（保存）は止めない</strong>。「どの作業を AI に任せ、どうすれば道を外さず動くか」を設計した部分。
-    </p>
   </div>
 </section>
 
