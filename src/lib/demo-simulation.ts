@@ -183,7 +183,7 @@ export function buildDemoStyleLearnings(): string {
     "# あらきりらしさメモ（デモ）",
     "",
     "## 言い回し",
-    "- 冒頭は「『楽』を極めて最大の結果を出す、効率化オタクの管理人です。」で入る",
+    "- 冒頭は「毎日のちょっとした面倒を仕組みで片づける、効率化チャンネルの管理人です。」で入る",
     "- テーマ提示は「今回のテーマは「〇〇」。」と短く切り、前置きを引き延ばさない",
     "- 「結論から言うと」で先に答えを出してから理由を話す",
     "",
@@ -211,7 +211,7 @@ export function buildDemoScript(plan: EpisodePlan): string {
   const lines: string[] = [];
   lines.push("## 導入");
   lines.push("");
-  lines.push("「楽」を極めて最大の結果を出す、効率化オタクの管理人です。");
+  lines.push("毎日のちょっとした面倒を仕組みで片づける、効率化チャンネルの管理人です。");
   lines.push("");
   lines.push(
     `今回のテーマは「${plan.episodeTitle}」。${plan.pain ? plan.pain.replace(/^（デモ）/, "") : "毎日の小さな手間"}――これ、実は仕組みで解決できます。`,
