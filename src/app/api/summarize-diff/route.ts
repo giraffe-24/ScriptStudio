@@ -85,6 +85,9 @@ ${diff.diffExcerpt || "（差分テキストなし）"}`;
       stats: diff.stats,
     });
   } catch (err) {
+    // フォールバック定型文で 200 を返すが、失敗自体は運用ログに必ず残す。
+    // （モデル廃止などの恒久障害が「雑な要約」として静かに続くのを防ぐ）
+    console.error(`[summarize-diff] AI要約の生成に失敗 (model=${model}):`, err);
     return NextResponse.json({
       summary: buildFallbackSummary(episodeTitle, diff.stats, docLabel),
       stats: diff.stats,

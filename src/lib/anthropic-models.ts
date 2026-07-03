@@ -1,6 +1,9 @@
 const RETIRED_ANTHROPIC_MODELS = new Set([
   "claude-3-5-haiku-20241022",
   "claude-3-5-sonnet-20241022",
+  // 2026-06-15 廃止（API が 404 not_found を返す）。env で指定されても無視して既定へ落とす。
+  "claude-sonnet-4-20250514",
+  "claude-opus-4-20250514",
 ]);
 
 function sanitizeModel(value?: string | null): string | null {
@@ -37,21 +40,21 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_SUMMARY),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE1),
           globalModel,
-        ) ?? "claude-sonnet-4-20250514"
+        ) ?? "claude-sonnet-5"
       );
     case "marketStage1":
       return (
         firstDefined(
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE1),
           globalModel,
-        ) ?? "claude-sonnet-4-20250514"
+        ) ?? "claude-sonnet-5"
       );
     case "marketStage2":
       return (
         firstDefined(
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-5"
+        ) ?? "claude-opus-4-7"
       );
     case "planning":
     case "inferPlan":
@@ -60,7 +63,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_PLANNING),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-5"
+        ) ?? "claude-opus-4-7"
       );
     case "script":
       return (
@@ -68,7 +71,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_SCRIPT),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-5"
+        ) ?? "claude-opus-4-7"
       );
     case "sectionChat":
       return (
@@ -76,7 +79,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_SECTION_CHAT),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-5"
+        ) ?? "claude-opus-4-7"
       );
     case "themeAdapt":
       return (
@@ -84,7 +87,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_THEME_ADAPT),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-5"
+        ) ?? "claude-opus-4-7"
       );
   }
 }

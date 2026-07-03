@@ -108,6 +108,12 @@ export function SnapshotCommitModal({
         if (!res.ok) throw new Error(data.error ?? "要約の取得に失敗しました");
         setSummary(data.summary ?? "");
         if (data.stats) setStats(data.stats);
+        // AI 生成に失敗して定型文が返ったときは、静かに流さずユーザーに知らせる
+        if (data.warning) {
+          setSummaryNotice(
+            `AI 要約を生成できなかったため、定型文を入れています。必要に応じて編集してください。（${data.warning}）`,
+          );
+        }
       })
       .catch(() => {
         // AI 要約の取得に失敗してもエラー扱いにはせず、
