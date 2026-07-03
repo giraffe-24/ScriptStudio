@@ -19,6 +19,8 @@ import {
 } from "@/lib/script-diff";
 import { ScriptDiffPreview } from "@/components/ScriptDiffPreview";
 import { resolveStudioAuthor, setStudioAuthorName } from "@/lib/studio-author";
+import { DemoAiNotice } from "@/components/DemoAiNotice";
+import { demoDelay } from "@/lib/demo-simulation";
 
 /**
  * 保存対象のドキュメント（企画書・台本など）。複数渡すと 1 つのモーダルで
@@ -61,7 +63,18 @@ type Props = {
   episodeNumber: number;
   episodeSlug: string;
   docs: CommitDoc[];
+  /**
+   * 閲覧専用（レビュアー）向けの疑似保存。差分表示はそのまま動かし、
+   * AI 要約は定型文に置き換え、「保存する」を押しても API には記録しない。
+   */
+  demoMode?: boolean;
 };
+
+/** デモ用の定型要約（実運用ではここを AI が生成する） */
+function buildDemoSummary(label: string, stats: DiffStats, episodeTitle: string): string {
+  if (stats.isFirstRecord) return `${label}の初稿を記録：${episodeTitle}`;
+  return `${label}を更新（追加 ${stats.added}行・削除 ${stats.removed}行）。`;
+}
 
 type DocDraft = {
   summary: string;
@@ -91,6 +104,7 @@ export function SnapshotCommitModal({
   episodeNumber,
   episodeSlug,
   docs,
+  demoMode = false,
 }: Props) {
   const [authorName, setAuthorName] = useState("");
   const [authorFromLogin, setAuthorFromLogin] = useState(false);
@@ -127,10 +141,13 @@ export function SnapshotCommitModal({
         ...emptyDraft(),
         stats: diff.stats,
         previewLines: diff.previewLines,
-        loadingSummary: true,
+        loadingSummary: !demoMode,
+        // デモは AI を呼ばず、差分統計からの定型文を要約欄に入れる
+        summary: demoMode ? buildDemoSummary(doc.label, diff.stats, episodeTitle) : "",
       };
     }
     setDrafts(initial);
+    if (demoMode) return;
 
     for (const doc of docsRef.current) {
       const diffStats = initial[doc.key].stats;
@@ -170,11 +187,11 @@ export function SnapshotCommitModal({
           });
         });
     }
-  }, [open, episodeTitle]);
+  }, [open, episodeTitle, demoMode]);
 
   async function handleCommit() {
     const name = authorName.trim();
-    if (!name) {
+    if (!demoMode && !name) {
       setError("記録者名を入力してください");
       return;
     }
@@ -187,6 +204,22 @@ export function SnapshotCommitModal({
 
     setSaving(true);
     setError("");
+
+    if (demoMode) {
+      // 疑似保存：API には記録せず、保存の流れ（保存中…→保存済み✓）だけ再現する
+      await demoDelay(600);
+      for (const doc of docs) {
+        if (drafts[doc.key]?.saved) continue;
+        updateDraft(doc.key, { saved: true });
+        await doc.onCommitted({
+          recordedContent: doc.contentToStore ?? doc.currentContent,
+          scriptMeta: null,
+        });
+      }
+      setSaving(false);
+      onOpenChange(false);
+      return;
+    }
 
     try {
       // 保存済み doc を飛ばして順に記録（部分失敗後の再試行でも二重記録しない）
@@ -245,6 +278,12 @@ export function SnapshotCommitModal({
         </DialogHeader>
 
         <div className="max-h-[min(30rem,70vh)] space-y-5 overflow-y-auto">
+          {demoMode ? (
+            <DemoAiNotice>
+              保存の流れを再現する疑似体験です。「保存する」を押しても実際には記録されません。
+              下の要約は定型文で、実際の保存では AI が変更内容を読み取って自動生成します。
+            </DemoAiNotice>
+          ) : null}
           {docs.map((doc) => {
             const draft = drafts[doc.key] ?? emptyDraft();
             return (
@@ -294,8 +333,9 @@ export function SnapshotCommitModal({
           })}
 
           {/* ログイン時はサーバー（session）が記録者を決めるため入力欄は出さない。
-              未ログイン（ローカル等）のときだけ記録者名を入力してもらう。 */}
-          {!authorFromLogin ? (
+              未ログイン（ローカル等）のときだけ記録者名を入力してもらう。
+              デモ（疑似保存）では記録しないため入力欄も出さない。 */}
+          {!authorFromLogin && !demoMode ? (
             <div className="space-y-1.5">
               <label htmlFor="snapshot-author" className="block text-xs font-medium">
                 記録者
@@ -319,7 +359,11 @@ export function SnapshotCommitModal({
         </div>
 
         <DialogFooter>
-          {authorFromLogin && authorName ? (
+          {demoMode ? (
+            <p className="self-center text-xs text-violet-700 sm:mr-auto">
+              🎭 デモ：実際には保存されません
+            </p>
+          ) : authorFromLogin && authorName ? (
             <p className="self-center text-xs text-muted-foreground sm:mr-auto">
               <span className="font-medium text-foreground">{authorName}</span> として記録
             </p>
@@ -331,7 +375,7 @@ export function SnapshotCommitModal({
             onClick={() => void handleCommit()}
             disabled={saving || anyLoadingSummary || allSaved}
           >
-            {saving ? "保存中…" : "保存する"}
+            {saving ? "保存中…" : demoMode ? "保存する（デモ）" : "保存する"}
           </Button>
         </DialogFooter>
       </DialogContent>

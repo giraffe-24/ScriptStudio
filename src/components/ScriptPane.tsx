@@ -160,6 +160,8 @@ export function ScriptPane({
   const [versionsEnabled, setVersionsEnabled] = useState(false);
   const [versionsHint, setVersionsHint] = useState("");
   const [commitOpen, setCommitOpen] = useState(false);
+  // 閲覧専用デモの疑似保存で「前回保存」とみなす台本（クライアント内のみ。null = デモ生成前）
+  const [demoBaseline, setDemoBaseline] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitHistoryOpen, setGitHistoryOpen] = useState(false);
   const gitMirrorConfigured = useGitMirrorStatus();
@@ -419,6 +421,25 @@ export function ScriptPane({
     setCommitModalOpen(true);
   }
 
+  // 閲覧専用デモの疑似保存：差分と要約の流れだけ再現し、API には記録しない。
+  // エピソード未選択（テーマ→企画→デモ生成の流れ）でも開けるようにする。
+  function openDemoCommitModal() {
+    if (!latestScriptRef.current.trim()) return;
+    setCommitDocs([
+      {
+        key: "script",
+        label: "台本",
+        badgeClass: SCRIPT_BADGE,
+        endpoint: "",
+        currentContent: latestScriptRef.current,
+        previousContent: demoBaseline ?? "",
+        // 疑似保存後はここを「前回保存」とみなし、保存ボタンを保存済み表示に戻す
+        onCommitted: () => setDemoBaseline(latestScriptRef.current),
+      },
+    ]);
+    setCommitModalOpen(true);
+  }
+
   async function handleRestoreSnapshot(content: string) {
     if (!episodeNumber) throw new Error("エピソードが選択されていません");
     const displayContent = cleanScript(content);
@@ -454,6 +475,7 @@ export function ScriptPane({
     confirmedPlanFingerprintRef.current = null;
     setLatestSnapshotContent(null);
     setSnapshotCheckReady(false);
+    setDemoBaseline(null);
     lastGenerateKeyRef.current = 0;
 
     const key = episodeKey(episodeNumber, episodeSlug);
@@ -980,6 +1002,8 @@ export function ScriptPane({
   /** デモ生成: サンプル台本を少しずつ流し込み、生成の動きだけ再現する（AI・保存なし） */
   async function runDemoGeneration(targetPlan: EpisodePlan) {
     const signal = beginGenerationSession();
+    // 生成前の台本を疑似保存の「前回保存」として一度だけ確保する（差分表示用）
+    setDemoBaseline((prev) => prev ?? latestScriptRef.current);
     setLoading(true);
     setReconciling(false);
     setUpdatingSections([]);
@@ -1207,6 +1231,30 @@ export function ScriptPane({
     (versionsEnabled || Boolean(planCommit?.enabled)) &&
     Boolean(episodeNumber) &&
     Boolean(episodeSlug);
+  // 閲覧専用デモ：デモ生成した台本に対して保存の疑似体験（差分＋定型要約）を出す
+  const demoSaveUnrecorded =
+    viewerReadOnly &&
+    generated &&
+    !loading &&
+    demoBaseline !== null &&
+    hasScriptChangesSinceRecord(latestScriptRef.current, demoBaseline);
+  const showDemoSave = viewerReadOnly && generated && demoBaseline !== null;
+  const saveButtonVisible = showRecordActions || showDemoSave;
+  const savePending = viewerReadOnly ? demoSaveUnrecorded : anySaveUnrecorded;
+  const saveButtonLabel = viewerReadOnly
+    ? `保存（デモ）${savePending ? "（未保存）" : ""}`
+    : `保存${savePending ? "（未保存）" : ""}`;
+  const saveButtonTitle = viewerReadOnly
+    ? savePending
+      ? "保存の流れを疑似体験できます（デモ・実際には記録されません）"
+      : "前回のデモ保存から変更はありません"
+    : savePending
+      ? `未保存: ${unsavedDocsLabel}。クリックしてまとめて保存（履歴に記録）`
+      : "前回の保存から変更はありません";
+  function handleSaveButtonClick() {
+    if (viewerReadOnly) openDemoCommitModal();
+    else void openCommitModal();
+  }
   // 統合履歴（企画書＋台本）は台本生成前でも企画書の履歴を見られるよう generated を条件にしない
   const showHistory = versionsEnabled && Boolean(episodeNumber) && Boolean(episodeSlug);
   const showGitHistory = generated && gitMirrorConfigured && Boolean(episodeNumber) && Boolean(episodeSlug);
@@ -1226,19 +1274,15 @@ export function ScriptPane({
               {scriptMeta.updatedBy} · {formatUpdatedAt(scriptMeta.updatedAt)}
             </span>
           )}
-          {showRecordActions && (
+          {saveButtonVisible && (
             <button
               type="button"
-              onClick={() => void openCommitModal()}
-              disabled={loading || !anySaveUnrecorded}
-              className={anySaveUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary}
-              title={
-                anySaveUnrecorded
-                  ? `未保存: ${unsavedDocsLabel}。クリックしてまとめて保存（履歴に記録）`
-                  : "前回の保存から変更はありません"
-              }
+              onClick={handleSaveButtonClick}
+              disabled={loading || !savePending}
+              className={savePending ? scriptBtnRecordPending : scriptBtnSecondary}
+              title={saveButtonTitle}
             >
-              保存{anySaveUnrecorded ? "（未保存）" : ""}
+              {saveButtonLabel}
             </button>
           )}
           {showHistory && (
@@ -1320,15 +1364,15 @@ export function ScriptPane({
             手直し済みにする
           </button>
         )}
-        {showRecordActions && (
+        {saveButtonVisible && (
           <button
             type="button"
-            onClick={() => void openCommitModal()}
-            disabled={loading || !anySaveUnrecorded}
-            className={`${anySaveUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
-            title={anySaveUnrecorded ? `未保存: ${unsavedDocsLabel}` : "前回の保存から変更はありません"}
+            onClick={handleSaveButtonClick}
+            disabled={loading || !savePending}
+            className={`${savePending ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+            title={saveButtonTitle}
           >
-            保存{anySaveUnrecorded ? "（未保存）" : ""}
+            {saveButtonLabel}
           </button>
         )}
         {showHistory && (
@@ -1459,17 +1503,19 @@ export function ScriptPane({
         )}
       </div>
 
+      {/* 統合保存：企画書・台本の未保存分をまとめて記録。
+          閲覧専用デモ（demoMode）ではエピソード未選択でも疑似保存を開けるようにする */}
+      <SnapshotCommitModal
+        open={commitOpen}
+        onOpenChange={setCommitModalOpen}
+        episodeTitle={plan.episodeTitle}
+        episodeNumber={episodeNumber ?? 0}
+        episodeSlug={episodeSlug ?? ""}
+        docs={commitDocs}
+        demoMode={viewerReadOnly}
+      />
       {episodeNumber && episodeSlug && (
         <>
-          {/* 統合保存：企画書・台本の未保存分をまとめて記録 */}
-          <SnapshotCommitModal
-            open={commitOpen}
-            onOpenChange={setCommitModalOpen}
-            episodeTitle={plan.episodeTitle}
-            episodeNumber={episodeNumber}
-            episodeSlug={episodeSlug}
-            docs={commitDocs}
-          />
           {/* 企画書と台本の履歴を 1 つのタイムラインで表示（復元は項目ごと） */}
           <HistoryModal
             open={historyOpen}
