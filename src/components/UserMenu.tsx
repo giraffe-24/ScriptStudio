@@ -20,16 +20,18 @@ export function UserMenu({
 }) {
   const [username, setUsername] = useState("");
   const [authEnabled, setAuthEnabled] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/site-auth/me")
       .then((r) => r.json())
-      .then((data: { authEnabled?: boolean; username?: string | null }) => {
+      .then((data: { authEnabled?: boolean; username?: string | null; readOnly?: boolean }) => {
         if (cancelled) return;
         setUsername(data?.username?.trim() ?? "");
         setAuthEnabled(Boolean(data?.authEnabled));
+        setReadOnly(Boolean(data?.readOnly));
       })
       .catch(() => {
         // 取得に失敗したら何も表示しない
@@ -61,6 +63,14 @@ export function UserMenu({
         {username ? (
           <span className="text-xs text-gray-700 truncate" title={username}>
             {username}
+          </span>
+        ) : null}
+        {readOnly ? (
+          <span
+            className="shrink-0 text-[10px] leading-none text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5"
+            title="閲覧専用アカウントです。保存・生成はできません"
+          >
+            閲覧専用
           </span>
         ) : null}
       </div>

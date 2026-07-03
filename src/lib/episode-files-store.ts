@@ -32,6 +32,24 @@ function baseDir(base: EpisodeStorageBase): string {
   return base === "archive" ? ARCHIVE_DIR : OUTPUTS_DIR;
 }
 
+/**
+ * API から渡される filename でのパストラバーサル（../../.env 等）を遮断する。
+ * エピソードファイルは常にフォルダ直下の単純なファイル名のみ。
+ */
+function assertSafeEpisodeFilename(filename: string): void {
+  if (
+    !filename ||
+    filename !== filename.trim() ||
+    filename.startsWith(".") ||
+    filename.includes("..") ||
+    filename.includes("/") ||
+    filename.includes("\\") ||
+    filename.includes("\0")
+  ) {
+    throw new Error(`不正なファイル名です: ${filename}`);
+  }
+}
+
 function objectPath(base: EpisodeStorageBase, dirName: string, filename: string): string {
   return `${base}/${dirName}/${filename}`;
 }
@@ -292,6 +310,7 @@ export async function readEpisodeText(
   dirName: string,
   filename: string,
 ): Promise<string> {
+  assertSafeEpisodeFilename(filename);
   if (!shouldUsePersistedRuntimeStore()) {
     return readLocalText(base, dirName, filename);
   }
@@ -314,6 +333,7 @@ export async function writeEpisodeText(
   filename: string,
   content: string,
 ): Promise<void> {
+  assertSafeEpisodeFilename(filename);
   if (!shouldUsePersistedRuntimeStore()) {
     const dirPath = path.join(baseDir(base), dirName);
     await fs.mkdir(dirPath, { recursive: true });

@@ -15,6 +15,23 @@ import {
 } from "@/lib/plan-versions-local";
 import { getSessionUsernameFromRequest } from "@/lib/studio-session";
 import { getStudioUserName } from "@/lib/studio-user";
+import {
+  MASKED_AUTHOR,
+  isEpisodeAllowedForReviewer,
+  isReviewerRequest,
+} from "@/lib/reviewer-access";
+import type { PlanSnapshot } from "@/lib/plan-versions";
+
+function reviewerForbidden() {
+  return NextResponse.json(
+    { error: "このエピソードは閲覧できません" },
+    { status: 403 },
+  );
+}
+
+function maskSnapshot(snapshot: PlanSnapshot): PlanSnapshot {
+  return { ...snapshot, authorName: MASKED_AUTHOR };
+}
 
 /**
  * 企画書スナップショット履歴の保存先を判定する（台本の script-versions と同じ方針）。
@@ -53,16 +70,22 @@ export async function GET(req: NextRequest) {
 
   const number = Number(searchParams.get("number"));
   const slug = searchParams.get("slug") ?? "";
+  const reviewer = await isReviewerRequest(req);
 
   if (action === "list") {
     if (!number || !slug) {
       return NextResponse.json({ error: "number and slug required" }, { status: 400 });
     }
+    if (reviewer && !isEpisodeAllowedForReviewer(number, slug)) {
+      return reviewerForbidden();
+    }
     try {
       const snapshots = remoteStoreEnabled()
         ? await listPlanSnapshots(number, slug)
         : await listLocalPlanSnapshots(number, slug);
-      return NextResponse.json({ snapshots });
+      return NextResponse.json({
+        snapshots: reviewer ? snapshots.map(maskSnapshot) : snapshots,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
@@ -73,11 +96,16 @@ export async function GET(req: NextRequest) {
     if (!number || !slug) {
       return NextResponse.json({ error: "number and slug required" }, { status: 400 });
     }
+    if (reviewer && !isEpisodeAllowedForReviewer(number, slug)) {
+      return reviewerForbidden();
+    }
     try {
       const snapshot = remoteStoreEnabled()
         ? await getLatestPlanSnapshot(number, slug)
         : await getLatestLocalPlanSnapshot(number, slug);
-      return NextResponse.json({ snapshot });
+      return NextResponse.json({
+        snapshot: reviewer && snapshot ? maskSnapshot(snapshot) : snapshot,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
@@ -92,7 +120,12 @@ export async function GET(req: NextRequest) {
         ? await getPlanSnapshotById(id)
         : await getLocalPlanSnapshotById(id);
       if (!snapshot) return NextResponse.json({ error: "not found" }, { status: 404 });
-      return NextResponse.json({ snapshot });
+      if (reviewer && !isEpisodeAllowedForReviewer(snapshot.episodeNumber, snapshot.episodeSlug)) {
+        return reviewerForbidden();
+      }
+      return NextResponse.json({
+        snapshot: reviewer ? maskSnapshot(snapshot) : snapshot,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
