@@ -5,6 +5,18 @@ import { isPersistenceConfigurationError } from "@/lib/runtime-persistence";
 import { getSessionUsernameFromRequest } from "@/lib/studio-session";
 import { getStudioUserName } from "@/lib/studio-user";
 import { runWithActor } from "@/lib/request-actor";
+import {
+  MASKED_AUTHOR,
+  isEpisodeAllowedForReviewer,
+  isReviewerRequest,
+} from "@/lib/reviewer-access";
+
+function reviewerForbidden() {
+  return NextResponse.json(
+    { error: "このエピソードは閲覧できません" },
+    { status: 403 },
+  );
+}
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -18,9 +30,15 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
     const action = searchParams.get("action");
+    const reviewer = await isReviewerRequest(req);
 
     if (action === "list") {
-      const episodes = await listEpisodes();
+      let episodes = await listEpisodes();
+      if (reviewer) {
+        episodes = episodes.filter((episode) =>
+          isEpisodeAllowedForReviewer(episode.number, episode.slug),
+        );
+      }
       return NextResponse.json({ episodes });
     }
 
@@ -28,13 +46,29 @@ export async function GET(req: NextRequest) {
       const number = Number(searchParams.get("number"));
       const slug = searchParams.get("slug") ?? "";
       const filename = searchParams.get("filename") ?? "";
+      if (reviewer && !isEpisodeAllowedForReviewer(number, slug)) {
+        return reviewerForbidden();
+      }
       const content = await readEpisodeFile(number, slug, filename);
+      if (reviewer && filename === "manifest.json") {
+        // 作成者名（script_updated_by）をレビュアーには見せない
+        try {
+          const manifest = JSON.parse(content) as Record<string, unknown>;
+          delete manifest.script_updated_by;
+          return NextResponse.json({ content: JSON.stringify(manifest, null, 2) });
+        } catch {
+          return reviewerForbidden();
+        }
+      }
       return NextResponse.json({ content });
     }
 
     if (action === "read-plan") {
       const number = Number(searchParams.get("number"));
       const slug = searchParams.get("slug") ?? "";
+      if (reviewer && !isEpisodeAllowedForReviewer(number, slug)) {
+        return reviewerForbidden();
+      }
       const plan = await readPlan(number, slug);
       return NextResponse.json({ plan });
     }
@@ -42,7 +76,13 @@ export async function GET(req: NextRequest) {
     if (action === "read-script-meta") {
       const number = Number(searchParams.get("number"));
       const slug = searchParams.get("slug") ?? "";
+      if (reviewer && !isEpisodeAllowedForReviewer(number, slug)) {
+        return reviewerForbidden();
+      }
       const scriptMeta = await readScriptMeta(number, slug);
+      if (reviewer && scriptMeta) {
+        scriptMeta.updatedBy = MASKED_AUTHOR;
+      }
       return NextResponse.json({ scriptMeta });
     }
 

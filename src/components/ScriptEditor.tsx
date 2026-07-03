@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Menu, Loader2, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toUserMessage } from "@/lib/error-message";
+import { useReadOnly } from "@/lib/useViewerRole";
 import {
   combineScriptCalib,
   splitScriptCalib,
@@ -156,6 +157,8 @@ export function ScriptEditor({
   const [navOpen, setNavOpen] = useState(false);
   const hadRevisionRef = useRef(initCalib.trim().length > 0);
   const saveRequestRef = useRef(0);
+  // 閲覧専用ログインでは編集と自動保存を止める（サーバー側でも 403 で遮断される）
+  const viewerReadOnly = useReadOnly();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
@@ -213,6 +216,7 @@ export function ScriptEditor({
   }, [script, latestContentRef]);
 
   useEffect(() => {
+    if (viewerReadOnly) return;
     const timer = setTimeout(() => {
       const combined = combineScriptCalib(content, calibText);
       const requestId = ++saveRequestRef.current;
@@ -240,7 +244,7 @@ export function ScriptEditor({
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [calibText, content, latestContentRef, onSave, onRevisionEntered, onRevisionCleared]);
+  }, [viewerReadOnly, calibText, content, latestContentRef, onSave, onRevisionEntered, onRevisionCleared]);
 
   const charCount = content.replace(/\s/g, "").length;
 
@@ -659,7 +663,7 @@ export function ScriptEditor({
               onMouseUp={syncSelectionFromTextarea}
               onKeyUp={syncSelectionFromTextarea}
               onScroll={(e) => syncHighlightScroll(e.currentTarget.scrollTop)}
-              readOnly={editorLocked}
+              readOnly={editorLocked || viewerReadOnly}
               aria-label="台本本文"
               className={editorTextareaClass}
               placeholder="台本をここに入力…"
@@ -729,6 +733,7 @@ export function ScriptEditor({
             <textarea
               value={calibText}
               onChange={(e) => handleCalibChange(e.target.value)}
+              readOnly={viewerReadOnly}
               rows={8}
               placeholder="手直し後の台本をここに全文貼り付けてください…"
               aria-label="推敲比較用の確定稿（手直し後の台本全文）"

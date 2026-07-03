@@ -7,23 +7,16 @@ import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
 import { GitHistoryModal } from "./GitHistoryModal";
-import { HistoryModal } from "./HistoryModal";
-import { SnapshotCommitModal } from "./SnapshotCommitModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
 import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
-import {
-  planToSnapshotText,
-  planSnapshotContentToText,
-  parsePlanSnapshotContent,
-} from "@/lib/plan-snapshot-text";
+import { useReadOnly } from "@/lib/useViewerRole";
+import { buildDemoPlan, demoDelay } from "@/lib/demo-simulation";
+import { DemoAiNotice } from "@/components/DemoAiNotice";
 import { toUserMessage } from "@/lib/error-message";
 
 /* ── 編集フィールド共通スタイル ── */
 const EDITABLE =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 leading-relaxed placeholder:text-gray-400 transition-colors";
-
-/** 企画書の自動記録：最後の記録との差分がこの時間続いたらスナップショットを作る */
-const AUTO_RECORD_DELAY_MS = 30_000;
 
 const EDITABLE_INPUT =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 placeholder:text-gray-400 transition-colors";
@@ -51,6 +44,8 @@ export function PlanningDoc({
   onEpisodeNumberChange,
   onPlanChange,
 }: Props) {
+  // 閲覧専用ログインでは AI を呼ばず、デモ用の企画書を組み立てて表示する
+  const viewerReadOnly = useReadOnly();
   const [draftPlan, setDraftPlan] = useState<EpisodePlan | null>(null);
   const [approvedDirection, setApprovedDirection] = useState<PlanDirection | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,15 +55,8 @@ export function PlanningDoc({
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const gitConfigured = useGitMirrorStatus();
-  // 企画書のバージョン履歴（保存/履歴）。ローカルはファイル、本番は Supabase。
-  const [planVersionsEnabled, setPlanVersionsEnabled] = useState(false);
-  const [planHistoryOpen, setPlanHistoryOpen] = useState(false);
-  const [planCommitOpen, setPlanCommitOpen] = useState(false);
-  const [latestPlanContent, setLatestPlanContent] = useState<string | null>(null);
-  // 「最新スナップショットの取得が完了したか」。未取得のまま自動記録すると
-  // 既存履歴があるのに初稿として誤記録するため、完了を確認してから動かす。
-  const [latestPlanLoaded, setLatestPlanLoaded] = useState(false);
-  const autoRecordingRef = useRef(false);
+  // 企画書のバージョン保存・履歴は台本ペインの統合保存/統合履歴に集約した
+  // （状態と自動記録は usePlanVersions として studio レベルにある）。
   const planLoadKeyRef = useRef("");
   const planRequestRef = useRef(0);
 
@@ -89,116 +77,6 @@ export function PlanningDoc({
 
   const plan = initialPlan ?? draftPlan;
 
-  // 企画書バージョン履歴が使えるか（セッション内で 1 回だけ確認）
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/plan-versions?action=status")
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setPlanVersionsEnabled(Boolean(d?.configured));
-      })
-      .catch(() => {
-        if (!cancelled) setPlanVersionsEnabled(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const refreshLatestPlanSnapshot = useCallback(async () => {
-    if (!planVersionsEnabled || episodeNumber == null || !episodeSlug) {
-      setLatestPlanContent(null);
-      setLatestPlanLoaded(false);
-      return;
-    }
-    try {
-      const res = await fetch(
-        `/api/plan-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
-      );
-      const data = await res.json();
-      setLatestPlanContent(res.ok ? (data.snapshot?.content ?? null) : null);
-      setLatestPlanLoaded(res.ok);
-    } catch {
-      setLatestPlanContent(null);
-      setLatestPlanLoaded(false);
-    }
-  }, [planVersionsEnabled, episodeNumber, episodeSlug]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshLatestPlanSnapshot();
-  }, [refreshLatestPlanSnapshot]);
-
-  // 企画書の自動記録（台本の autoRecordSnapshot と体験を揃える）。
-  // イベント駆動ではなく状態差分ベース：最後の記録と現在の企画書が異なる状態が
-  // AUTO_RECORD_DELAY_MS 続いたら自動でスナップショット＋AI要約を作る。
-  // 編集・AI復元・エピソード切替による中断など、どの経路の変更でも取りこぼさない。
-  useEffect(() => {
-    if (!planVersionsEnabled || episodeNumber == null || !episodeSlug) return;
-    if (!latestPlanLoaded) return; // 既存履歴の取得前に初稿と誤認しない
-    if (!plan || loading || planCommitOpen) return; // 生成中・手動保存中は待つ
-
-    const currentText = planToSnapshotText(plan);
-    const recordedText = latestPlanContent ? planSnapshotContentToText(latestPlanContent) : "";
-    if (!currentText.trim() || currentText === recordedText) return;
-
-    const targetPlan = plan;
-    const targetNumber = episodeNumber;
-    const targetSlug = episodeSlug;
-    const timer = setTimeout(() => {
-      void (async () => {
-        if (autoRecordingRef.current) return;
-        autoRecordingRef.current = true;
-        try {
-          // AI要約（失敗しても定型文で記録は続行＝台本の自動記録と同じ方針）
-          let summary = "企画書を更新しました。";
-          try {
-            const sumRes = await fetch("/api/summarize-diff", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                episodeTitle: targetPlan.episodeTitle,
-                oldText: recordedText,
-                newText: currentText,
-                docLabel: "企画書",
-              }),
-            });
-            if (sumRes.ok) {
-              const sumData = await sumRes.json();
-              if (sumData.summary) summary = sumData.summary;
-            }
-          } catch {
-            // 要約失敗は記録を止めない
-          }
-          const res = await fetch("/api/plan-versions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              episodeNumber: targetNumber,
-              episodeSlug: targetSlug,
-              summary,
-              content: JSON.stringify(targetPlan, null, 2),
-            }),
-          });
-          if (res.ok) await refreshLatestPlanSnapshot();
-        } finally {
-          autoRecordingRef.current = false;
-        }
-      })();
-    }, AUTO_RECORD_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [
-    plan,
-    latestPlanContent,
-    latestPlanLoaded,
-    planVersionsEnabled,
-    episodeNumber,
-    episodeSlug,
-    loading,
-    planCommitOpen,
-    refreshLatestPlanSnapshot,
-  ]);
-
   function isActivePlanRequest(requestId: number, requestKey: string) {
     return planRequestRef.current === requestId && planLoadKeyRef.current === requestKey;
   }
@@ -215,6 +93,14 @@ export function PlanningDoc({
     setChatHistory([]);
 
     try {
+      if (viewerReadOnly) {
+        // デモ再生: 承認された6本柱を反映したサンプル企画書をその場で組み立てる
+        await demoDelay(1800);
+        if (!isActivePlanRequest(requestId, requestKey)) return;
+        setDraftPlan(buildDemoPlan(targetCandidate, direction ?? approvedDirection ?? undefined));
+        return;
+      }
+
       const res = await fetch("/api/generate-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -325,17 +211,14 @@ export function PlanningDoc({
 
   if (!plan) return null;
 
-  // 企画書バージョン履歴（保存/履歴）の派生値
-  const canUsePlanVersions = planVersionsEnabled && episodeNumber != null && !!episodeSlug;
-  const planText = planToSnapshotText(plan);
-  const recordedPlanText = latestPlanContent ? planSnapshotContentToText(latestPlanContent) : "";
-  const planUnrecorded = canUsePlanVersions && !!planText.trim() && planText !== recordedPlanText;
-
   return (
     <div className="flex h-full overflow-hidden">
       {/* 企画書本体 */}
       <div className="flex-1 overflow-y-auto bg-white">
         <div className="max-w-2xl mx-auto px-4 md:px-8 py-6 space-y-6">
+
+          {/* デモ生成した企画書には AI 不使用の注意書きを必ず添える */}
+          {viewerReadOnly && !initialPlan && <DemoAiNotice />}
 
           {/* タイトル */}
           <DocSection label="タイトル">
@@ -471,37 +354,9 @@ export function PlanningDoc({
             />
           </DocSection>
 
-          {/* アクションボタン */}
+          {/* アクションボタン。
+              企画書の保存・履歴は台本ペインの統合保存/統合履歴（企画書＋台本）へ集約した。 */}
           <div className="pt-2 pb-6 space-y-2">
-            {/* 企画書バージョン保存/履歴は台本生成(submitting)とは独立。
-                submitting で無効化しない（＝編集後すぐ保存できる）。 */}
-            {canUsePlanVersions && (
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setPlanCommitOpen(true)}
-                  disabled={!planUnrecorded}
-                  variant={planUnrecorded ? "default" : "outline"}
-                  size="lg"
-                  className="flex-1 py-3 rounded-xl font-semibold"
-                  title={
-                    planUnrecorded
-                      ? "現在の企画書をバージョンとして保存（履歴に記録）"
-                      : "前回の保存から変更はありません"
-                  }
-                >
-                  {planUnrecorded ? "保存（未保存）" : "保存"}
-                </Button>
-                <Button
-                  onClick={() => setPlanHistoryOpen(true)}
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 py-3 rounded-xl font-semibold"
-                  title="保存した企画書の履歴を見る・以前の版に戻す"
-                >
-                  履歴
-                </Button>
-              </div>
-            )}
             {/* 台本生成の submit。完了で必ず submitting を戻す（一方向ラッチを防ぐ）。 */}
             <Button
               onClick={async () => {
@@ -520,7 +375,7 @@ export function PlanningDoc({
             >
               {submitting ? "作成中…" : "台本を作成する →"}
             </Button>
-            {onPlanSave && (
+            {onPlanSave && !viewerReadOnly && (
               <Button
                 onClick={async () => {
                   if (submitting) return;
@@ -539,9 +394,11 @@ export function PlanningDoc({
                 ＋ エピソードに追加
               </Button>
             )}
-            <p className="text-center text-xs text-gray-500 mt-1.5">
-              「追加」は台本を生成せず、企画のまま一覧に保存します
-            </p>
+            {!viewerReadOnly && (
+              <p className="text-center text-xs text-gray-500 mt-1.5">
+                「追加」は台本を生成せず、企画のまま一覧に保存します
+              </p>
+            )}
             {episodeNumber != null && !!episodeSlug && gitConfigured && onPlanChange && (
               <Button
                 onClick={() => setHistoryOpen(true)}
@@ -590,41 +447,6 @@ export function PlanningDoc({
         />
       )}
 
-      {planVersionsEnabled && episodeNumber != null && !!episodeSlug && (
-        <>
-          <SnapshotCommitModal
-            open={planCommitOpen}
-            onOpenChange={setPlanCommitOpen}
-            episodeTitle={plan.episodeTitle}
-            episodeNumber={episodeNumber}
-            episodeSlug={episodeSlug}
-            currentContent={planText}
-            previousContent={recordedPlanText}
-            endpoint="/api/plan-versions"
-            docLabel="企画書"
-            contentToStore={JSON.stringify(plan, null, 2)}
-            onCommitted={() => void refreshLatestPlanSnapshot()}
-          />
-          <HistoryModal
-            open={planHistoryOpen}
-            onOpenChange={setPlanHistoryOpen}
-            episodeTitle={plan.episodeTitle}
-            episodeNumber={episodeNumber}
-            episodeSlug={episodeSlug}
-            endpoint="/api/plan-versions"
-            renderContent={planSnapshotContentToText}
-            contentLabel="企画書"
-            onRestore={async (content) => {
-              const parsed = parsePlanSnapshotContent(content);
-              if (!parsed) throw new Error("保存された企画データを読み込めませんでした");
-              const restored = sanitizePlanOutline(parsed) ?? parsed;
-              onPlanChange?.(restored);
-              onTitleChange?.(restored.episodeTitle);
-              await refreshLatestPlanSnapshot();
-            }}
-          />
-        </>
-      )}
     </div>
   );
 }

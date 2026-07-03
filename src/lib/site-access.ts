@@ -99,6 +99,27 @@ export function isSiteAccessEnabled(): boolean {
   return getSiteAccessCredentials().length > 0;
 }
 
+/**
+ * 閲覧専用（レビュアー）ロールのユーザー名一覧。
+ * SITE_ACCESS_CREDENTIALS で発行済みのユーザー名を SITE_ACCESS_REVIEWER_USERS に
+ * カンマ区切りで指定する。未設定なら誰もレビュアー扱いにならない（既存挙動のまま）。
+ * 注意: 単一パスワード方式のデフォルトユーザー名も "reviewer" のため、
+ * ここで暗黙のデフォルトは持たせない（本人が閲覧専用になる事故を防ぐ）。
+ */
+export function getReviewerUsernames(): string[] {
+  const raw = process.env.SITE_ACCESS_REVIEWER_USERS?.trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+export function isReviewerUsername(username: string | null | undefined): boolean {
+  if (!username) return false;
+  return getReviewerUsernames().includes(username);
+}
+
 export function verifySiteAccess(
   username: string,
   password: string,

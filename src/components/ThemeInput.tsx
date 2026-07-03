@@ -9,6 +9,9 @@ import type {
   ThemePattern,
 } from "@/lib/types";
 import { toUserMessage } from "@/lib/error-message";
+import { useReadOnly } from "@/lib/useViewerRole";
+import { DEMO_CANDIDATES, demoDelay } from "@/lib/demo-simulation";
+import { DemoAiNotice } from "@/components/DemoAiNotice";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
 import type { ApiErrorCode } from "@/lib/api-error";
@@ -101,6 +104,8 @@ const PROGRESS_LABELS = [
 ];
 
 export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
+  // 閲覧専用ログインでは AI・外部 API を呼ばず、デモ再生（サンプル結果）に切り替える
+  const viewerReadOnly = useReadOnly();
   const [userTheme, setUserTheme] = useState("");
   const [category, setCategory] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode | null>(null);
@@ -192,6 +197,17 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       setThemeModeLocked(true);
     }
     try {
+      if (viewerReadOnly) {
+        // デモ再生: 進行表示だけ本物と同じテンポ感で流し、サンプル候補を表示する
+        for (let step = 0; step < 3; step++) {
+          await demoDelay(1100);
+          setProgressIndex((i) => Math.min(i + 1, PROGRESS_LABELS.length - 1));
+        }
+        setAnalyzed(true);
+        setCandidates(DEMO_CANDIDATES);
+        return;
+      }
+
       const endpoint = pattern === "market" ? "/api/market-research" : "/api/adapt-theme";
       const body =
         pattern === "market"
@@ -479,6 +495,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
               テーマ候補
             </h3>
           </div>
+          {viewerReadOnly && <DemoAiNotice />}
 
           {candidates.map((c, i) => {
             const isPicked = pickedIndex === i;

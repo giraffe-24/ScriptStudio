@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import type { CompetitorChannel } from "@/lib/types";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,9 @@ export function CompetitorSettingsDialog() {
   const [stats, setStats] = useState<Record<string, ChannelSubscriberStats>>({});
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  // 削除は誤操作防止の2段階（ゴミ箱 → 「削除する」確認）
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [registerUrl, setRegisterUrl] = useState("");
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState<UiError>(null);
@@ -70,6 +73,7 @@ export function CompetitorSettingsDialog() {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setToggleError(null);
+    setConfirmDeleteId(null);
     void loadChannels();
   }, [open, loadChannels]);
 
@@ -105,6 +109,39 @@ export function CompetitorSettingsDialog() {
       await loadChannels();
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function handleDelete(channelId: string) {
+    setDeletingId(channelId);
+    setToggleError(null);
+    try {
+      const res = await fetch("/api/competitors", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelIds: [channelId] }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setChannels(data.channels ?? []);
+      } else {
+        setToggleError({
+          msg: toUserMessage(data.error, "チャンネルを削除できませんでした。"),
+          code: data.code,
+          detail: data.detail,
+        });
+        await loadChannels();
+      }
+    } catch (error) {
+      setToggleError({
+        msg: "通信エラーが発生しました",
+        code: "upstream",
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      await loadChannels();
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
     }
   }
 
@@ -241,6 +278,8 @@ export function CompetitorSettingsDialog() {
                 channels.map((ch) => {
                   const enabled = ch.enabled !== false;
                   const saving = savingId === ch.channelId;
+                  const deleting = deletingId === ch.channelId;
+                  const confirmingDelete = confirmDeleteId === ch.channelId;
                   return (
                     <div
                       key={ch.channelId}
@@ -310,6 +349,38 @@ export function CompetitorSettingsDialog() {
                         </div>
                         <CompetitorSubscriberStats stats={stats[ch.channelId]} className="mt-1" />
                       </div>
+
+                      {confirmingDelete ? (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(ch.channelId)}
+                            disabled={deleting}
+                            className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deleting ? "削除中…" : "削除する"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(null)}
+                            disabled={deleting}
+                            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(ch.channelId)}
+                          disabled={saving || deletingId !== null}
+                          title="このチャンネルを一覧から削除"
+                          aria-label={`${ch.displayName} を削除`}
+                          className="shrink-0 rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                 })

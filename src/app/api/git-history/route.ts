@@ -5,6 +5,11 @@ import {
   listFileCommits,
 } from "@/lib/git-mirror";
 import { episodeDirName, isValidEpisodeIdentity } from "@/lib/episode-identity";
+import {
+  MASKED_AUTHOR,
+  isEpisodeAllowedForReviewer,
+  isReviewerRequest,
+} from "@/lib/reviewer-access";
 
 /** Git 履歴を辿ってよいエピソードファイル（任意入力からの露出を絞る）。 */
 const ALLOWED_FILES = new Set([
@@ -39,12 +44,24 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
+  const reviewer = await isReviewerRequest(req);
+  if (reviewer && !isEpisodeAllowedForReviewer(number, slug)) {
+    return NextResponse.json(
+      { error: "このエピソードは閲覧できません" },
+      { status: 403 },
+    );
+  }
   const relPath = relPathFor(number, slug.trim(), filename);
 
   try {
     if (action === "list") {
       const commits = await listFileCommits(relPath);
-      return NextResponse.json({ commits });
+      return NextResponse.json({
+        // レビュアーにはコミット作者名を見せない
+        commits: reviewer
+          ? commits.map((commit) => ({ ...commit, authorName: MASKED_AUTHOR }))
+          : commits,
+      });
     }
 
     if (action === "content") {
@@ -53,6 +70,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "sha required" }, { status: 400 });
       }
       const content = await getFileContentAtRef(relPath, sha);
+      if (reviewer && filename === "manifest.json" && content) {
+        // 過去版 manifest にも作成者名（script_updated_by）が含まれるためマスクする
+        try {
+          const manifest = JSON.parse(content) as Record<string, unknown>;
+          delete manifest.script_updated_by;
+          return NextResponse.json({ content: JSON.stringify(manifest, null, 2) });
+        } catch {
+          return NextResponse.json(
+            { error: "このファイルは閲覧できません" },
+            { status: 403 },
+          );
+        }
+      }
       return NextResponse.json({ content });
     }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   appendCompetitorsConfig,
   readCompetitorsConfig,
+  removeCompetitorsConfig,
   updateCompetitorsEnabled,
 } from "@/lib/market-analysis/competitors-config";
 import { buildChannelSubscriberStats } from "@/lib/market-analysis/channel-stats";
@@ -102,6 +103,26 @@ export async function PUT(req: NextRequest) {
     }
 
     await updateCompetitorsEnabled(updates);
+    const channels = await readCompetitorsConfig();
+    return NextResponse.json({ channels });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const channelIds: string[] = Array.isArray(body.channelIds)
+      ? body.channelIds.filter(
+          (id: unknown): id is string => typeof id === "string" && id.trim() !== "",
+        )
+      : [];
+    if (channelIds.length === 0) {
+      return NextResponse.json({ error: "channelIds required" }, { status: 400 });
+    }
+
+    await removeCompetitorsConfig(channelIds);
     const channels = await readCompetitorsConfig();
     return NextResponse.json({ channels });
   } catch (err) {

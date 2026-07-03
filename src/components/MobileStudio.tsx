@@ -60,6 +60,8 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
     handleTitleChange,
     handleEpisodeNumberChange,
     handleStatusChange,
+    planVersions,
+    setSnapshotCommitOpen,
   } = studio;
 
   const [tab, setTab] = useState<MobileTab>("list");
@@ -227,6 +229,10 @@ export function MobileStudio({ studio }: { studio: StudioState }) {
                 onRevisionEntered={handleRevisionEntered}
                 onRevisionCleared={handleRevisionCleared}
                 onRecordStateChange={handleRecordStateChange}
+                onPlanChange={handlePlanChange}
+                onTitleChange={handleTitleChange}
+                planCommit={planVersions}
+                onCommitOpenChange={setSnapshotCommitOpen}
               />
             </div>
           ) : (

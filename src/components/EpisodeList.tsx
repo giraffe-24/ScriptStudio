@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { PanelLeftClose, RefreshCw } from "lucide-react";
 import type { Episode, EpisodeStatus } from "@/lib/types";
+import { useReadOnly } from "@/lib/useViewerRole";
 import { toUserMessage } from "@/lib/error-message";
 import {
   EPISODE_STATUSES,
@@ -52,6 +53,8 @@ export function EpisodeList({
   onDeleted,
   onCollapse,
 }: Props) {
+  // 閲覧専用ログインでは削除の導線を出さない（サーバー側でも 403 で遮断される）
+  const viewerReadOnly = useReadOnly();
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -179,7 +182,7 @@ export function EpisodeList({
               >
                 <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
               </button>
-              {episodes.length > 0 && (
+              {episodes.length > 0 && !viewerReadOnly && (
                 <button
                   type="button"
                   onClick={() => setDeleteMode(true)}

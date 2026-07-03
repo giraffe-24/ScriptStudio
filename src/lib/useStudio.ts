@@ -11,13 +11,17 @@ import type {
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
 import { hasPlanChangesSinceRecord } from "@/lib/record-state";
 import { toUserMessage } from "@/lib/error-message";
+import { useReadOnly } from "@/lib/useViewerRole";
 import { sortEpisodesByNumberDesc } from "@/lib/episode-sort";
+import { usePlanVersions } from "@/lib/usePlanVersions";
 
 /**
  * 企画〜台本ワークスペースの状態・ハンドラを集約した共有フック。
  * デスクトップ版・スマホ版の双方が同じ state / ハンドラを使い回す。
  */
 export function useStudio() {
+  // 閲覧専用ログインでは保存系をスキップし、デモ生成の経路につなぐ
+  const viewerReadOnly = useReadOnly();
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null);
   const [pattern, setPattern] = useState<ThemePattern | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<ThemeCandidate | null>(null);
@@ -54,6 +58,15 @@ export function useStudio() {
   const currentPlanRef = useRef<EpisodePlan | null>(null);
   const selectedEpisodeRef = useRef<Episode | null>(null);
   const selectionRequestRef = useRef(0);
+  // 統合保存モーダル（企画書＋台本）の表示中フラグ。表示中は企画書の自動記録を止め、
+  // 手動保存と自動記録が同じ内容を二重に記録しないようにする。
+  const [snapshotCommitOpen, setSnapshotCommitOpen] = useState(false);
+  const planVersions = usePlanVersions({
+    plan: currentPlan,
+    episodeNumber: selectedEpisode?.number ?? null,
+    episodeSlug: selectedEpisode?.slug,
+    pauseAutoRecord: planLoading || inferringPlan || snapshotCommitOpen,
+  });
 
   useEffect(() => {
     currentPlanRef.current = currentPlan;
@@ -165,6 +178,13 @@ export function useStudio() {
 
   // 「台本を作成する」: 企画書を保存し、台本生成を開始する
   async function handlePlanReady(plan: EpisodePlan, title: string) {
+    if (viewerReadOnly) {
+      // 閲覧専用: エピソード作成・保存はせず、台本のデモ生成だけ動かす
+      setCurrentPlan(plan);
+      setNewEpisodeMode(false);
+      setScriptGenerateKey((k) => k + 1);
+      return;
+    }
     try {
       const episode = await saveEpisodeAndPlan(plan, title);
       if (!episode) return;
@@ -179,6 +199,10 @@ export function useStudio() {
 
   // 「エピソードに追加」: 企画段階のまま保存し、一覧に追加する（台本生成はしない）
   async function handlePlanSave(plan: EpisodePlan, title: string) {
+    if (viewerReadOnly) {
+      window.alert("閲覧専用アカウントのため、エピソードの追加はできません。");
+      return;
+    }
     try {
       const episode = await saveEpisodeAndPlan(plan, title);
       if (!episode) return;
@@ -528,6 +552,9 @@ export function useStudio() {
     // derived
     planUnrecorded,
     showWorkspace,
+    // 企画書スナップショット（統合保存用）
+    planVersions,
+    setSnapshotCommitOpen,
     // handlers
     loadEpisodes,
     handlePlanReady,

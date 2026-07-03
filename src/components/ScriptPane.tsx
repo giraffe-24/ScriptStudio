@@ -7,10 +7,12 @@ import {
   type GenerationStatus,
   type SelectionRegeneratePayload,
 } from "./ScriptEditor";
-import { SnapshotCommitModal } from "./SnapshotCommitModal";
+import { SnapshotCommitModal, type CommitDoc } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
 import { GitHistoryModal } from "./GitHistoryModal";
 import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
+import { useReadOnly } from "@/lib/useViewerRole";
+import { DEMO_AI_NOTICE, buildDemoScript, demoDelay } from "@/lib/demo-simulation";
 import { toUserMessage } from "@/lib/error-message";
 import {
   scriptBtnAbort,
@@ -23,6 +25,12 @@ import { cn } from "@/lib/utils";
 import type { ScriptMeta } from "@/lib/file-manager";
 import type { EpisodePlan } from "@/lib/types";
 import { planGenerationFingerprint } from "@/lib/plan-fingerprint";
+import { sanitizePlanOutline } from "@/lib/plan-outline";
+import type { PlanVersionsState } from "@/lib/usePlanVersions";
+import {
+  parsePlanSnapshotContent,
+  planSnapshotContentToText,
+} from "@/lib/plan-snapshot-text";
 import {
   collectSectionIndicesToRegenerate,
   getRemovedSectionNames,
@@ -57,7 +65,18 @@ interface Props {
     planFingerprintFallback?: string;
     versionsEnabled: boolean;
   }) => void;
+  /** 統合履歴モーダルから企画書の版を復元するときに使う（PlanningDoc と同じハンドラを渡す） */
+  onPlanChange?: (plan: EpisodePlan) => void;
+  onTitleChange?: (title: string) => void;
+  /** 企画書スナップショットの状態（統合保存で企画書もまとめて記録するために使う） */
+  planCommit?: PlanVersionsState;
+  /** 統合保存モーダルの開閉通知（表示中は企画書の自動記録を止める） */
+  onCommitOpenChange?: (open: boolean) => void;
 }
+
+/** 企画書/台本の種別バッジ配色（統合履歴・統合保存モーダルで共通） */
+const PLAN_BADGE = "bg-blue-100 text-blue-700";
+const SCRIPT_BADGE = "bg-amber-100 text-amber-700";
 
 function cleanScript(text: string): string {
   const lines = text.split("\n");
@@ -119,7 +138,13 @@ export function ScriptPane({
   onRevisionEntered,
   onRevisionCleared,
   onRecordStateChange,
+  onPlanChange,
+  onTitleChange,
+  planCommit,
+  onCommitOpenChange,
 }: Props) {
+  // 閲覧専用ログインでは保存・生成系の導線を出さない（サーバー側でも 403 で遮断される）
+  const viewerReadOnly = useReadOnly();
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
   // エピソード切替時にディスクから台本を読み込み中かどうか。
@@ -138,8 +163,8 @@ export function ScriptPane({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [gitHistoryOpen, setGitHistoryOpen] = useState(false);
   const gitMirrorConfigured = useGitMirrorStatus();
-  const [previousSnapshotContent, setPreviousSnapshotContent] = useState("");
-  const [commitCurrentContent, setCommitCurrentContent] = useState("");
+  // 統合保存モーダルに渡す保存対象（開くたびに未保存の doc だけを組み立てる）
+  const [commitDocs, setCommitDocs] = useState<CommitDoc[]>([]);
   const latestScriptRef = useRef<string>("");
   const prevOutlineRef = useRef<string[] | null>(null);
   const alertedOutlineRef = useRef<string>("");
@@ -338,19 +363,60 @@ export function ScriptPane({
     setDraftRevision((value) => value + 1);
   }, []);
 
+  function setCommitModalOpen(open: boolean) {
+    setCommitOpen(open);
+    onCommitOpenChange?.(open); // 表示中は企画書の自動記録を止める
+  }
+
+  // 統合保存：企画書・台本のうち未保存のものだけを 1 つのモーダルでまとめて記録する
   async function openCommitModal() {
-    if (!episodeNumber || !episodeSlug || !latestScriptRef.current.trim()) return;
-    const res = await fetch(
-      `/api/script-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      setGenAlert({ message: toUserMessage(data.error, "最新の記録を取得できませんでした。"), tone: "error" });
-      return;
+    if (!episodeNumber || !episodeSlug) return;
+    const docs: CommitDoc[] = [];
+
+    // 企画書 → 台本 の順（ペインの並び・ワークフロー順に合わせる）
+    if (planCommit?.enabled && planCommit.unrecorded && plan) {
+      docs.push({
+        key: "plan",
+        label: "企画書",
+        badgeClass: PLAN_BADGE,
+        endpoint: "/api/plan-versions",
+        currentContent: planCommit.planText,
+        previousContent: planCommit.recordedPlanText,
+        contentToStore: JSON.stringify(plan, null, 2),
+        onCommitted: () => void planCommit.refresh(),
+      });
     }
-    setPreviousSnapshotContent(data.snapshot?.content ?? "");
-    setCommitCurrentContent(latestScriptRef.current);
-    setCommitOpen(true);
+
+    if (generated && scriptUnrecorded && latestScriptRef.current.trim()) {
+      const res = await fetch(
+        `/api/script-versions?action=latest&number=${episodeNumber}&slug=${encodeURIComponent(episodeSlug)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setGenAlert({ message: toUserMessage(data.error, "最新の記録を取得できませんでした。"), tone: "error" });
+        return;
+      }
+      docs.push({
+        key: "script",
+        label: "台本",
+        badgeClass: SCRIPT_BADGE,
+        endpoint: "/api/script-versions",
+        currentContent: latestScriptRef.current,
+        previousContent: data.snapshot?.content ?? "",
+        planFingerprint: plan ? planGenerationFingerprint(plan) : undefined,
+        onCommitted: (result) =>
+          void refreshRecordBaseline({
+            recordedContent: result.recordedContent,
+            scriptMeta: result.scriptMeta,
+            planFingerprint: result.planFingerprint,
+            savePlan: plan,
+          }),
+      });
+    }
+
+    if (docs.length === 0) return;
+    setCommitDocs(docs);
+    setCommitModalOpen(true);
   }
 
   async function handleRestoreSnapshot(content: string) {
@@ -358,8 +424,19 @@ export function ScriptPane({
     const displayContent = cleanScript(content);
     setScript(displayContent);
     latestScriptRef.current = content;
+    // 統合履歴は台本生成前でも開けるため、復元した台本が編集画面に出るようにする
+    if (displayContent.trim()) setGenerated(true);
     await handleSave(content);
     await refreshRecordBaseline();
+  }
+
+  // 統合履歴モーダルからの企画書復元（PlanningDoc の復元処理と同じ変換を通す）
+  async function handleRestorePlanSnapshot(content: string) {
+    const parsed = parsePlanSnapshotContent(content);
+    if (!parsed) throw new Error("保存された企画データを読み込めませんでした");
+    const restored = sanitizePlanOutline(parsed) ?? parsed;
+    onPlanChange?.(restored);
+    onTitleChange?.(restored.episodeTitle);
   }
 
   // エピソード切替時: 状態をリセットしてディスクから読み込み
@@ -883,6 +960,12 @@ export function ScriptPane({
   async function handleGenerate(options?: { fromPlan?: boolean }) {
     if (!plan || loading) return;
 
+    if (viewerReadOnly) {
+      // 閲覧専用: AI は呼ばず、デモ台本をタイプライター表示で再現する（保存もしない）
+      await runDemoGeneration(plan);
+      return;
+    }
+
     const fromPlan = options?.fromPlan ?? false;
     const hasExistingScript = generated && !!script.trim();
 
@@ -892,6 +975,31 @@ export function ScriptPane({
     }
 
     await runIncrementalUpdate();
+  }
+
+  /** デモ生成: サンプル台本を少しずつ流し込み、生成の動きだけ再現する（AI・保存なし） */
+  async function runDemoGeneration(targetPlan: EpisodePlan) {
+    const signal = beginGenerationSession();
+    setLoading(true);
+    setReconciling(false);
+    setUpdatingSections([]);
+    setScript("");
+    setGenerated(false);
+    setGenAlert({ message: DEMO_AI_NOTICE, tone: "info" });
+
+    const full = buildDemoScript(targetPlan);
+    const CHUNK = 18;
+    for (let i = CHUNK; i < full.length + CHUNK; i += CHUNK) {
+      if (signal.aborted) break;
+      setScript(full.slice(0, i));
+      await demoDelay(35);
+    }
+    if (!signal.aborted) {
+      setScript(full);
+      latestScriptRef.current = full;
+      setGenerated(true);
+    }
+    setLoading(false);
   }
 
   async function handleRegenerateSelection(payload: SelectionRegeneratePayload): Promise<string> {
@@ -1068,10 +1176,41 @@ export function ScriptPane({
       ? "構成（目次案と詳細）に変更がないため再生成できません"
       : undefined;
 
-  // モバイルのハンバーガーメニューに出す操作があるか
-  const showRecordActions = generated && versionsEnabled && Boolean(episodeNumber) && Boolean(episodeSlug);
+  // 閲覧専用: 生成ボタンはデモ再生（AI不使用）として常に押せるようにする
+  const genButtonLabel = viewerReadOnly
+    ? loading
+      ? "デモ生成中…"
+      : "デモ生成（AI不使用）"
+    : generateLabel;
+  const genButtonDisabled = viewerReadOnly ? loading : regenerateDisabled;
+  const genButtonClassName = viewerReadOnly
+    ? loading
+      ? scriptBtnDisabled
+      : scriptBtnPrimaryBlueFill
+    : generateClassName;
+  const genButtonTitle = viewerReadOnly
+    ? "画面の動きを再現するデモ生成です。AIは使用しません"
+    : generateTitle;
+
+  // 統合保存（企画書＋台本）。企画ペインの保存ボタンを撤去したため、
+  // 台本生成前でも企画書だけ保存できるよう generated を条件にしない
+  const planSnapshotUnrecorded = Boolean(planCommit?.enabled && planCommit.unrecorded);
+  const anySaveUnrecorded = scriptUnrecorded || planSnapshotUnrecorded;
+  const unsavedDocsLabel = [
+    planSnapshotUnrecorded ? "企画書" : null,
+    scriptUnrecorded ? "台本" : null,
+  ]
+    .filter(Boolean)
+    .join("・");
+  const showRecordActions =
+    !viewerReadOnly &&
+    (versionsEnabled || Boolean(planCommit?.enabled)) &&
+    Boolean(episodeNumber) &&
+    Boolean(episodeSlug);
+  // 統合履歴（企画書＋台本）は台本生成前でも企画書の履歴を見られるよう generated を条件にしない
+  const showHistory = versionsEnabled && Boolean(episodeNumber) && Boolean(episodeSlug);
   const showGitHistory = generated && gitMirrorConfigured && Boolean(episodeNumber) && Boolean(episodeSlug);
-  const showManualSync = generated && showOutlineNotice && !loading;
+  const showManualSync = !viewerReadOnly && generated && showOutlineNotice && !loading;
 
   return (
     <div className="flex flex-col h-full">
@@ -1088,29 +1227,30 @@ export function ScriptPane({
             </span>
           )}
           {showRecordActions && (
-            <>
-              <button
-                type="button"
-                onClick={() => void openCommitModal()}
-                disabled={loading || !latestScriptRef.current.trim()}
-                className={scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary}
-                title={
-                  scriptUnrecorded
-                    ? "前回の保存から変更があります。クリックして保存してください"
-                    : "現在の台本をバージョンとして保存（履歴に記録）"
-                }
-              >
-                保存{scriptUnrecorded ? "（未保存）" : ""}
-              </button>
-              <button
-                type="button"
-                onClick={() => setHistoryOpen(true)}
-                disabled={loading}
-                className={scriptBtnSecondary}
-              >
-                履歴
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => void openCommitModal()}
+              disabled={loading || !anySaveUnrecorded}
+              className={anySaveUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary}
+              title={
+                anySaveUnrecorded
+                  ? `未保存: ${unsavedDocsLabel}。クリックしてまとめて保存（履歴に記録）`
+                  : "前回の保存から変更はありません"
+              }
+            >
+              保存{anySaveUnrecorded ? "（未保存）" : ""}
+            </button>
+          )}
+          {showHistory && (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              disabled={loading}
+              className={scriptBtnSecondary}
+              title="企画書・台本の変更履歴をまとめて見る・以前の版に戻す"
+            >
+              履歴
+            </button>
           )}
           {showGitHistory && (
             <button
@@ -1140,11 +1280,11 @@ export function ScriptPane({
           ) : (
             <button
               onClick={() => handleGenerate()}
-              disabled={regenerateDisabled}
-              title={generateTitle}
-              className={generateClassName}
+              disabled={genButtonDisabled}
+              title={genButtonTitle}
+              className={genButtonClassName}
             >
-              {generateLabel}
+              {genButtonLabel}
             </button>
           )}
         </div>
@@ -1164,11 +1304,11 @@ export function ScriptPane({
         ) : (
           <button
             onClick={() => handleGenerate()}
-            disabled={regenerateDisabled}
-            title={generateTitle}
-            className={`${generateClassName} shrink-0 whitespace-nowrap`}
+            disabled={genButtonDisabled}
+            title={genButtonTitle}
+            className={`${genButtonClassName} shrink-0 whitespace-nowrap`}
           >
-            {generateLabel}
+            {genButtonLabel}
           </button>
         )}
         {showManualSync && (
@@ -1181,25 +1321,26 @@ export function ScriptPane({
           </button>
         )}
         {showRecordActions && (
-          <>
-            <button
-              type="button"
-              onClick={() => void openCommitModal()}
-              disabled={loading || !latestScriptRef.current.trim()}
-              className={`${scriptUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
-              title={scriptUnrecorded ? "前回の保存から変更があります" : "現在の台本をバージョンとして保存（履歴に記録）"}
-            >
-              保存{scriptUnrecorded ? "（未保存）" : ""}
-            </button>
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(true)}
-              disabled={loading}
-              className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
-            >
-              履歴
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => void openCommitModal()}
+            disabled={loading || !anySaveUnrecorded}
+            className={`${anySaveUnrecorded ? scriptBtnRecordPending : scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+            title={anySaveUnrecorded ? `未保存: ${unsavedDocsLabel}` : "前回の保存から変更はありません"}
+          >
+            保存{anySaveUnrecorded ? "（未保存）" : ""}
+          </button>
+        )}
+        {showHistory && (
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            disabled={loading}
+            className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
+            title="企画書・台本の変更履歴をまとめて見る・以前の版に戻す"
+          >
+            履歴
+          </button>
         )}
         {showGitHistory && (
           <button
@@ -1320,31 +1461,39 @@ export function ScriptPane({
 
       {episodeNumber && episodeSlug && (
         <>
+          {/* 統合保存：企画書・台本の未保存分をまとめて記録 */}
           <SnapshotCommitModal
             open={commitOpen}
-            onOpenChange={setCommitOpen}
+            onOpenChange={setCommitModalOpen}
             episodeTitle={plan.episodeTitle}
             episodeNumber={episodeNumber}
             episodeSlug={episodeSlug}
-            currentContent={commitCurrentContent}
-            previousContent={previousSnapshotContent}
-            planFingerprint={plan ? planGenerationFingerprint(plan) : undefined}
-            onCommitted={(result) =>
-              void refreshRecordBaseline({
-                recordedContent: result.recordedContent,
-                scriptMeta: result.scriptMeta,
-                planFingerprint: result.planFingerprint,
-                savePlan: plan,
-              })
-            }
+            docs={commitDocs}
           />
+          {/* 企画書と台本の履歴を 1 つのタイムラインで表示（復元は項目ごと） */}
           <HistoryModal
             open={historyOpen}
             onOpenChange={setHistoryOpen}
             episodeTitle={plan.episodeTitle}
             episodeNumber={episodeNumber}
             episodeSlug={episodeSlug}
-            onRestore={handleRestoreSnapshot}
+            sources={[
+              {
+                key: "plan",
+                endpoint: "/api/plan-versions",
+                label: "企画書",
+                badgeClass: PLAN_BADGE,
+                renderContent: planSnapshotContentToText,
+                onRestore: handleRestorePlanSnapshot,
+              },
+              {
+                key: "script",
+                endpoint: "/api/script-versions",
+                label: "台本",
+                badgeClass: SCRIPT_BADGE,
+                onRestore: handleRestoreSnapshot,
+              },
+            ]}
           />
           <GitHistoryModal
             open={gitHistoryOpen}
