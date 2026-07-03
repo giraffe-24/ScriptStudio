@@ -96,6 +96,15 @@ export async function appendCompetitorsConfig(channels: CompetitorChannel[]): Pr
   await writeCompetitorsConfig([...existing, ...toAdd]);
 }
 
+export async function removeCompetitorsConfig(channelIds: string[]): Promise<void> {
+  const ids = new Set(channelIds);
+  if (ids.size === 0) return;
+  const channels = await readCompetitorsConfig();
+  const remaining = channels.filter((c) => !ids.has(c.channelId));
+  if (remaining.length === channels.length) return;
+  await writeCompetitorsConfig(remaining);
+}
+
 export async function updateCompetitorsEnabled(
   updates: { channelId: string; enabled: boolean }[],
 ): Promise<void> {

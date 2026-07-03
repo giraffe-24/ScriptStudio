@@ -14,8 +14,14 @@ import {
 // CRON_SECRET で保護するため、ここでは認証対象外にする。
 const PUBLIC_PATHS = ["/login", "/api/site-auth/login", "/api/keep-alive"];
 
-// 閲覧専用（レビュアー）でも許可する変更系パス。ログアウトだけは通す
-const REVIEWER_WRITE_ALLOWED_PATHS = new Set(["/api/site-auth/logout"]);
+// 閲覧専用（レビュアー）でも許可する変更系パス。
+// - ログアウト
+// - 競合チャンネル管理（追加・切替・削除）と統計取得（POST だが参照系）
+const REVIEWER_WRITE_ALLOWED_PATHS = new Set([
+  "/api/site-auth/logout",
+  "/api/competitors",
+  "/api/competitors/stats",
+]);
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
