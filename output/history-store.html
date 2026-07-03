@@ -1364,49 +1364,6 @@
     </div>
   </div>
 
-  <!-- モバイル表示（レスポンシブ）：スマホフレームに貼る -->
-  <div class="mt-8 rounded-2xl border border-giz-gray-mid bg-white p-5 md:p-6">
-    <div class="flex items-center gap-2">
-      <span class="flex h-6 w-6 items-center justify-center rounded-full bg-giz-forest text-white"><i class="fa-solid fa-mobile-screen-button text-[0.7rem]" aria-hidden="true"></i></span>
-      <p class="font-jp text-sm font-bold text-giz-ink">モバイル表示（レスポンシブ）</p>
-    </div>
-    <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
-      PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作したい</span>と思ったので、スマホでも使えるようにした。狭い画面では主要操作（一覧・テーマ・企画・台本）を<strong class="text-giz-forest">画面下のフッタータブ</strong>へ集約し、片手・親指の届く位置で完結する。
-    </p>
-
-    <div class="mt-5 giz-phone-row">
-      <!-- スマホ①：エピソード一覧 -->
-      <figure class="m-0">
-        <div class="giz-phone">
-          <div class="giz-phone__screen">
-            <div class="giz-phone__slot">
-              <img class="giz-phone__img" src="assets/mobile-episodes.png"
-                   alt="スマホで開いたエピソード一覧。下部にフッタータブ">
-            </div>
-          </div>
-        </div>
-        <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
-          エピソード画面。案件ごとの台本・企画書を<strong class="text-giz-forest">一覧</strong>から開く。
-        </figcaption>
-      </figure>
-
-      <!-- スマホ②：テーマ選定 -->
-      <figure class="m-0">
-        <div class="giz-phone">
-          <div class="giz-phone__screen">
-            <div class="giz-phone__slot">
-              <img class="giz-phone__img" src="assets/mobile-theme.png"
-                   alt="スマホで開いたテーマ選定画面。テーマ候補の一覧と入力欄">
-            </div>
-          </div>
-        </div>
-        <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
-          テーマ選定画面。ここでテーマを決めて<strong class="text-giz-forest">企画へつなぐ</strong>。
-        </figcaption>
-      </figure>
-    </div>
-  </div>
-
 </section>
 
 <!-- ============ SECTION 2: 保持データ ============ -->
@@ -1500,7 +1457,7 @@
       <span class="rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink">ゴール</span>
     </div>
     <p class="mt-3 font-jp text-xs text-giz-ink leading-relaxed">
-      <strong>ねらい：</strong>「保存の形（JSON）」と「見せる形（整形テキスト）」を分けるため。くわしくは SECTION 4 の工夫5へ。
+      <strong>ねらい：</strong>復元は構造を保った JSON、差分表示は人が読める整形テキスト。「保存の形」と「見せる形」を分けている。
     </p>
   </div>
 </section>
@@ -1555,7 +1512,7 @@
       <i class="fa-solid fa-shield-halved w-4" aria-hidden="true"></i>道を外させない工夫（ハーネス）
     </p>
     <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
-      どれも<strong>対象を絞って渡す</strong>のが肝。範囲が狭いほど、AI は<strong>暴走せず・他をブレさせず・トークンも軽い</strong>。落ちたときの守り（要約フォールバック）は後述の工夫2で触れる。「どの作業を AI に任せ、どうすれば道を外さず動くか」を設計した部分。
+      どれも<strong>対象を絞って渡す</strong>のが肝。範囲が狭いほど、AI は<strong>暴走せず・他をブレさせず・トークンも軽い</strong>。落ちたときの守り（要約フォールバック）は SECTION 5 の苦戦②で触れる。「どの作業を AI に任せ、どうすれば道を外さず動くか」を設計した部分。
     </p>
   </div>
 </section>
@@ -1581,7 +1538,7 @@
       <p class="giz-label text-giz-sea">B</p>
       <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase（Postgres）</p>
       <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-sea"><i class="fa-solid fa-circle-check w-4" aria-hidden="true"></i>採用</p>
-      <p class="mt-1 font-jp text-xs text-giz-mist-ink leading-relaxed">永続化できる。ただし無料枠は7日休止に注意。</p>
+      <p class="mt-1 font-jp text-xs text-giz-mist-ink leading-relaxed">永続化できる。無料枠の7日休止は、1日1回の自動アクセス（キープアライブ）で予防。</p>
     </div>
   </div>
 
@@ -1646,69 +1603,167 @@
 <section id="section-4" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
   <p class="giz-label text-giz-gray">SECTION 4</p>
   <h2 class="mt-1 text-2xl">工夫したポイント</h2>
-  <p class="mt-3 font-jp text-giz-ink leading-relaxed">「消えない・止まらない・原因がわかる」を成立させるための5つの仕掛け。</p>
+
+  <!-- 特にこだわったのは -->
+  <div class="mt-5 rounded-2xl border border-giz-gray-mid bg-giz-mist/40 p-6 text-center">
+    <p class="giz-label text-giz-forest">特にこだわったのは</p>
+    <p class="mt-2 font-jp text-lg md:text-xl font-bold text-giz-ink leading-relaxed">
+      機能を「足す」ことではなく、<br class="hidden md:block">
+      足しても<span class="giz-mark">迷わない・止まらない・手がかからない</span>こと
+    </p>
+  </div>
 
   <div class="mt-6 space-y-4">
-    <!-- 1 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-start gap-3">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">1</span>
+    <!-- 工夫① 1画面完結 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white overflow-hidden">
+      <div class="flex items-center gap-3 border-b border-giz-gray-mid bg-giz-surface px-5 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-giz-forest text-white"><i class="fa-solid fa-table-columns" aria-hidden="true"></i></span>
         <div>
-          <p class="font-jp text-base font-bold text-giz-ink">変更の差分を保存時に記録</p>
-          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            保存のたびに前版との差分（追加◯行／削除◯行）を計算し、<strong class="text-giz-ink">差分サマリ</strong>として一緒に残す。履歴一覧はこれを見るだけで、開かなくても<strong class="text-giz-ink">「どれだけ変わった版か」</strong>が一目でわかる。
-          </p>
+          <p class="giz-label text-giz-gray">工夫①</p>
+          <p class="font-jp text-base font-bold text-giz-ink">1画面完結の設計（スマホ対応も含む）</p>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <p class="font-jp text-sm text-giz-gray leading-relaxed">
+          調査・企画・執筆・推敲・履歴の<strong class="text-giz-ink">全工程をひとつの画面に集約</strong>。別ツールへ移動してコピペで運ぶ作業をなくし、画面の中の移動だけで台本が仕上がる。PC 専用にはせず、<span class="giz-mark">移動中にも気軽に操作したい</span>ので、スマホでは同じ機能を<strong class="text-giz-ink">画面下のフッタータブ</strong>（一覧・テーマ・企画・台本）に集め、親指の届く範囲で完結する。
+        </p>
+
+        <!-- モバイル表示（レスポンシブ）：スマホフレームに貼る -->
+        <p class="mt-4 giz-label text-giz-gray">モバイル表示（レスポンシブ）</p>
+        <div class="mt-3 giz-phone-row">
+          <!-- スマホ①：エピソード一覧 -->
+          <figure class="m-0">
+            <div class="giz-phone">
+              <div class="giz-phone__screen">
+                <div class="giz-phone__slot">
+                  <img class="giz-phone__img" src="assets/mobile-episodes.png"
+                       alt="スマホで開いたエピソード一覧。下部にフッタータブ">
+                </div>
+              </div>
+            </div>
+            <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
+              エピソード画面。案件ごとの台本・企画書を<strong class="text-giz-forest">一覧</strong>から開く。
+            </figcaption>
+          </figure>
+
+          <!-- スマホ②：テーマ選定 -->
+          <figure class="m-0">
+            <div class="giz-phone">
+              <div class="giz-phone__screen">
+                <div class="giz-phone__slot">
+                  <img class="giz-phone__img" src="assets/mobile-theme.png"
+                       alt="スマホで開いたテーマ選定画面。テーマ候補の一覧と入力欄">
+                </div>
+              </div>
+            </div>
+            <figcaption class="mt-3 mx-auto max-w-[14rem] text-center font-jp text-xs text-giz-gray leading-relaxed">
+              テーマ選定画面。ここでテーマを決めて<strong class="text-giz-forest">企画へつなぐ</strong>。
+            </figcaption>
+          </figure>
+        </div>
+
+        <div class="mt-4 flex items-start gap-2 rounded-lg bg-giz-mist/50 px-4 py-3">
+          <i class="fa-solid fa-circle-check w-4 mt-0.5 text-giz-forest" aria-hidden="true"></i>
+          <p class="font-jp text-xs text-giz-mist-ink leading-relaxed"><strong>効果：</strong>ツールの行き来とコピペがゼロに。外出先のスマホでも、PC とまったく同じ流れで作業できる。</p>
         </div>
       </div>
     </div>
-    <!-- 2 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-start gap-3">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">2</span>
+
+    <!-- 工夫② 誰でもわかる設計 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white overflow-hidden">
+      <div class="flex items-center gap-3 border-b border-giz-gray-mid bg-giz-surface px-5 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-giz-forest text-white"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i></span>
         <div>
-          <p class="font-jp text-base font-bold text-giz-ink">変更内容を AI が要約（失敗しても止めない）</p>
-          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            記録時に Claude が差分を読み、<strong class="text-giz-ink">1〜2文の要約</strong>を自動生成。API が落ちても「追加◯行／削除◯行」から定型文にフォールバックし、初稿・無変更も専用の文言で必ず何かを返す。
-          </p>
+          <p class="giz-label text-giz-gray">工夫②</p>
+          <p class="font-jp text-base font-bold text-giz-ink">誰でもわかる設計 —— エラー文まで、やさしい言葉で</p>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <p class="font-jp text-sm text-giz-gray leading-relaxed">
+          画面の言葉から専門用語をなくした。エラーも「失敗しました」で終わらせず、<strong class="text-giz-ink">何が起きて・次にどうすればいいか</strong>まで示す。AI に渡す文章が長すぎたとき（トークン切れ）は「一度に読める量を超えた」とわかる言葉に言い換え、保存に失敗したら<strong class="text-giz-ink">原因（回線か・サーバーか・設定か）を自動で診断</strong>してヒントを画面に出す。
+        </p>
+
+        <!-- 例：英語エラーの言い換え -->
+        <p class="mt-4 giz-label text-giz-gray">例：そのまま出がちな英語エラー → 画面に出す言葉</p>
+        <div class="mt-2 space-y-2">
+          <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
+            <p class="font-mono text-[11px] text-giz-gray">Failed to fetch</p>
+            <p class="mt-1 font-jp text-xs text-giz-ink leading-relaxed"><span class="mr-1 font-bold text-giz-forest">→</span>サーバーにつながりませんでした。電波のよい場所で、もう一度お試しください</p>
+          </div>
+          <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
+            <p class="font-mono text-[11px] text-giz-gray">prompt is too long: 210,000 tokens &gt; 200,000 maximum</p>
+            <p class="mt-1 font-jp text-xs text-giz-ink leading-relaxed"><span class="mr-1 font-bold text-giz-forest">→</span>台本が長すぎて、AI が一度に読める量を超えました。直したい範囲だけ選んでお試しください</p>
+          </div>
+          <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
+            <p class="font-mono text-[11px] text-giz-gray">401 Unauthorized: Invalid API key</p>
+            <p class="mt-1 font-jp text-xs text-giz-ink leading-relaxed"><span class="mr-1 font-bold text-giz-forest">→</span>保存先のカギ（API キー）の設定が違うようです。設定画面でキーを確認してください</p>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-start gap-2 rounded-lg bg-giz-mist/50 px-4 py-3">
+          <i class="fa-solid fa-circle-check w-4 mt-0.5 text-giz-forest" aria-hidden="true"></i>
+          <p class="font-jp text-xs text-giz-mist-ink leading-relaxed"><strong>効果：</strong>エラーが出ても作業が止まらない。エンジニアでなくても、画面を読むだけで次の一手がわかる。</p>
         </div>
       </div>
     </div>
-    <!-- 3 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-start gap-3">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">3</span>
+
+    <!-- 工夫③ AIを使い倒す -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white overflow-hidden">
+      <div class="flex items-center gap-3 border-b border-giz-gray-mid bg-giz-surface px-5 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-giz-forest text-white"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>
         <div>
-          <p class="font-jp text-base font-bold text-giz-ink">7日休止を防ぐキープアライブ</p>
-          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            Supabase の無料枠は、約7日データベースを触らないと自動で休止する。そこで <strong class="text-giz-ink">1日1回、自動で軽く読み書き</strong>して起こしておく。止まる前に触り続けるのが狙い。
-          </p>
+          <p class="giz-label text-giz-gray">工夫③</p>
+          <p class="font-jp text-base font-bold text-giz-ink">とにかく自分の工数を減らす —— AI を使い倒す</p>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <p class="font-jp text-sm text-giz-gray leading-relaxed">
+          「人がやらなくていい作業」は徹底的に AI へ。変更内容の要約（履歴の説明書き）、台本の部分再生成、企画書の項目修正、推敲の差分からの学習——書く前後の雑務を AI が肩代わりし、人間の仕事は<strong class="text-giz-ink">「選ぶ・直す・決める」だけ</strong>に絞った。
+        </p>
+
+        <!-- ミニ図解：AI と人間の分担 -->
+        <div class="mt-4 rounded-xl border border-giz-gray-mid bg-giz-surface p-4">
+          <div class="flex flex-col items-stretch gap-2 md:flex-row md:gap-1.5">
+            <div class="flex-[3] rounded-xl border border-giz-gray-mid bg-white px-4 py-4 text-center">
+              <p class="flex items-center justify-center gap-1.5 font-jp text-sm font-bold text-giz-ink">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-giz-forest" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+                AI がやる（雑務ぜんぶ）
+              </p>
+              <div class="mt-3 flex flex-wrap justify-center gap-1.5">
+                <span class="rounded-full border border-giz-gray-mid bg-giz-surface px-3 py-1 font-jp text-xs text-giz-ink">変更の要約</span>
+                <span class="rounded-full border border-giz-gray-mid bg-giz-surface px-3 py-1 font-jp text-xs text-giz-ink">台本の部分再生成</span>
+                <span class="rounded-full border border-giz-gray-mid bg-giz-surface px-3 py-1 font-jp text-xs text-giz-ink">企画書の項目修正</span>
+                <span class="rounded-full border border-giz-gray-mid bg-giz-surface px-3 py-1 font-jp text-xs text-giz-ink">推敲からの学習</span>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right hidden md:block self-center w-4 text-giz-gray-mid" aria-hidden="true"></i>
+            <div class="flex-[2] rounded-xl border-2 border-giz-forest bg-giz-mist/40 px-4 py-4 text-center">
+              <p class="flex items-center justify-center gap-1.5 font-jp text-sm font-bold text-giz-ink">
+                <i class="fa-solid fa-user text-giz-forest" aria-hidden="true"></i>人間がやる（判断だけ）
+              </p>
+              <div class="mt-3 flex flex-wrap justify-center gap-1.5">
+                <span class="rounded-full bg-giz-lime px-3 py-1 font-jp text-xs font-bold text-giz-terminal">選ぶ</span>
+                <span class="rounded-full bg-giz-lime px-3 py-1 font-jp text-xs font-bold text-giz-terminal">直す</span>
+                <span class="rounded-full bg-giz-lime px-3 py-1 font-jp text-xs font-bold text-giz-terminal">決める</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-start gap-2 rounded-lg bg-giz-mist/50 px-4 py-3">
+          <i class="fa-solid fa-circle-check w-4 mt-0.5 text-giz-forest" aria-hidden="true"></i>
+          <p class="font-jp text-xs text-giz-mist-ink leading-relaxed"><strong>効果：</strong>直せば直すほど AI が「自分の声」を学び、次の初稿の手直しが減る。<span class="giz-mark">使うほど工数が下がっていく</span>。</p>
         </div>
       </div>
     </div>
-    <!-- 4 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-start gap-3">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">4</span>
-        <div>
-          <p class="font-jp text-base font-bold text-giz-ink">保存先の健全性を診断する API</p>
-          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            「通信に失敗」が<strong class="text-giz-ink">ユーザーの回線のせいか、Supabase が止まっているせいか</strong>を、推測でなく事実で切り分ける<strong class="text-giz-ink">診断のしくみ</strong>。到達不能／タイムアウト／応答ありに分類し、秘密の情報（鍵など）は返さない。
-          </p>
-        </div>
-      </div>
-    </div>
-    <!-- 5 -->
-    <div class="rounded-2xl border border-giz-gray-mid bg-white p-5">
-      <div class="flex items-start gap-3">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">5</span>
-        <div>
-          <p class="font-jp text-base font-bold text-giz-ink">企画書は「保存＝JSON／表示＝テキスト」を分離</p>
-          <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">
-            復元は構造を保った JSON、差分表示は人が読める整形テキスト。1つのデータに<strong class="text-giz-ink">2つの見せ方</strong>を用意し、「そっくり戻せる」と「変更が追える」を両立させた。
-          </p>
-        </div>
-      </div>
-    </div>
+  </div>
+
+  <!-- 3つの工夫に共通すること -->
+  <div class="mt-6 rounded-2xl border-l-4 border-giz-forest bg-giz-mist/60 p-5">
+    <p class="giz-label text-giz-forest">3つの工夫に共通すること</p>
+    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+      画面はひとつに、言葉はやさしく、作業は AI に。<strong>機能は増やしても、使う人の手数と迷いは増やさない</strong>——人間は判断だけに集中できる形にした。
+    </p>
   </div>
 </section>
 
@@ -1716,61 +1771,165 @@
 <section id="section-5" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
   <p class="giz-label text-giz-gray">SECTION 5</p>
   <h2 class="mt-1 text-2xl">苦戦したポイント</h2>
-  <p class="mt-3 font-jp text-giz-ink leading-relaxed">実際に踏んだ4つの落とし穴と、そこから決めた対策。</p>
+
+  <!-- いちばん時間をかけたのは -->
+  <div class="mt-5 rounded-2xl border border-giz-gray-mid bg-white p-6 text-center">
+    <p class="giz-label text-giz-coral">いちばん時間をかけたのは</p>
+    <p class="mt-2 font-jp text-lg md:text-xl font-bold text-giz-ink leading-relaxed">
+      機能を「作る」ことより、<br class="hidden md:block">
+      <span class="giz-mark">ブレずに・迷わずに使える形</span>へ整えること
+    </p>
+  </div>
 
   <div class="mt-6 space-y-4">
-    <!-- struggle 1 -->
-    <div class="rounded-2xl border border-giz-coral bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-coral">
-        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">① AI 要約の失敗が、保存まで道連れにした</p>
+    <!-- 苦戦① スマホ設計 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white overflow-hidden">
+      <div class="flex items-center gap-3 border-b border-giz-gray-mid bg-giz-surface px-5 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-giz-coral text-white"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i></span>
+        <div>
+          <p class="giz-label text-giz-coral">苦戦①</p>
+          <p class="font-jp text-base font-bold text-giz-ink">スマホ設計 —— PC の縮小版では使えない</p>
+        </div>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>記録のたびに変更点を AI が1〜2文に要約していたが、AI が失敗すると<strong class="text-giz-coral">保存そのものが巻き添えで失敗</strong>。おまけ機能のはずが、履歴の生命線を止めていた。
-      </p>
-      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>要約は「あれば嬉しいおまけ」と割り切る。AI が失敗したら「追加◯行／削除◯行」の定型文に自動で切り替え、要約が無くても<strong>保存は必ず通す</strong>ようにした。
-      </p>
-    </div>
-    <!-- struggle 2 -->
-    <div class="rounded-2xl border border-giz-coral bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-coral">
-        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">② Supabase 無料枠の7日自動休止</p>
+      <div class="px-5 py-4">
+        <p class="font-jp text-sm text-giz-ink leading-relaxed">
+          <strong>症状：</strong>当初は広い画面ありきのレイアウト。スマホでは<strong class="text-giz-coral">窮屈で片手では届かず</strong>、「PC を開かないと作業できない」状態だった。PC の画面をそのまま縮めても、使いものにならない。
+        </p>
+        <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+          <strong>対策：</strong>スマホを「PC の縮小版」ではなく<strong>別の画面として設計し直した</strong>。よく使う操作（記録・履歴など）を画面下のフッタータブに集約し、画面幅で自動で切り替わる。
+        </p>
+
+        <!-- ミニ図解：縮小版の往復 → 別物として設計 -->
+        <div class="mt-4 rounded-xl border border-giz-gray-mid bg-giz-surface p-4">
+          <div class="flex flex-col items-stretch gap-2 md:flex-row md:gap-1.5">
+            <div class="flex-1 rounded-xl border-2 border-dashed border-giz-gray-mid bg-white px-3 py-4 text-center">
+              <span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-giz-surface text-giz-gray"><i class="fa-solid fa-desktop" aria-hidden="true"></i></span>
+              <p class="mt-2 font-jp text-sm font-bold text-giz-ink">PC の縮小版</p>
+              <p class="mt-0.5 font-jp text-xs text-giz-gray">広い画面ありきのまま縮める</p>
+            </div>
+            <i class="fa-solid fa-chevron-right hidden md:block self-center w-4 text-giz-gray-mid" aria-hidden="true"></i>
+            <div class="flex-1 rounded-xl border-2 border-dashed border-giz-gray-mid bg-white px-3 py-4 text-center">
+              <p class="font-jp text-sm font-bold text-giz-ink">何度も調整</p>
+              <div class="mt-2 flex flex-col items-center gap-1">
+                <span class="rounded-full bg-giz-lime px-3 py-1 font-jp text-xs font-bold text-giz-terminal">縮めて詰め込む</span>
+                <i class="fa-solid fa-rotate text-giz-gray" aria-hidden="true"></i>
+                <span class="rounded-full border-2 border-giz-coral px-3 py-1 font-jp text-xs font-bold text-giz-coral">崩れる・届かない</span>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right hidden md:block self-center w-4 text-giz-gray-mid" aria-hidden="true"></i>
+            <div class="flex-1 rounded-xl border-2 border-giz-forest bg-giz-mist/40 px-3 py-4 text-center">
+              <span class="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-white text-giz-forest"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i></span>
+              <p class="mt-2 font-jp text-sm font-bold text-giz-ink">別物として設計</p>
+              <p class="mt-0.5 font-jp text-xs text-giz-forest">フッタータブ・親指で完結</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-start gap-2 rounded-lg bg-giz-mist/50 px-4 py-3">
+          <i class="fa-solid fa-lightbulb w-4 mt-0.5 text-giz-forest" aria-hidden="true"></i>
+          <p class="font-jp text-xs text-giz-mist-ink leading-relaxed"><strong>学び：</strong>スマホ対応は「あとから縮める調整」ではない。最初から<strong>親指で使う画面を別物として設計</strong>する必要があった。</p>
+        </div>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>無料枠の DB は7日間使わないと自動で眠り、さらに放置すると削除される。<strong class="text-giz-coral">一度削除されると、もう自動では戻せない</strong>。
-      </p>
-      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>数日おきに自動でアクセスして眠らせない仕組みを<strong>予防</strong>として用意。それでも止まったら管理画面から手動で復元、完全に防ぐなら有料プラン——と運用を決めて明文化した。
-      </p>
     </div>
-    <!-- struggle 3 -->
-    <div class="rounded-2xl border border-giz-coral bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-coral">
-        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">③ 失敗の原因が切り分けられない</p>
+
+    <!-- 苦戦② AI設計 -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white overflow-hidden">
+      <div class="flex items-center gap-3 border-b border-giz-gray-mid bg-giz-surface px-5 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-giz-coral text-white"><i class="fa-solid fa-shuffle" aria-hidden="true"></i></span>
+        <div>
+          <p class="giz-label text-giz-coral">苦戦②</p>
+          <p class="font-jp text-base font-bold text-giz-ink">AI 設計 —— 出力の「ブレ」をなくす</p>
+        </div>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>「保存に失敗」とだけ出て、回線なのかサーバーなのか、設定ミスなのか分からない。
-      </p>
-      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>どこでつまずいたかを自動で調べる診断機能を追加。設定ミス（キーの取り違え）もチェックして、原因のヒントを画面に出すようにした。
-      </p>
-    </div>
-    <!-- struggle 4 -->
-    <div class="rounded-2xl border border-giz-coral bg-white p-5">
-      <div class="flex items-center gap-2 text-giz-coral">
-        <i class="fa-solid fa-triangle-exclamation w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">④ PC前提の画面で、スマホから使いづらい</p>
+      <div class="px-5 py-4">
+        <p class="font-jp text-sm text-giz-ink leading-relaxed">
+          <strong>症状：</strong>台本を丸ごと AI に渡すと、頼んでいない箇所まで書き換わり、<strong class="text-giz-coral">口調も毎回ブレる</strong>。同じ指示でも結果が安定しなかった。
+        </p>
+        <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+          <strong>対策：</strong>渡す範囲を絞った。台本は<strong>直したい箇所＋前後だけ</strong>、企画書は<strong>項目単位だけ</strong>。さらにブランド定義・成功台本を毎回渡して「声」を固定し、AI が失敗したら定型文に自動で切り替えて本体（保存）は止めない。
+        </p>
+
+        <!-- ミニ図解：試した任せ方（やめた→採用） -->
+        <div class="mt-4 rounded-xl border border-giz-gray-mid bg-giz-surface p-4">
+          <p class="giz-label text-giz-gray">試した任せ方</p>
+          <div class="mt-3 grid gap-2 md:grid-cols-3">
+            <div class="rounded-xl border-2 border-dashed border-giz-gray-mid bg-white p-4">
+              <span class="inline-flex items-center gap-1 rounded-full border border-giz-coral px-2.5 py-0.5 font-jp text-[11px] font-bold text-giz-coral"><i class="fa-solid fa-xmark" aria-hidden="true"></i>やめた</span>
+              <p class="mt-2 font-jp text-sm font-bold text-giz-ink">全文を渡して書き直させる</p>
+              <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">頼んでいない所まで変わり、口調もブレる。</p>
+            </div>
+            <div class="rounded-xl border-2 border-dashed border-giz-gray-mid bg-white p-4">
+              <span class="inline-flex items-center gap-1 rounded-full border border-giz-coral px-2.5 py-0.5 font-jp text-[11px] font-bold text-giz-coral"><i class="fa-solid fa-xmark" aria-hidden="true"></i>やめた</span>
+              <p class="mt-2 font-jp text-sm font-bold text-giz-ink">指示文をどんどん足す</p>
+              <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">指示が長くなるだけで、結果は毎回違う。</p>
+            </div>
+            <div class="rounded-xl border-2 border-giz-forest bg-giz-mist/40 p-4">
+              <span class="inline-flex items-center gap-1 rounded-full bg-giz-forest px-2.5 py-0.5 font-jp text-[11px] font-bold text-white"><i class="fa-solid fa-check" aria-hidden="true"></i>採用</span>
+              <p class="mt-2 font-jp text-sm font-bold text-giz-ink">対象だけ渡し、声は毎回固定</p>
+              <p class="mt-1 font-jp text-xs text-giz-forest leading-relaxed">渡すのは直したい箇所＋前後と、ブランド定義・成功台本だけ。他がブレず、結果が安定。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-start gap-2 rounded-lg bg-giz-mist/50 px-4 py-3">
+          <i class="fa-solid fa-lightbulb w-4 mt-0.5 text-giz-forest" aria-hidden="true"></i>
+          <p class="font-jp text-xs text-giz-mist-ink leading-relaxed"><strong>学び：</strong>AI は自由にさせるほどブレる。<strong>渡す対象と役割を絞るほど安定</strong>し、「自分の書き手」になっていく。</p>
+        </div>
       </div>
-      <p class="mt-2 font-jp text-sm text-giz-ink leading-relaxed">
-        <strong>症状：</strong>いつでもどこでも手軽に使えることが大事なのに、当初は広い画面ありきのレイアウト。スマホから台本を直そうとすると<strong class="text-giz-coral">窮屈で片手では届かず</strong>、「PCを開かないと作業できない」状態だった。
-      </p>
-      <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
-        <strong>対策：</strong>スマホの画面に合わせて作り直し、よく使う操作（記録・履歴など）を<strong>画面下のボタン</strong>に集約。PC では従来どおり上部に表示され、画面幅で自動で切り替わる。
-      </p>
     </div>
+
+    <!-- 苦戦③ UX -->
+    <div class="rounded-2xl border border-giz-gray-mid bg-white overflow-hidden">
+      <div class="flex items-center gap-3 border-b border-giz-gray-mid bg-giz-surface px-5 py-4">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-giz-coral text-white"><i class="fa-solid fa-eye" aria-hidden="true"></i></span>
+        <div>
+          <p class="giz-label text-giz-coral">苦戦③</p>
+          <p class="font-jp text-base font-bold text-giz-ink">UX —— テキストを減らして、直感的に伝える</p>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <p class="font-jp text-sm text-giz-ink leading-relaxed">
+          <strong>症状：</strong>機能が多いぶん、説明文を足すほど画面が文字だらけに。<strong class="text-giz-coral">読まないと使えない画面</strong>は、それだけで使う気を削いでいた。
+        </p>
+        <p class="mt-1.5 font-jp text-sm text-giz-forest leading-relaxed">
+          <strong>対策：</strong>説明を「見ればわかる表現」に置き換えた。差分は<strong>色分け</strong>、変更量は<strong>「＋◯／−◯」のバッジ</strong>、操作は<strong>アイコン＋短いラベル</strong>。文章で説明するのは最後の手段にした。
+        </p>
+
+        <!-- 実際に使ったアイコンの例 -->
+        <p class="mt-4 giz-label text-giz-gray">実際に使ったアイコンの例</p>
+        <div class="mt-2 space-y-2">
+          <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
+            <p class="font-jp text-sm text-giz-ink">📋 一覧　💡 テーマ　📝 企画　🎬 台本</p>
+            <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">スマホのフッタータブ。工程の説明文をやめて、アイコン＋2〜3文字のラベルだけにした。</p>
+          </div>
+          <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
+            <p class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-2.5 py-1 font-jp text-xs font-bold text-white"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>推敲開始</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full border border-giz-gray-mid bg-white px-2.5 py-1 font-jp text-xs text-giz-ink"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 text-giz-gray" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>AI と深掘り</span>
+              <span class="font-jp text-sm text-giz-ink">✨ テーマ分析する</span>
+            </p>
+            <p class="mt-1.5 font-jp text-xs text-giz-gray leading-relaxed">キラキラ（Sparkles）が<strong class="text-giz-ink">「AI に任せる操作」の共通マーク</strong>。画面のどこにあっても、AI ボタンだと一目でわかる。</p>
+          </div>
+          <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
+            <p class="font-jp text-sm text-giz-ink">🕘 変更履歴　　↩ 戻す</p>
+            <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">「過去の版を見る」「この版に復元する」という長い説明を、時計と戻り矢印に置き換えた。</p>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-start gap-2 rounded-lg bg-giz-mist/50 px-4 py-3">
+          <i class="fa-solid fa-lightbulb w-4 mt-0.5 text-giz-forest" aria-hidden="true"></i>
+          <p class="font-jp text-xs text-giz-mist-ink leading-relaxed"><strong>学び：</strong>機能が多いほど「読ませる」より「見せる」。テキストは<strong>減らすほど、むしろ伝わる</strong>。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3つの苦戦から学んだこと -->
+  <div class="mt-6 rounded-2xl border-l-4 border-giz-forest bg-giz-mist/60 p-5">
+    <p class="giz-label text-giz-forest">3つの苦戦から学んだこと</p>
+    <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+      共通するのは<strong>「絞るほど良くなる」</strong>ということ。画面は親指の届く範囲に、AI は渡す対象に、説明は見ればわかる表現に絞る。多機能を支えていたのは、足し算ではなく<strong>引き算</strong>だった。
+    </p>
   </div>
 </section>
 
@@ -1778,28 +1937,28 @@
 <section id="summary" class="giz-section mt-14 scroll-mt-28 md:scroll-mt-32">
   <p class="giz-label text-giz-gray">SUMMARY</p>
   <h2 class="mt-1 text-2xl">まとめ</h2>
-  <p class="mt-3 font-jp text-giz-ink leading-relaxed">この保存基盤が担保している3つの価値。</p>
+  <p class="mt-3 font-jp text-giz-ink leading-relaxed">この課題で作っていたのは「保存機能」ではなく、<strong class="text-giz-forest">安心して直し続けられる仕組み</strong>だった。要点は3つ。</p>
 
   <div class="mt-5 space-y-3">
     <div class="flex items-start gap-3 rounded-2xl border border-giz-gray-mid bg-white p-5">
       <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-forest text-white font-bold">1</span>
       <div>
-        <p class="font-jp text-base font-bold text-giz-ink">いつでも戻せる</p>
-        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">1記録＝1スナップショットで、誰が・いつ・何を・全文を保持。過去の版へそっくり復元できる。</p>
+        <p class="font-jp text-base font-bold text-giz-ink">「戻せる」は、攻めるための土台</p>
+        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">誰が・いつ・何を変えたかを全文スナップショットで残し、いつでもその版に戻せる。失敗しても取り返せるから、AI にも自分にも<strong class="text-giz-ink">思い切って直させられる</strong>。履歴はただの記録ではなく、挑戦するための保険。</p>
       </div>
     </div>
     <div class="flex items-start gap-3 rounded-2xl border border-giz-gray-mid bg-white p-5">
       <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-sea text-white font-bold">2</span>
       <div>
-        <p class="font-jp text-base font-bold text-giz-ink">変更が一目で追える</p>
-        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">保存のたびに前版との差分（＋◯／−◯）を一緒に記録。履歴一覧を見れば、開かずに「どれだけ変わった版か」がわかる。</p>
+        <p class="font-jp text-base font-bold text-giz-ink">AI は「任せ方」がすべて</p>
+        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">丸ごと渡せばブレ、失敗すれば保存まで道連れになる。<strong class="text-giz-ink">対象だけ渡す・声を固定する・落ちたら定型文で受け止める</strong>。絞るほど AI は安定し、確定稿との差分から学んで「自分の書き手」に育っていく。</p>
       </div>
     </div>
     <div class="flex items-start gap-3 rounded-2xl border border-giz-gray-mid bg-white p-5">
       <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-giz-orange text-white font-bold">3</span>
       <div>
-        <p class="font-jp text-base font-bold text-giz-ink">壊れにくく、原因がわかる</p>
-        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">キープアライブ・保存先診断・要約フォールバックで、「通信に失敗」を予防し、起きても切り分けられる。</p>
+        <p class="font-jp text-base font-bold text-giz-ink">多機能を支えるのは、引き算</p>
+        <p class="mt-1 font-jp text-sm text-giz-gray leading-relaxed">工程は1画面に、エラーはやさしい言葉に、説明はアイコンと色に。<strong class="text-giz-ink">機能を増やすほど、手数と文字は減らす</strong>。「足す前に、人から何を取り除くか」を決めることが設計だった。</p>
       </div>
     </div>
   </div>
@@ -1807,7 +1966,7 @@
   <div class="mt-6 rounded-2xl border-l-4 border-giz-forest bg-giz-mist/60 p-5">
     <p class="font-jp text-sm text-giz-mist-ink leading-relaxed">
       <i class="fa-solid fa-quote-left w-4 text-giz-forest" aria-hidden="true"></i>
-      要は「<strong>データは全文で残す・変更は差分で追える・落ちる前提で守りを固める</strong>」。この3点が、履歴を安心して使える土台になっている。
+      <strong>戻れるから、思い切って直せる。直すほど、AI が自分の声に近づく。</strong>——この循環を止めずに回すことが、「<span class="giz-mark">シームレスこそ、正義。</span>」の中身であり、量産しても“あなたの声のまま”でいられる理由。
     </p>
   </div>
 </section>
