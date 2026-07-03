@@ -8,8 +8,8 @@
   <meta property="og:title" content="台本・企画書の「履歴」を残す仕組み ｜ ScriptStudio スナップショット保存基盤">
   <meta property="og:description" content="ScriptStudio で「記録・履歴・この版に戻す」を支える保存基盤。何を保存し（スナップショット）、どこに置き（Supabase＝クラウドDB）、どう壊れないようにしたか（キープアライブ・保存先診断・要約フォールバック）を図解でまとめる。">
   <meta property="og:type" content="article">
-  <title>台本・企画書の「履歴」を残す仕組み ｜ ScriptStudio スナップショット保存基盤</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23ffffff'/><rect x='8' y='8' width='84' height='84' rx='12' fill='none' stroke='%23000' stroke-width='4'/><rect x='20' y='55' width='60' height='12' rx='2' fill='%23c9fe6e'/></svg>">
+  <title>ScriptStudio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlNjcmlwdFN0dWRpbyI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNzR3JhZCIgeDE9IjE4IiB5MT0iOSIgeDI9IjQ3IiB5Mj0iNTEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZjE1YTk4Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMC41IiBzdG9wLWNvbG9yPSIjYWEyZTYxIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzNkMGYyNyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0icGVuQmFuZCIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmMTVhOTgiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjN2MxZjQ5Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KCiAgPCEtLSDog4zmma/jgr/jgqTjg6vvvIjlj4LnhafnlLvlg4/jga7mt6HjgYTjgrDjg6zjg7zvvIkgLS0+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiNmMWYxZjMiLz4KCiAgPCEtLSBTIC8gU++8iOODlOODs+OCr+KGkua/g+e0q+OCsOODqeODh++8iSAtLT4KICA8ZyBmaWxsPSJ1cmwoI3NzR3JhZCkiIGZvbnQtZmFtaWx5PSInQXJpYWwgQmxhY2snLCdIZWx2ZXRpY2EgTmV1ZScsSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiCiAgICAgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmb250LXNpemU9IjM3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIDx0ZXh0IHg9IjIwLjUiIHk9IjQ2Ij5TPC90ZXh0PgogICAgPHRleHQgeD0iNDMuNSIgeT0iNDYiPlM8L3RleHQ+CiAgPC9nPgoKICA8IS0tIOS4reWkruOBruWMuuWIh+OCiu+8neODmuODs++8iOOCquODquOCuOODiuODq+aAp++8j+WvvuinkumFjee9ru+8iSAtLT4KICA8ZyB0cmFuc2Zvcm09InJvdGF0ZSgyOSAzMiAzMikiPgogICAgPCEtLSDou7jvvIjkuIrjgaDjgZHop5LkuLjjg7vkuIvjga/lubPjgonjgafjg5rjg7PlhYjjgavmjqXntprvvIkgLS0+CiAgICA8cGF0aCBkPSJNMjguNCA0MSBMMjguNCAxNSBRMjguNCAxMiAzMS40IDEyIEwzMi42IDEyIFEzNS42IDEyIDM1LjYgMTUgTDM1LjYgNDEgWiIKICAgICAgICAgIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzNkMGYyNyIgc3Ryb2tlLXdpZHRoPSIxLjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICAgIDwhLS0g44Kw44Oq44OD44OX5biv77yI44Kw44Op44OH77yJIC0tPgogICAgPHJlY3QgeD0iMjkuMSIgeT0iMjkuNiIgd2lkdGg9IjUuOCIgaGVpZ2h0PSI1LjQiIGZpbGw9InVybCgjcGVuQmFuZCkiLz4KICAgIDwhLS0g44OO44OD44Kv77yI6aCt77yJIC0tPgogICAgPHJlY3QgeD0iMzAuMyIgeT0iOS4wIiB3aWR0aD0iMy40IiBoZWlnaHQ9IjMuNCIgcng9IjEuMyIgZmlsbD0iIzNkMGYyNyIvPgogICAgPCEtLSDjg5rjg7PlhYjvvIjjgrPjg7zjg7PvvIkgLS0+CiAgICA8cGF0aCBkPSJNMjguNCA0MSBMMzUuNiA0MSBMMzIgNTIuNCBaIiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiMzZDBmMjciIHN0cm9rZS13aWR0aD0iMS40IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgICA8IS0tIOODmuODs+WFiOODu+ODgeODg+ODlyAtLT4KICAgIDxwYXRoIGQ9Ik0zMC40IDQ3LjQgTDMzLjYgNDcuNCBMMzIgNTIuNCBaIiBmaWxsPSIjM2QwZjI3Ii8+CiAgICA8IS0tIOOCueODquODg+ODiCAtLT4KICAgIDxsaW5lIHgxPSIzMiIgeTE9IjQxLjQiIHgyPSIzMiIgeTI9IjQ2LjYiIHN0cm9rZT0iIzNkMGYyNyIgc3Ryb2tlLXdpZHRoPSIxLjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+Cg==">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Special+Gothic+Expanded+One&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
@@ -1235,6 +1235,61 @@
     まず入口の<strong>ログイン画面</strong>、そのあとの操作は大きく <strong>3画面</strong>。エディタのツールバーから「記録」と「履歴」を開く。
     <strong class="text-giz-forest">PC・スマホどちらでも</strong>同じように使え、狭い画面では主要操作を画面下のフッターアイコンに集約している。
   </p>
+
+  <!-- 機能ピックアップ：競合チャンネル登録 -->
+  <div class="mt-6 rounded-2xl border border-giz-sea bg-white p-5 md:p-6">
+    <div class="flex items-center gap-2 text-giz-sea">
+      <i class="fa-solid fa-satellite-dish w-5" aria-hidden="true"></i>
+      <p class="giz-label text-giz-sea">PICK UP ／ 競合調査の中身</p>
+    </div>
+    <h3 class="mt-1 font-jp text-lg font-bold text-giz-ink">競合チャンネル登録 — 伸びているチャンネルを、数値で追う</h3>
+    <p class="mt-2 font-jp text-sm text-giz-gray leading-relaxed">
+      テーマ選定のとき、自分のチャンネルと<strong class="text-giz-ink">類似性が高いチャンネル</strong>が候補として提示されるので、気になったものはその場で競合に追加できる。登録したチャンネルは管理画面で一覧でき、<strong class="text-giz-ink">足し・引き</strong>も自由。
+    </p>
+
+    <div class="mt-4 flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-1.5">
+      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+        <i class="fa-solid fa-magnifying-glass w-6 text-giz-sea" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">見つける</p>
+        <p class="font-jp text-xs text-giz-gray">テーマ選定時に類似性の高いチャンネルを提案</p>
+      </div>
+      <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
+      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+        <i class="fa-solid fa-list-check w-6 text-giz-sea" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">育てる</p>
+        <p class="font-jp text-xs text-giz-gray">管理画面の一覧で確認し、追加・削除でリストを整える</p>
+      </div>
+      <i class="fa-solid fa-arrow-right-long w-6 mx-auto rotate-90 text-giz-gray-mid md:rotate-0" aria-hidden="true"></i>
+      <div class="flex-1 rounded-xl border border-giz-gray-mid bg-white px-3 py-3 text-center">
+        <i class="fa-solid fa-arrow-trend-up w-6 text-giz-sea" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">追いかける</p>
+        <p class="font-jp text-xs text-giz-gray">1週間でどれだけ伸びたかを数値で確認</p>
+      </div>
+    </div>
+
+    <div class="mt-4 rounded-2xl border-2 border-dashed border-giz-gray-mid bg-giz-surface px-5 py-12 md:py-16 text-center">
+      <!-- スクショ差し込み時：この dashed div を丸ごと下の <img> に置き換える。
+        <img src="assets/screen-competitors.png" class="w-full rounded-2xl border border-giz-gray-mid"
+             alt="競合チャンネル設定画面。登録済みチャンネルの一覧、追加・削除ボタン、1週間の登録者数の伸び"> -->
+      <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-giz-gray-mid bg-white">
+        <i class="fa-solid fa-image w-6 text-giz-gray" aria-hidden="true"></i>
+      </div>
+      <p class="giz-label text-giz-gray">SCREENSHOT</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">スクリーンショットを貼る領域</p>
+      <p class="mx-auto mt-1 max-w-md font-jp text-xs text-giz-gray leading-relaxed">
+        競合チャンネル設定画面。登録済みチャンネルの一覧、追加・削除、週間の伸びの数値が写った状態を貼る。
+      </p>
+    </div>
+
+    <div class="mt-4 rounded-xl border-l-4 border-giz-sea bg-giz-mist/60 p-4">
+      <p class="flex items-center gap-2 font-jp text-sm font-bold text-giz-mist-ink">
+        <i class="fa-solid fa-chart-line w-4" aria-hidden="true"></i>ねらい ── 「伸びているチャンネル」は市場の先行指標
+      </p>
+      <p class="mt-2 font-jp text-sm text-giz-mist-ink leading-relaxed">
+        登録者数の推移を記録し続けるので、<strong>いま勢いのあるチャンネル</strong>がひと目でわかる。伸びているチャンネルを追い続けることで、<span class="giz-mark">市場が求めているテーマを AI に学習させる</span>ことができる。
+      </p>
+    </div>
+  </div>
 
   <!-- placeholder 0：ログイン画面（入口） -->
   <div class="mt-6">

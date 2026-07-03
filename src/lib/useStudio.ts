@@ -179,9 +179,10 @@ export function useStudio() {
   // 「台本を作成する」: 企画書を保存し、台本生成を開始する
   async function handlePlanReady(plan: EpisodePlan, title: string) {
     if (viewerReadOnly) {
-      // 閲覧専用: エピソード作成・保存はせず、台本のデモ生成だけ動かす
+      // 閲覧専用: エピソード作成・保存はせず、台本のデモ生成だけ動かす。
+      // エピソード未選択のため newEpisodeMode は下ろさない（下ろすと
+      // showWorkspace が偽になりウェルカム画面に戻ってしまう）
       setCurrentPlan(plan);
-      setNewEpisodeMode(false);
       setScriptGenerateKey((k) => k + 1);
       return;
     }

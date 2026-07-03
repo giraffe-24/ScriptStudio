@@ -10,7 +10,11 @@ import type {
 } from "@/lib/types";
 import { toUserMessage } from "@/lib/error-message";
 import { useReadOnly } from "@/lib/useViewerRole";
-import { DEMO_CANDIDATES, demoDelay } from "@/lib/demo-simulation";
+import {
+  DEMO_CANDIDATES,
+  DEMO_COMPETITOR_SUGGESTIONS,
+  demoDelay,
+} from "@/lib/demo-simulation";
 import { DemoAiNotice } from "@/components/DemoAiNotice";
 import type { ChannelSubscriberStats } from "@/lib/market-analysis/subscriber-history";
 import { youtubeChannelUrl } from "@/lib/youtube-channel-url";
@@ -205,6 +209,13 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
         }
         setAnalyzed(true);
         setCandidates(DEMO_CANDIDATES);
+        // 競合チャンネルの追加候補も本物と同じ流れで提示する。
+        // 候補リストだけデモ定義で、統計取得・承認保存は閲覧専用でも許可された実 API を使う
+        setCompetitorSuggestions(DEMO_COMPETITOR_SUGGESTIONS);
+        setSelectedCompetitors(
+          new Set(DEMO_COMPETITOR_SUGGESTIONS.map((s) => s.channelId)),
+        );
+        setShowCompetitorModal(true);
         return;
       }
 
@@ -694,6 +705,12 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
                 今回の分析で見つかった競合 ch です。今後の分析に使う ch を選んで承認してください。
               </DialogDescription>
             </DialogHeader>
+
+            {viewerReadOnly && (
+              <DemoAiNotice>
+                この候補はデモ用に用意したサンプルです（チャンネルは実在）。承認すると競合リストに実際に追加され、競合チャンネル設定からいつでも削除できます。
+              </DemoAiNotice>
+            )}
 
             {competitorError && (
               <div

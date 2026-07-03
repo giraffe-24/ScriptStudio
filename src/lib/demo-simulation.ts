@@ -1,4 +1,5 @@
 import type {
+  CompetitorSuggestion,
   DirectionAxis,
   EnrichedCandidate,
   EpisodePlan,
@@ -61,6 +62,33 @@ export const DEMO_CANDIDATES: EnrichedCandidate[] = [
     ownChannelRelation: "new",
     referencedVideos: [],
     themeModeFit: "evergreen",
+  },
+];
+
+/**
+ * テーマ分析後に出す「競合チャンネルの追加候補」のデモ。
+ * チャンネルは実在のもの（ID 検証済み）を使う：リンク・登録者統計・承認保存が
+ * 本物の競合管理 API（閲覧専用でも許可済み）でそのまま動き、設定からの削除も試せる。
+ * videoCount のみデモ用の架空値。
+ */
+export const DEMO_COMPETITOR_SUGGESTIONS: CompetitorSuggestion[] = [
+  {
+    channelId: "UCutJqz56653xV2wwSvut_hQ",
+    displayName: "東海オンエア",
+    videoCount: 4,
+    source: "dynamic",
+  },
+  {
+    channelId: "UCsXVk37bltHxD1rDPwtNM8Q",
+    displayName: "Kurzgesagt – In a Nutshell",
+    videoCount: 3,
+    source: "dynamic",
+  },
+  {
+    channelId: "UCBJycsmduvYEL83R_U4JriQ",
+    displayName: "Marques Brownlee",
+    videoCount: 2,
+    source: "dynamic",
   },
 ];
 
