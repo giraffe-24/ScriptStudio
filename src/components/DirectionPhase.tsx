@@ -4,6 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Check, X, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toUserMessage } from "@/lib/error-message";
+import { useReadOnly } from "@/lib/useViewerRole";
+import { DEMO_DIRECTION_AXES, demoDelay } from "@/lib/demo-simulation";
+import { DemoAiNotice } from "@/components/DemoAiNotice";
 import type { DirectionAxis, PlanDirection, ThemeCandidate } from "@/lib/types";
 
 interface Props {
@@ -20,6 +23,8 @@ interface Props {
  * 「企画書として出力」で企画書生成へ進む。「要修正」で修正指示を入れて再出力もできる。
  */
 export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
+  // 閲覧専用ログインでは AI を呼ばず、サンプルの6本柱をデモ再生する
+  const viewerReadOnly = useReadOnly();
   const [axes, setAxes] = useState<DirectionAxis[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [revising, setRevising] = useState(false);
@@ -35,6 +40,16 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
       setLoading(true);
       setError(null);
       try {
+        if (viewerReadOnly) {
+          // デモ再生: サンプルの6本柱を少し待ってから表示する
+          await demoDelay(1200);
+          if (reqRef.current !== requestId) return;
+          setAxes(DEMO_DIRECTION_AXES);
+          setRevising(false);
+          setFeedback("");
+          return;
+        }
+
         const res = await fetch("/api/generate-direction", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -66,7 +81,7 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
         if (reqRef.current === requestId) setLoading(false);
       }
     },
-    [candidate, axes],
+    [candidate, axes, viewerReadOnly],
   );
 
   // テーマが変わったら6本柱を生成し直す
@@ -115,6 +130,8 @@ export function DirectionPhase({ candidate, onApproved, resetKey }: Props) {
             <FlaskConical className="w-4 h-4 text-gray-500" />
             <h3 className="text-sm font-semibold text-gray-700">{candidate.title}</h3>
           </div>
+
+          {viewerReadOnly && <DemoAiNotice className="mb-3" />}
 
           {error && (
             <div
