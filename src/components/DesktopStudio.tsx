@@ -84,6 +84,8 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
     handleTitleChange,
     handleEpisodeNumberChange,
     handleStatusChange,
+    planVersions,
+    setSnapshotCommitOpen,
   } = studio;
 
   return (
@@ -302,6 +304,8 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
               onRecordStateChange={handleRecordStateChange}
               onPlanChange={handlePlanChange}
               onTitleChange={handleTitleChange}
+              planCommit={planVersions}
+              onCommitOpenChange={setSnapshotCommitOpen}
             />
           </div>
         </div>
