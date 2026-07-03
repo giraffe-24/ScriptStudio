@@ -7,3 +7,6 @@
 | UCUCeZaZeJbEYAAzvMgrKOPQ | Kenshi Yonezu  米津玄師 | 2026-07-03 | true |
 | UChX6YTx96D5yEW7EUD7KdZQ | 【公式】ドラえもん / 藤子・F・不二雄チャンネル | 2026-07-03 | true |
 | UCFy2R0BE58JGfJuM5jUd4Yg | 本気AI(MAJI AI) | 2026-07-03 | true |
+| UCutJqz56653xV2wwSvut_hQ | 東海オンエア | 2026-07-03 | true |
+| UCsXVk37bltHxD1rDPwtNM8Q | Kurzgesagt – In a Nutshell | 2026-07-03 | true |
+| UCBJycsmduvYEL83R_U4JriQ | Marques Brownlee | 2026-07-03 | true |
