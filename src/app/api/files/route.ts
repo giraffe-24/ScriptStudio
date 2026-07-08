@@ -34,11 +34,13 @@ export async function GET(req: NextRequest) {
 
     if (action === "list") {
       let episodes = await listEpisodes();
-      if (reviewer) {
-        episodes = episodes.filter((episode) =>
-          isEpisodeAllowedForReviewer(episode.number, episode.slug),
-        );
-      }
+      // アローリスト（REVIEWER_EPISODE_ALLOWLIST）はデモ用エピソードの集合として扱い、
+      // 一覧を二分する: レビュアー（デモアカウント）にはアローリストのみ、
+      // 通常アカウントにはアローリスト以外のみを出す。
+      // 実在エピソードをレビュアーに共有したくなったら、この分割規則ごと見直すこと。
+      episodes = episodes.filter(
+        (episode) => isEpisodeAllowedForReviewer(episode.number, episode.slug) === reviewer,
+      );
       return NextResponse.json({ episodes });
     }
 
