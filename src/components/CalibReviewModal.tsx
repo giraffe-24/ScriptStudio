@@ -11,8 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ScriptDiffPreview } from "@/components/ScriptDiffPreview";
-import { computeScriptDiff, formatDiffStats } from "@/lib/script-diff";
+import { CalibChangeCards } from "@/components/CalibChangeCards";
+import {
+  computeCalibBlocks,
+  reconstructFinalText,
+  type CalibDecision,
+} from "@/lib/script-calib-blocks";
+import { computeScriptDiff } from "@/lib/script-diff";
 import { toUserMessage } from "@/lib/error-message";
 import { DemoAiNotice } from "@/components/DemoAiNotice";
 import {
@@ -41,6 +46,11 @@ type Props = {
   episodeTitle: string;
   /** 確定して保存が完了したとき（summary は今回学んだことの要約） */
   onCommitted: (summary: string) => void;
+  /**
+   * カードでの修正・取り消しで確定稿が変わったとき、確定時に呼ばれる。
+   * 推敲比較欄の確定稿テキストをこの値で更新すること。
+   */
+  onFinalTextChange?: (text: string) => void;
   /** 閲覧専用デモの疑似体験（AI・保存 API を呼ばない） */
   demoMode?: boolean;
 };
@@ -52,6 +62,7 @@ export function CalibReviewModal({
   finalText,
   episodeTitle,
   onCommitted,
+  onFinalTextChange,
   demoMode = false,
 }: Props) {
   const [proposing, setProposing] = useState(false);
@@ -60,11 +71,22 @@ export function CalibReviewModal({
   const [memoDraft, setMemoDraft] = useState("");
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  // カードごとの決定（そのまま／修正／原文を残す）。確定するまで保存されない
+  const [decisions, setDecisions] = useState<Record<number, CalibDecision | undefined>>({});
   const requestRef = useRef(0);
 
-  const diff = useMemo(
-    () => (open ? computeScriptDiff(originalText, finalText) : null),
+  const blocksResult = useMemo(
+    () => (open ? computeCalibBlocks(originalText, finalText) : null),
     [open, originalText, finalText],
+  );
+  // カードの修正・取り消しを反映した確定稿（確定時に推敲比較欄へ書き戻す）
+  const effectiveFinalText = useMemo(
+    () => (blocksResult ? reconstructFinalText(blocksResult, decisions) : finalText),
+    [blocksResult, decisions, finalText],
+  );
+  const diff = useMemo(
+    () => (open ? computeScriptDiff(originalText, effectiveFinalText) : null),
+    [open, originalText, effectiveFinalText],
   );
   const hasChanges = Boolean(diff && (diff.stats.added > 0 || diff.stats.removed > 0));
 
@@ -127,6 +149,7 @@ export function CalibReviewModal({
     setMemoDraft("");
     setCommitError(null);
     setCommitting(false);
+    setDecisions({});
     if (hasChanges) void propose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -138,13 +161,17 @@ export function CalibReviewModal({
     setCommitting(true);
     setCommitError(null);
     if (demoMode) {
-      // 疑似保存：API には保存せず、保存の流れだけ再現する
+      // 疑似保存：API には保存せず、保存の流れだけ再現する（確定稿の書き戻しもしない）
       await demoDelay(600);
       if (requestRef.current !== requestId) return;
       setCommitting(false);
       onCommitted(proposal?.summary ?? "");
       onOpenChange(false);
       return;
+    }
+    // カードでの修正・取り消しを推敲比較欄の確定稿へ反映（保存は既存の自動保存経路）
+    if (effectiveFinalText !== finalText) {
+      onFinalTextChange?.(effectiveFinalText);
     }
     try {
       const res = await fetch("/api/style-learnings", {
@@ -172,11 +199,23 @@ export function CalibReviewModal({
     } finally {
       if (requestRef.current === requestId) setCommitting(false);
     }
-  }, [memoDraft, committing, demoMode, proposal, episodeTitle, diff, onCommitted, onOpenChange]);
+  }, [
+    memoDraft,
+    committing,
+    demoMode,
+    proposal,
+    episodeTitle,
+    diff,
+    effectiveFinalText,
+    finalText,
+    onFinalTextChange,
+    onCommitted,
+    onOpenChange,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !committing && onOpenChange(v)}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>推敲 — 変更内容の確認</DialogTitle>
           <DialogDescription>{episodeTitle}</DialogDescription>
@@ -191,14 +230,29 @@ export function CalibReviewModal({
           )}
           <section>
             <div className="mb-1.5 flex items-center justify-between">
-              <p className="text-sm font-medium">元原稿 → 確定稿の差分</p>
-              {diff && (
+              <p className="text-sm font-medium">変更内容（確定するまで何も保存されません）</p>
+              {blocksResult && (
                 <span className="text-xs text-muted-foreground">
-                  {formatDiffStats(diff.stats)}
+                  変更 {blocksResult.blocks.length} 件（追加 {blocksResult.charStats.added.toLocaleString()} 字・削除 {blocksResult.charStats.removed.toLocaleString()} 字）
                 </span>
               )}
             </div>
-            {diff && <ScriptDiffPreview lines={diff.previewLines} maxHeightClass="max-h-52" />}
+            <div className="max-h-[42vh] overflow-y-auto pr-1">
+              {blocksResult && (
+                <CalibChangeCards
+                  blocks={blocksResult.blocks}
+                  decisions={decisions}
+                  onDecisionChange={(id, decision) =>
+                    setDecisions((prev) => ({ ...prev, [id]: decision }))
+                  }
+                />
+              )}
+            </div>
+            {effectiveFinalText !== finalText && (
+              <p className="mt-1.5 text-xs text-blue-700">
+                カードでの修正・取り消しは「確定して保存」を押した時に推敲比較欄の確定稿へ反映されます。
+              </p>
+            )}
           </section>
 
           {!hasChanges ? (

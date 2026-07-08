@@ -826,6 +826,7 @@ export function ScriptEditor({
         finalText={calibText}
         episodeTitle={episodeTitle}
         onCommitted={handleCalibCommitted}
+        onFinalTextChange={handleCalibChange}
         demoMode={viewerReadOnly}
       />
     </div>
