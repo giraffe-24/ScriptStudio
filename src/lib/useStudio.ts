@@ -34,7 +34,6 @@ export function useStudio() {
   // 起動直後からワークスペース（4ペイン）を表示する。
   // ウェルカム画面は出さず、未選択でも 企画書/台本 は空状態のプレースホルダを見せる。
   const [newEpisodeMode, setNewEpisodeMode] = useState(true);
-  const [creatingEpisode, setCreatingEpisode] = useState(false);
   const [inferringPlan, setInferringPlan] = useState(false);
   // エピソード選択後、企画書（plan.json）を読み込み中かどうか。
   const [planLoading, setPlanLoading] = useState(false);
@@ -58,6 +57,10 @@ export function useStudio() {
   const currentPlanRef = useRef<EpisodePlan | null>(null);
   const selectedEpisodeRef = useRef<Episode | null>(null);
   const selectionRequestRef = useRef(0);
+  // デバウンス済みタイマーのコールバックは古いクロージャで実行されるため、
+  // 作成時に参照する値は ref 経由で最新を読む。
+  const customNewNumberRef = useRef<number | null>(null);
+  const creatingEpisodeRef = useRef(false);
   // 統合保存モーダル（企画書＋台本）の表示中フラグ。表示中は企画書の自動記録を止め、
   // 手動保存と自動記録が同じ内容を二重に記録しないようにする。
   const [snapshotCommitOpen, setSnapshotCommitOpen] = useState(false);
@@ -75,6 +78,10 @@ export function useStudio() {
   useEffect(() => {
     selectedEpisodeRef.current = selectedEpisode;
   }, [selectedEpisode]);
+
+  useEffect(() => {
+    customNewNumberRef.current = customNewNumber;
+  }, [customNewNumber]);
 
   async function postFilesAction<T = unknown>(body: Record<string, unknown>): Promise<T> {
     const res = await fetch("/api/files", {
@@ -129,13 +136,13 @@ export function useStudio() {
   ): Promise<Episode | null> {
     let episode = selectedEpisode;
 
-    if (!episode && !creatingEpisode) {
-      setCreatingEpisode(true);
+    if (!episode && !creatingEpisodeRef.current) {
+      creatingEpisodeRef.current = true;
       try {
         const listRes = await fetch("/api/files?action=list");
         const listData = await listRes.json();
         const maxNumber = Math.max(0, ...listData.episodes.map((e: Episode) => e.number));
-        const assignNumber = customNewNumber ?? maxNumber + 1;
+        const assignNumber = customNewNumberRef.current ?? maxNumber + 1;
 
         const data = await postFilesAction<{ episode: Episode }>({
           action: "create",
@@ -159,8 +166,9 @@ export function useStudio() {
         episode = data.episode;
         setSelectedEpisode(episode);
         setCustomNewNumber(null);
+        customNewNumberRef.current = null;
       } finally {
-        setCreatingEpisode(false);
+        creatingEpisodeRef.current = false;
       }
     }
 
@@ -405,9 +413,30 @@ export function useStudio() {
     currentPlanRef.current = plan;
 
     const episode = selectedEpisodeRef.current;
-    if (!episode) return;
 
     if (planSaveTimer.current) clearTimeout(planSaveTimer.current);
+
+    if (!episode) {
+      // 未作成（新規）エピソードも自動保存する:「エピソードに追加」を押さなくても、
+      // タイトルが入っていれば編集停止から一拍おいてエピソード作成＋企画書保存まで行う。
+      if (viewerReadOnly) return;
+      if (!plan.episodeTitle?.trim()) return;
+      planSaveTimer.current = setTimeout(async () => {
+        const latest = currentPlanRef.current;
+        const latestTitle = latest?.episodeTitle?.trim();
+        if (!latest || !latestTitle || selectedEpisodeRef.current) return;
+        try {
+          const created = await saveEpisodeAndPlan(latest, latestTitle);
+          if (created) {
+            setNewEpisodeMode(false);
+            void loadEpisodes(); // エピソード追加トリガー
+          }
+        } catch (error) {
+          window.alert(toUserMessage(error, "保存に失敗しました。少し時間をおいて、もう一度お試しください。"));
+        }
+      }, 1500);
+      return;
+    }
 
     const savePlan = async () => {
       try {
