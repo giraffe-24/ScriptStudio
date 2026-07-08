@@ -174,6 +174,24 @@ async function updateOverlayIndex(
   return next;
 }
 
+/**
+ * index.json の更新は読み→書きの後勝ちで、併走リクエスト（企画書の自動保存など）の
+ * 書き込みに上書きされて消えることがある（本番でリネーム直後のエピソードが
+ * index 未登録になり一覧から消える事故が再発した）。リネームのような取り返しづらい
+ * 更新は、書いた直後に再読して意図した状態かを確認し、消えていれば再適用する。
+ */
+async function updateOverlayIndexVerified(
+  mutate: (current: EpisodeOverlayIndex) => EpisodeOverlayIndex,
+  verify: (index: EpisodeOverlayIndex) => boolean,
+): Promise<void> {
+  await updateOverlayIndex(mutate);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = await getOverlayIndex();
+    if (verify(current)) return;
+    await updateOverlayIndex(mutate);
+  }
+}
+
 async function listPersistedFiles(
   base: EpisodeStorageBase,
   dirName: string,
@@ -424,29 +442,46 @@ export async function moveEpisodeDirectory(
       );
     }
   }
-  await updateOverlayIndex((current) => {
-    const next = normalizeIndex(current);
-    const sourceList = sourceBase === "archive" ? next.archive : next.outputs;
-    const targetList = targetBase === "archive" ? next.archive : next.outputs;
-    const sourceHidden = sourceBase === "archive" ? next.hiddenArchive : next.hiddenOutputs;
-    const targetHidden = targetBase === "archive" ? next.hiddenArchive : next.hiddenOutputs;
+  // 注意: next.outputs / next.hiddenOutputs を新しい配列で「差し替え」た後は、
+  // 差し替え前に取った参照（旧配列）を触らないこと。以前はここで旧配列に
+  // push していたため、移動先の登録が毎回捨てられ、リネームしたエピソードが
+  // 一覧から消える事故が繰り返し起きた。
+  await updateOverlayIndexVerified(
+    (current) => {
+      const next = normalizeIndex(current);
 
-    const removeSource = sourceList.filter((value) => value !== sourceDirName);
-    if (sourceBase === "archive") next.archive = removeSource;
-    else next.outputs = removeSource;
+      // 移動元を一覧から外し、非表示にする
+      if (sourceBase === "archive") {
+        next.archive = next.archive.filter((value) => value !== sourceDirName);
+        if (!next.hiddenArchive.includes(sourceDirName)) next.hiddenArchive.push(sourceDirName);
+      } else {
+        next.outputs = next.outputs.filter((value) => value !== sourceDirName);
+        if (!next.hiddenOutputs.includes(sourceDirName)) next.hiddenOutputs.push(sourceDirName);
+      }
 
-    if (!targetList.includes(targetDirName)) targetList.push(targetDirName);
-    if (sourceBase === "archive") {
-      if (!sourceHidden.includes(sourceDirName)) sourceHidden.push(sourceDirName);
-    } else if (!sourceHidden.includes(sourceDirName)) {
-      sourceHidden.push(sourceDirName);
-    }
-
-    const cleanedTargetHidden = targetHidden.filter((value) => value !== targetDirName);
-    if (targetBase === "archive") next.hiddenArchive = cleanedTargetHidden;
-    else next.hiddenOutputs = cleanedTargetHidden;
-    return next;
-  });
+      // 移動先を一覧に登録し、非表示を解除する（差し替え後の配列を参照し直す）
+      if (targetBase === "archive") {
+        if (!next.archive.includes(targetDirName)) next.archive.push(targetDirName);
+        next.hiddenArchive = next.hiddenArchive.filter((value) => value !== targetDirName);
+      } else {
+        if (!next.outputs.includes(targetDirName)) next.outputs.push(targetDirName);
+        next.hiddenOutputs = next.hiddenOutputs.filter((value) => value !== targetDirName);
+      }
+      return next;
+    },
+    (index) => {
+      const targetList = targetBase === "archive" ? index.archive : index.outputs;
+      const targetHidden = targetBase === "archive" ? index.hiddenArchive : index.hiddenOutputs;
+      const sourceList = sourceBase === "archive" ? index.archive : index.outputs;
+      const sourceHidden = sourceBase === "archive" ? index.hiddenArchive : index.hiddenOutputs;
+      return (
+        targetList.includes(targetDirName) &&
+        !targetHidden.includes(targetDirName) &&
+        !sourceList.includes(sourceDirName) &&
+        sourceHidden.includes(sourceDirName)
+      );
+    },
+  );
 }
 
 export async function removeEpisodeDirectory(
