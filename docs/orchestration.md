@@ -14,6 +14,7 @@
 | `/執筆` | 台本を執筆 | agents/writer.md |
 | `/タイトル` | タイトル・サムネ案作成 | agents/titler.md |
 | `/チェック` | 品質レビュー | agents/reviewer.md |
+| `/精密チェック [対象]` | サブエージェント3体並列の精密レビュー（採点・事実検証・視聴者視点） | .claude/commands/精密チェック.md |
 | `/推敲比較` | AI原稿と確定稿の比較・SSOT への改善提案 | agents/calibrator.md |
 | `/全工程 [テーマ]` | 企画から完成まで一気通貫 | 全エージェント |
 
@@ -62,6 +63,31 @@
 /全工程 Gmailの整理術
 /テーマ調査  （A/B/C 選択後）→ /企画 [採用テーマ]
 ```
+
+---
+
+## 精度支援（Claude Code サブエージェント・フック）
+
+`agents/*.md` が「何をどう書くか」のプロンプトであるのに対し、`.claude/` はハーネス側の検査層。ポリシーの正は従来どおり `config/*.md`（ここを変えたら下記も追随させる）。
+
+### サブエージェント（.claude/agents/）
+
+| 名前 | 役割 | 使いどころ |
+|------|------|-----------|
+| script-reviewer | reviewer-rubric 41項目を独立コンテキストで全数採点（引用根拠つき） | `/チェック` の採点部分・`/精密チェック` |
+| fact-checker | 製品・アプリの事実主張を公式ソース本文で検証（quality.md「製品の事実」の執行） | ツール依存の台本の執筆完了時 |
+| audience-simulator | 40-60代ペルソナとして通読し離脱ポイント・無説明用語を検出 | 台本の仕上げ確認 |
+
+3体を並列で回して統合レポートを得るのが `/精密チェック`。
+
+### 自動リント（.claude/hooks/scriptstudio-lint.mjs + .claude/settings.json）
+
+Write/Edit のたびに自動実行される決定論的チェック。
+
+- 保存前（PreToolUse）: `outputs/` レイアウト違反（直下ファイル・`{NN}-{slug}` 命名違反）をブロック
+- 保存後（PostToolUse）: `**` 太字、語彙で判定できる絶対NG（誇張・煽り・視聴者をさげるラベル）、台本の文字数（3001字未満/大幅超過）、固定フレーズ（自己紹介・定型締め）の不一致、manifest.json の形式崩れを検出して指摘
+
+文脈依存のNG（マウント・競合批判・専門用語無説明）はリントでは誤検知するため対象外——サブエージェント側が意味判定する。定型フレーズ比較は括弧種のゆれ（「」『』｢｣）を正規化して語句のみ照合する。
 
 ---
 
@@ -155,6 +181,7 @@ outputs/
 
 | 日付 | 内容 |
 |------|------|
+| 2026-07-04 | 精度支援層を追加：.claude/agents（script-reviewer / fact-checker / audience-simulator）、.claude/hooks/scriptstudio-lint.mjs（outputs 自動リント）、`/精密チェック` |
 | 2026-05-22 | ContentStudio を兄弟リポジトリとして分離。episode-studio を YT 側から削除 |
 | 2026-05-19 | outputs フォルダ単位管理へ移行（1案件1フォルダ + manifest.json）、outputs-layout.mdc 追加 |
 | 2026-05-09 以降 | CLAUDE 入口の薄型化、`docs/orchestration.md`、品質チェックリストの reviewer-rubric 分離 |
