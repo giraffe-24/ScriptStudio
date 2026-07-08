@@ -302,7 +302,43 @@ export async function createEpisode(episode: Omit<Episode, "createdAt">): Promis
 
   const exists = await episodeDirectoryExists("outputs", identity.dirName);
   if (exists) {
-    throw new Error(`Episode folder already exists: ${identity.dirName}`);
+    // 同じフォルダが既にある場合はエラーにせず上書き（企画メタのみ更新）。
+    // created_at / status / script_updated_at 等の既存フィールドと、
+    // 台本など manifest 以外の既存ファイルはそのまま保持する。
+    let existing: Record<string, unknown> = {};
+    try {
+      existing = await readManifestAtDir(dirPath);
+    } catch {
+      // manifest が無い・読めない場合は新規相当として作り直す
+    }
+    const merged: Record<string, unknown> = {
+      ...existing,
+      id: String(identity.number),
+      slug: identity.slug,
+      title: episode.title,
+      status: typeof existing.status === "string" && existing.status ? existing.status : episode.status,
+    };
+    if (episode.themePattern) merged.theme_pattern = episode.themePattern;
+    if (episode.hook) merged.hook = episode.hook;
+    if (episode.targetPain) merged.target_pain = episode.targetPain;
+    if (episode.reason) merged.reason = episode.reason;
+    if (typeof merged.created_at !== "string" || !merged.created_at) {
+      merged.created_at = new Date().toISOString().slice(0, 10);
+    }
+    if (!Array.isArray(merged.panes)) {
+      merged.panes = [
+        { id: "pane1", label: "企画", path: "00-plan-and-structure.md" },
+        { id: "pane2", label: "台本", path: "01-script-draft.md" },
+      ];
+    }
+    await writeManifestAtDir(dirPath, merged);
+    return {
+      ...episode,
+      number: identity.number,
+      slug: identity.slug,
+      status: merged.status as Episode["status"],
+      createdAt: String(merged.created_at),
+    };
   }
 
   const ep: Episode = { ...episode, number: identity.number, slug: identity.slug, createdAt: new Date().toISOString().slice(0, 10) };
