@@ -21,6 +21,11 @@ agents/
 ├── scout planner architect writer titler reviewer calibrator
 └── reviewer-rubric.md   ← `/チェック` のチェックリスト・採点表（policy は quality.md）
 
+.claude/（Claude Code ハーネス側の精度支援。詳細: docs/orchestration.md）
+├── agents/    script-reviewer / fact-checker / audience-simulator（サブエージェント）
+├── hooks/     scriptstudio-lint.mjs（outputs 保存時の自動リント）
+└── commands/  精密チェック.md
+
 outputs/（1案件1フォルダ。直下は 00-discovery.md のみ。詳細: .cursor/rules/outputs-layout.mdc）
 ```
 
@@ -36,6 +41,7 @@ outputs/（1案件1フォルダ。直下は 00-discovery.md のみ。詳細: .cu
 | `/執筆` | agents/writer.md |
 | `/タイトル` | agents/titler.md |
 | `/チェック` | agents/reviewer.md + reviewer-rubric.md |
+| `/精密チェック` | .claude/agents/ の3体を並列実行（採点・事実検証・視聴者視点） |
 | `/推敲比較` | agents/calibrator.md + config/calibration.md |
 | `/全工程 [テーマ]` | 順にエージェント |
 
