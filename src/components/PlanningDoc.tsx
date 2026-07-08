@@ -235,10 +235,14 @@ export function PlanningDoc({
                   inputMode="numeric"
                   maxLength={3}
                   value={numberDraft ?? (episodeNumber != null ? String(episodeNumber) : "")}
-                  onChange={(e) => setNumberDraft(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  onChange={(e) => setNumberDraft(e.target.value)}
                   onBlur={() => {
                     if (numberDraft === null) return;
-                    const n = parseInt(numberDraft, 10);
+                    // 入力中は値をいじらない（onChange で即座に非数字を除去すると IME の
+                    // 変換バッファと React の再描画が衝突し、確定時に打った文字の残骸が
+                    // 末尾に残る）。確定時に NFKC で全角数字を半角化してから数字だけ拾う。
+                    const digits = numberDraft.normalize("NFKC").replace(/\D/g, "").slice(0, 3);
+                    const n = parseInt(digits, 10);
                     setNumberDraft(null);
                     // 空・0 のまま確定したら元の番号に戻す（番号はフォルダ名の一部で必須）
                     if (Number.isFinite(n) && n > 0 && n !== episodeNumber) {
@@ -246,6 +250,7 @@ export function PlanningDoc({
                     }
                   }}
                   onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return; // IME 変換中の Enter/Esc は無視
                     if (e.key === "Enter") e.currentTarget.blur();
                     if (e.key === "Escape") setNumberDraft(null);
                   }}
