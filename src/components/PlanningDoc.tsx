@@ -54,6 +54,9 @@ export function PlanningDoc({
   const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // 番号は確定（blur / Enter）まで親に流さない。編集中に空にできるようローカル draft を持つ
+  // （即時反映だと入力途中の中間値でフォルダリネームが走り、空文字は即座に元の値へ戻ってしまう）。
+  const [numberDraft, setNumberDraft] = useState<string | null>(null);
   const gitConfigured = useGitMirrorStatus();
   // 企画書のバージョン保存・履歴は台本ペインの統合保存/統合履歴に集約した
   // （状態と自動記録は usePlanVersions として studio レベルにある）。
@@ -231,12 +234,20 @@ export function PlanningDoc({
                   type="text"
                   inputMode="numeric"
                   maxLength={3}
-                  value={episodeNumber != null ? String(episodeNumber) : ""}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "").slice(0, 3);
-                    if (!digits) return;
-                    const n = parseInt(digits, 10);
-                    if (n > 0) onEpisodeNumberChange?.(n);
+                  value={numberDraft ?? (episodeNumber != null ? String(episodeNumber) : "")}
+                  onChange={(e) => setNumberDraft(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  onBlur={() => {
+                    if (numberDraft === null) return;
+                    const n = parseInt(numberDraft, 10);
+                    setNumberDraft(null);
+                    // 空・0 のまま確定したら元の番号に戻す（番号はフォルダ名の一部で必須）
+                    if (Number.isFinite(n) && n > 0 && n !== episodeNumber) {
+                      onEpisodeNumberChange?.(n);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") setNumberDraft(null);
                   }}
                   className={`${EDITABLE_INPUT} w-full text-left font-mono pl-5 pr-1.5 py-2 tabular-nums`}
                   placeholder="—"
