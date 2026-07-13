@@ -9,6 +9,7 @@ import type {
   ThemePattern,
 } from "@/lib/types";
 import { toUserMessage } from "@/lib/error-message";
+import { parseYouTubeVideoId } from "@/lib/youtube-video-url";
 import { useReadOnly } from "@/lib/useViewerRole";
 import {
   DEMO_CANDIDATES,
@@ -112,6 +113,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
   const viewerReadOnly = useReadOnly();
   const [userTheme, setUserTheme] = useState("");
   const [category, setCategory] = useState("");
+  const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [themeMode, setThemeMode] = useState<ThemeMode | null>(null);
   const [loading, setLoading] = useState(false);
   const [progressIndex, setProgressIndex] = useState(0);
@@ -155,6 +157,7 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     setThemeMode(null);
     setCategory("");
     setUserTheme("");
+    setReferenceUrls([]);
   }, [pattern]);
 
   useEffect(() => {
@@ -220,10 +223,13 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
       }
 
       const endpoint = pattern === "market" ? "/api/market-research" : "/api/adapt-theme";
+      const cleanedReferenceUrls = referenceUrls
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0);
       const body =
         pattern === "market"
-          ? { category, themeMode: themeMode ?? "C" }
-          : { theme: userTheme };
+          ? { category, themeMode: themeMode ?? "C", referenceUrls: cleanedReferenceUrls }
+          : { theme: userTheme, referenceUrls: cleanedReferenceUrls };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -299,13 +305,82 @@ export function ThemeInput({ pattern, onSelect, onAnalysisStart }: Props) {
     onSelect(candidates[pickedIndex]);
   }
 
+  const referenceUrlsValid = referenceUrls.every(
+    (u) => u.trim().length === 0 || parseYouTubeVideoId(u) !== null,
+  );
+
   const canAnalyze =
     !!pattern &&
     !loading &&
+    referenceUrlsValid &&
     (pattern === "market" ? themeMode != null : userTheme.trim().length > 0);
 
   return (
     <div className="space-y-4">
+      {pattern && (
+        <div>
+          <span className="block text-xs font-medium text-gray-500 mb-1">
+            参考動画（任意・最大3本）
+          </span>
+          <p className="text-xs text-gray-400 mb-2 leading-relaxed">
+            方向性の基準にしたい YouTube 動画の URL を貼ると、候補がその方向性に沿って選ばれます。
+          </p>
+          <div className="space-y-2">
+            {referenceUrls.map((url, i) => {
+              const invalid = url.trim().length > 0 && parseYouTubeVideoId(url) === null;
+              return (
+                <div key={i}>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setReferenceUrls((prev) =>
+                          prev.map((u, ui) => (ui === i ? value : u)),
+                        );
+                        resetResults();
+                      }}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      aria-label={`参考動画 ${i + 1} の URL`}
+                      aria-invalid={invalid}
+                      className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 bg-white outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring ${
+                        invalid ? "border-red-300" : "border-gray-200"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReferenceUrls((prev) => prev.filter((_, ui) => ui !== i));
+                        resetResults();
+                      }}
+                      aria-label={`参考動画 ${i + 1} を削除`}
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {invalid && (
+                    <p className="text-xs text-red-500 mt-1">
+                      YouTube 動画の URL を確認してください
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            {referenceUrls.length < 3 && (
+              <button
+                type="button"
+                onClick={() => setReferenceUrls((prev) => [...prev, ""])}
+                className="text-xs text-blue-600 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded"
+              >
+                ＋ 参考動画を追加
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {!pattern ? (
         <p className="text-xs text-muted-foreground text-center py-6 leading-relaxed">
           市場分析またはテーマ分析を選んでください
