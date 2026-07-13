@@ -134,9 +134,11 @@ export function EpisodeList({
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="h-[52px] px-3 border-b border-gray-200 flex items-center justify-between gap-2">
-        <h1 className="text-sm font-semibold text-gray-700 shrink-0">エピソード</h1>
+        <h1 className="text-sm font-semibold text-gray-700 shrink-0">
+          {deleteMode ? `${selectedSlugs.size}件選択` : "エピソード"}
+        </h1>
         <div className="flex items-center gap-1.5 min-w-0">
-          {onCollapse && (
+          {onCollapse && !deleteMode && (
             <button
               type="button"
               onClick={onCollapse}
@@ -151,9 +153,6 @@ export function EpisodeList({
           )}
           {deleteMode ? (
             <>
-              <span className="text-[10px] text-gray-500 truncate">
-                {selectedSlugs.size}件
-              </span>
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
