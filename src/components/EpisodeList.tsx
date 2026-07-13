@@ -158,14 +158,14 @@ export function EpisodeList({
                 type="button"
                 onClick={() => setConfirmOpen(true)}
                 disabled={selectedSlugs.size === 0}
-                className="text-[10px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="shrink-0 whitespace-nowrap text-[10px] px-2 py-1 rounded-md border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 削除する
               </button>
               <button
                 type="button"
                 onClick={exitDeleteMode}
-                className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                className="shrink-0 whitespace-nowrap text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
               >
                 取消
               </button>
@@ -186,7 +186,7 @@ export function EpisodeList({
                 <button
                   type="button"
                   onClick={() => setDeleteMode(true)}
-                  className="text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  className="shrink-0 whitespace-nowrap text-[10px] px-2 py-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                 >
                   削除
                 </button>
