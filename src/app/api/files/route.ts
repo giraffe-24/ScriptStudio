@@ -11,6 +11,11 @@ import {
   isReviewerRequest,
 } from "@/lib/reviewer-access";
 
+// 保存は Supabase Storage への書き込み。無料枠のコールドスタートで遅延することがあるため、
+// 既定(10s)より長めの余裕を持たせて関数タイムアウト起因の保存失敗を減らす。
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 function reviewerForbidden() {
   return NextResponse.json(
     { error: "このエピソードは閲覧できません" },

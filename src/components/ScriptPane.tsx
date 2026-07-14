@@ -128,6 +128,57 @@ function formatUpdatedAt(iso: string): string {
   }
 }
 
+// 保存の書き込みは一時的な不達（Supabase 無料枠のコールドスタート／瞬断で
+// サーバー関数の fetch が "fetch failed" になる等）で頻繁に失敗しうる。
+// 冪等な上書き書き込みなので、一時的失敗に限り指数バックオフで数回だけ自動再試行し、
+// ユーザーには「本当にダメだったとき」だけエラーを見せる。
+const FILES_WRITE_ATTEMPTS = 3;
+// リトャイ対象のHTTPステータス（一時的とみなせるもの）。
+const TRANSIENT_WRITE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+// これらを含む失敗はリトライしても直らない（設定不備・競合・認証・入力不正）ので即諦める。
+const NON_RETRYABLE_WRITE_MESSAGE =
+  /supabase_url|service_role|設定|configured|conflict|409|unauthorized|forbidden|401|403|400/i;
+
+async function postEpisodeFileWrite(
+  body: string,
+): Promise<{ res: Response; data: unknown }> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < FILES_WRITE_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      // 500ms, 1500ms（軽いジッター付き）。最悪でも合計 ~2s の遅延で諦める。
+      const delay = 500 * 3 ** (attempt - 1) + Math.random() * 250;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    try {
+      const res = await fetch("/api/files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return { res, data };
+      const message =
+        typeof (data as { error?: unknown }).error === "string"
+          ? (data as { error: string }).error
+          : "";
+      // 一時的でない失敗は、そのまま呼び出し側へ返してリトライしない。
+      if (
+        !TRANSIENT_WRITE_STATUS.has(res.status) ||
+        NON_RETRYABLE_WRITE_MESSAGE.test(message)
+      ) {
+        return { res, data };
+      }
+      lastError = new Error(message || `HTTP ${res.status}`);
+    } catch (err) {
+      // fetch 自体が失敗（ネットワーク瞬断・関数コールドスタート）→ リトライ対象。
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("台本の保存に失敗しました");
+}
+
 export function ScriptPane({
   plan,
   episodeNumber,
@@ -665,10 +716,8 @@ export function ScriptPane({
   ) {
     const shouldSyncPlan =
       (source === "generation" || options?.syncPlanFingerprint) && savePlan;
-    const res = await fetch("/api/files", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const { res, data } = await postEpisodeFileWrite(
+      JSON.stringify({
         action: "write",
         number,
         slug,
@@ -677,15 +726,15 @@ export function ScriptPane({
         scriptSaveSource: source,
         planFingerprint: shouldSyncPlan ? planGenerationFingerprint(savePlan) : undefined,
       }),
-    });
-    const data = await res.json().catch(() => ({}));
+    );
     if (!res.ok) {
       throw new Error((data as { error?: string }).error ?? "台本の保存に失敗しました");
     }
     if (episodeKey(episodeNumber, episodeSlug) === episodeKey(number, slug)) {
       latestScriptRef.current = content;
-      if (data.scriptMeta) {
-        setScriptMeta(data.scriptMeta);
+      const scriptMeta = (data as { scriptMeta?: ScriptMeta }).scriptMeta;
+      if (scriptMeta) {
+        setScriptMeta(scriptMeta);
       }
       if (shouldSyncPlan && savePlan) {
         confirmPlanScriptBaseline(savePlan);
