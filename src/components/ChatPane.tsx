@@ -11,14 +11,18 @@ interface Props {
   sectionContent: string;
   history: ChatMessage[];
   onHistoryUpdate: (history: ChatMessage[]) => void;
+  /** AI の回答をこのセクションのフィールドへ反映する。省略時は反映ボタンを出さない。 */
+  onApply?: (text: string) => void;
   onClose: () => void;
 }
 
-export function ChatPane({ theme, sectionLabel, sectionContent, history, onHistoryUpdate, onClose }: Props) {
+export function ChatPane({ theme, sectionLabel, sectionContent, history, onHistoryUpdate, onApply, onClose }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  // 「反映しました」フィードバックを出す対象メッセージの index
+  const [appliedIndex, setAppliedIndex] = useState<number | null>(null);
   // md 未満はオーバーレイ（モーダル）、md 以上は常設のドッキングパネル。
   const [isOverlay, setIsOverlay] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -82,6 +86,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
     const newHistory: ChatMessage[] = [...baseHistory, { role: "user", content: message }];
     onHistoryUpdate(newHistory);
     setError(null);
+    setAppliedIndex(null);
     setLastUserMessage(message);
     setStreaming(true);
     onHistoryUpdate([...newHistory, { role: "assistant", content: "" }]);
@@ -134,6 +139,12 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
     void runRequest(history, message);
   }
 
+  function handleApply(content: string, index: number) {
+    if (!onApply) return;
+    onApply(content);
+    setAppliedIndex(index);
+  }
+
   function handleRetry() {
     if (!lastUserMessage || streaming) return;
     const base =
@@ -180,19 +191,31 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
             このセクションについて改善案・別角度・具体例など、何でも聞いてください
           </div>
         )}
-        {history.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[90%] text-xs rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground"
-              }`}
-            >
-              {msg.content || (streaming && i === history.length - 1 ? <span aria-hidden>▋</span> : "")}
+        {history.map((msg, i) => {
+          const isUser = msg.role === "user";
+          const isStreamingLast = streaming && i === history.length - 1;
+          const canApply = !isUser && !!msg.content && !isStreamingLast && !!onApply;
+          return (
+            <div key={i} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+              <div
+                className={`max-w-[90%] text-xs rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${
+                  isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                }`}
+              >
+                {msg.content || (isStreamingLast ? <span aria-hidden>▋</span> : "")}
+              </div>
+              {canApply && (
+                <button
+                  type="button"
+                  onClick={() => handleApply(msg.content, i)}
+                  className="mt-1 inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
+                >
+                  {appliedIndex === i ? "✓ 反映しました" : "この内容を反映"}
+                </button>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
@@ -215,20 +238,22 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
       )}
 
       <div className="p-2 border-t border-gray-200">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
+        <div className="flex items-end gap-2">
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.nativeEvent.isComposing) return; // IME 変換確定の Enter は無視
+              // Enter は改行、⌘/Ctrl+Enter で送信
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 handleSend();
               }
             }}
-            placeholder="質問・改善依頼…"
+            rows={2}
+            placeholder="質問・改善依頼…（Enter で改行 / ⌘Enter で送信）"
             aria-label={`${sectionLabel} について質問・改善依頼を入力`}
-            className="flex-1 text-xs border border-input rounded-lg px-2.5 py-2 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none disabled:opacity-50"
+            className="flex-1 text-xs border border-input rounded-lg px-2.5 py-2 resize-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none disabled:opacity-50"
             disabled={streaming}
           />
           <Button

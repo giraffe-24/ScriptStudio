@@ -21,6 +21,27 @@ const EDITABLE =
 const EDITABLE_INPUT =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 placeholder:text-gray-400 transition-colors";
 
+/* ── AI 深掘り結果をフィールドへ反映するための対象キーとパース ── */
+type ChatField = "targetViewer" | "pain" | "promise" | "keyPoints" | "outline" | "competitorAnalysis";
+
+// 行頭の箇条書き記号（・- • * / 1. 1) 1、）を落とす
+const stripBullet = (line: string) => line.replace(/^\s*(?:[-・•*]|\d+[.)、])\s*/, "").trim();
+
+function textToKeyPoints(text: string): string[] {
+  return text.split("\n").map(stripBullet).filter(Boolean);
+}
+
+function textToOutline(text: string): { section: string; content: string }[] {
+  return text
+    .split("\n")
+    .map(stripBullet)
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^(.+?)[：:]\s*(.+)$/);
+      return m ? { section: m[1].trim(), content: m[2].trim() } : { section: "", content: line };
+    });
+}
+
 interface Props {
   candidate: ThemeCandidate | null;
   plan?: EpisodePlan | null;
@@ -51,7 +72,11 @@ export function PlanningDoc({
   const [loading, setLoading] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [chatSection, setChatSection] = useState<{ label: string; content: string } | null>(null);
+  const [chatSection, setChatSection] = useState<{
+    label: string;
+    content: string;
+    field: ChatField;
+  } | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   // 番号は確定（blur / Enter）まで親に流さない。編集中に空にできるようローカル draft を持つ
@@ -152,6 +177,17 @@ export function PlanningDoc({
       onPlanChange?.(next);
     } else {
       setDraftPlan(next);
+    }
+  }
+
+  // AI 深掘りの回答テキストを、対象フィールドの形（文字列/配列/構成）に合わせて反映する
+  function applySectionText(field: ChatField, text: string) {
+    if (field === "keyPoints") {
+      update("keyPoints", textToKeyPoints(text));
+    } else if (field === "outline") {
+      update("outline", textToOutline(text));
+    } else {
+      update(field, text.trim());
     }
   }
 
@@ -283,7 +319,9 @@ export function PlanningDoc({
           {/* 想定視聴者 */}
           <DocSection
             label="想定視聴者"
-            onChat={() => setChatSection({ label: "想定視聴者", content: plan.targetViewer })}
+            onChat={() =>
+              setChatSection({ label: "想定視聴者", content: plan.targetViewer, field: "targetViewer" })
+            }
           >
             <AutoResizeTextarea
               value={plan.targetViewer}
@@ -295,7 +333,9 @@ export function PlanningDoc({
           {/* 視聴者の悩み */}
           <DocSection
             label="視聴者の悩み"
-            onChat={() => setChatSection({ label: "視聴者の悩み", content: plan.pain })}
+            onChat={() =>
+              setChatSection({ label: "視聴者の悩み", content: plan.pain, field: "pain" })
+            }
           >
             <AutoResizeTextarea
               value={plan.pain}
@@ -307,7 +347,9 @@ export function PlanningDoc({
           {/* 動画で提供する価値 */}
           <DocSection
             label="動画で提供する価値"
-            onChat={() => setChatSection({ label: "動画の約束", content: plan.promise })}
+            onChat={() =>
+              setChatSection({ label: "動画の約束", content: plan.promise, field: "promise" })
+            }
           >
             <AutoResizeTextarea
               value={plan.promise}
@@ -320,7 +362,11 @@ export function PlanningDoc({
           <DocSection
             label="コンテンツの核"
             onChat={() =>
-              setChatSection({ label: "コンテンツの核", content: plan.keyPoints.join("\n") })
+              setChatSection({
+                label: "コンテンツの核",
+                content: plan.keyPoints.join("\n"),
+                field: "keyPoints",
+              })
             }
           >
             <KeyPointList
@@ -336,6 +382,7 @@ export function PlanningDoc({
               setChatSection({
                 label: "構成",
                 content: plan.outline.map((o) => `${o.section}：${o.content}`).join("\n"),
+                field: "outline",
               })
             }
           >
@@ -350,7 +397,11 @@ export function PlanningDoc({
           <DocSection
             label="競合との差別化"
             onChat={() =>
-              setChatSection({ label: "差別化", content: plan.competitorAnalysis })
+              setChatSection({
+                label: "差別化",
+                content: plan.competitorAnalysis,
+                field: "competitorAnalysis",
+              })
             }
           >
             <AutoResizeTextarea
@@ -437,6 +488,7 @@ export function PlanningDoc({
           sectionContent={chatSection.content}
           history={chatHistory}
           onHistoryUpdate={setChatHistory}
+          onApply={(text) => applySectionText(chatSection.field, text)}
           onClose={() => setChatSection(null)}
         />
       )}
