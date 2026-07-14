@@ -17,13 +17,14 @@ export function buildAngleClusterPrompt(data: {
   ownChannelSummary: string;
   themeModeLabel: string;
   rubric: string;
+  referenceSummary?: string;
 }): string {
   return `${data.rubric}
 
 === Stage1: 切り口整理 ===
 テーマ種: ${data.themeModeLabel}
 検索クエリ: ${data.queries.join(" / ")}
-
+${data.referenceSummary ? `\n${data.referenceSummary}\n` : ""}
 以下のデータのみを根拠に、切り口クラスタ・既出切り口・空白（差別化余地）を整理してください。
 JSON 以外の説明文は不要です。
 
@@ -60,13 +61,14 @@ export function buildCandidateGeneratePrompt(data: {
   themeModeLabel: string;
   themeModeFit: string;
   rubric: string;
+  referenceSummary?: string;
 }): string {
   return `${data.rubric}
 
 === Stage2: 候補生成（3軸スコア） ===
 テーマ種: ${data.themeModeLabel}
 themeModeFit: ${data.themeModeFit}
-
+${data.referenceSummary ? `\n${data.referenceSummary}\n` : ""}
 Stage1 の切り口整理:
 ${data.angleAnalysis}
 

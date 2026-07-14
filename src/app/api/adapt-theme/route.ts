@@ -8,12 +8,18 @@ import {
 } from "@/lib/market-analysis/guaranteed-search";
 import type { ThemeCandidate } from "@/lib/types";
 import { buildThemeSearchUserPrompt, runThemeSearch } from "@/lib/theme-search";
+import {
+  fetchReferenceVideos,
+  formatReferenceVideosSummary,
+  sanitizeReferenceUrls,
+} from "@/lib/reference-videos";
 import { toFriendlyApiError } from "@/lib/api-error";
 
 export async function POST(req: NextRequest) {
   try {
-    const { theme } = await req.json();
+    const { theme, referenceUrls: rawRefs } = await req.json();
     if (!theme) return NextResponse.json({ error: "theme required" }, { status: 400 });
+    const referenceUrls = sanitizeReferenceUrls(rawRefs);
 
     if (!process.env.YOUTUBE_DATA_API_KEY) {
       return NextResponse.json(
@@ -32,7 +38,11 @@ export async function POST(req: NextRequest) {
     ];
     let youtube = await collectYouTubeWithRescue(searchQueries);
 
-    const searchResult = await runThemeSearch(searchQueries[0]);
+    const [searchResult, referenceVideos] = await Promise.all([
+      runThemeSearch(searchQueries[0]),
+      fetchReferenceVideos(referenceUrls),
+    ]);
+    const referenceSummary = formatReferenceVideosSummary(referenceVideos);
     if (youtube.length === 0 && searchResult.youtube.length > 0) {
       youtube = searchResult.youtube;
     }
@@ -46,12 +56,12 @@ export async function POST(req: NextRequest) {
       const userPrompt = buildThemeSearchUserPrompt(
         searchQueries[0],
         { ...searchResult, youtube },
-        `入力テーマ：「${theme}」
+        `${referenceSummary ? `${referenceSummary}\n\n` : ""}入力テーマ：「${theme}」
 
 上記を踏まえ、入力テーマを「効率化オタクのあらきり」チャンネル向けに改変した候補を 6〜10 件出してください。
 - 視聴者（40〜60代、ITリテラシー初〜中級）の言葉で表現
 - YouTube を第一指標とし、元テーマのエッセンスは残して多様化
-- reason には参照した YouTube 動画タイトルを必ず 1 件以上含める
+- reason には参照した YouTube 動画タイトルを必ず 1 件以上含める${referenceUrls.length > 0 ? "\n- 参考動画（ユーザー指定）の方向性から外れた候補は出さない" : ""}
 
 以下の JSON 配列形式のみで回答してください：
 [

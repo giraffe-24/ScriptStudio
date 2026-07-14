@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMarketAnalysis } from "@/lib/market-analysis";
+import { sanitizeReferenceUrls } from "@/lib/reference-videos";
 import type { ThemeMode } from "@/lib/types";
 import { httpStatusForCode, toErrorPayload } from "@/lib/api-error";
 
@@ -10,8 +11,9 @@ function parseThemeMode(value: unknown): ThemeMode {
 
 export async function POST(req: NextRequest) {
   try {
-    const { category, themeMode: rawMode } = await req.json();
+    const { category, themeMode: rawMode, referenceUrls: rawRefs } = await req.json();
     const themeMode = parseThemeMode(rawMode);
+    const referenceUrls = sanitizeReferenceUrls(rawRefs);
 
     if (!process.env.YOUTUBE_DATA_API_KEY) {
       return NextResponse.json(
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await runMarketAnalysis({ category, themeMode });
+    const result = await runMarketAnalysis({ category, themeMode, referenceUrls });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[market-research]", err instanceof Error ? err.message : String(err));

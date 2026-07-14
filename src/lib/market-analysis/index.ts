@@ -9,6 +9,7 @@ import type { EnrichedCandidate } from "@/lib/types";
 import { collectAdaptiveWeb } from "./collectors/adaptive-web";
 import { collectCompetitorVideos } from "./collectors/competitors";
 import { collectOwnChannelHistory } from "./collectors/own-channel";
+import { fetchReferenceVideos, formatReferenceVideosSummary } from "@/lib/reference-videos";
 import { collectYouTubeWithRescue, competitorVideosToYouTube, ensureEnrichedCandidates } from "./guaranteed-search";
 import { loadMarketAnalysisRubric } from "./prompts";
 import { createProgressLog, markStep } from "./progress";
@@ -126,7 +127,7 @@ async function collectAllData(
 export async function runMarketAnalysis(
   input: MarketAnalysisInput,
 ): Promise<MarketAnalysisResult> {
-  const { category, themeMode, onProgress } = input;
+  const { category, themeMode, referenceUrls, onProgress } = input;
   let progressLog = createProgressLog();
 
   const emit = (id: Parameters<typeof markStep>[1], status: "running" | "done") => {
@@ -136,7 +137,11 @@ export async function runMarketAnalysis(
   };
 
   emit("search", "running");
-  const data = await collectAllData(category, themeMode);
+  const [data, referenceVideos] = await Promise.all([
+    collectAllData(category, themeMode),
+    fetchReferenceVideos(referenceUrls ?? []),
+  ]);
+  const referenceSummary = formatReferenceVideosSummary(referenceVideos);
   emit("search", "done");
 
   const modeLabel = themeModeLabel(themeMode);
@@ -172,6 +177,7 @@ export async function runMarketAnalysis(
       ownChannelSummary,
       themeModeLabel: modeLabel,
       rubric,
+      referenceSummary,
     });
   } catch (err) {
     console.warn("[market-analysis] angle_cluster fallback:", err);
@@ -192,6 +198,7 @@ export async function runMarketAnalysis(
       themeModeLabel: modeLabel,
       themeModeFit: modeFit,
       rubric,
+      referenceSummary,
     });
   } catch (err) {
     console.warn("[market-analysis] candidates fallback:", err);

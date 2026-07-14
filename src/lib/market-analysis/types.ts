@@ -24,6 +24,8 @@ export interface ProgressStep {
 export interface MarketAnalysisInput {
   category?: string;
   themeMode: ThemeMode;
+  /** ユーザー指定の参考動画 URL（テーマ方向性の基準・最大3本） */
+  referenceUrls?: string[];
   onProgress?: (step: ProgressStep) => void;
 }
 
