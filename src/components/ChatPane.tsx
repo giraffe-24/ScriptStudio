@@ -9,14 +9,19 @@ interface Props {
   theme: string;
   sectionLabel: string;
   sectionContent: string;
+  /** 企画書全体の現在の内容。送信のたびに最新値を AI へ渡す */
+  planContext?: string;
   history: ChatMessage[];
   onHistoryUpdate: (history: ChatMessage[]) => void;
-  /** AI の回答をこのセクションのフィールドへ反映する。省略時は反映ボタンを出さない。 */
-  onApply?: (text: string) => void;
+  /**
+   * AI の回答をこのセクションのフィールドへ反映する。省略時は反映ボタンを出さない。
+   * false を返す（= 確認ダイアログでキャンセルされた）と「✓ 反映しました」を表示しない。
+   */
+  onApply?: (text: string) => void | boolean | Promise<void | boolean>;
   onClose: () => void;
 }
 
-export function ChatPane({ theme, sectionLabel, sectionContent, history, onHistoryUpdate, onApply, onClose }: Props) {
+export function ChatPane({ theme, sectionLabel, sectionContent, planContext, history, onHistoryUpdate, onApply, onClose }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +104,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
           theme,
           sectionLabel,
           sectionContent,
+          planContext,
           history: baseHistory,
           userMessage: message,
         }),
@@ -139,9 +145,10 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
     void runRequest(history, message);
   }
 
-  function handleApply(content: string, index: number) {
+  async function handleApply(content: string, index: number) {
     if (!onApply) return;
-    onApply(content);
+    const applied = await onApply(content);
+    if (applied === false) return;
     setAppliedIndex(index);
   }
 
@@ -160,14 +167,14 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
       role={isOverlay ? "dialog" : undefined}
       aria-modal={isOverlay ? true : undefined}
       aria-labelledby={isOverlay ? headingId : undefined}
-      className="fixed inset-0 z-40 w-full flex flex-col bg-white md:static md:inset-auto md:z-auto md:w-72 md:border-l md:border-gray-200"
+      className="fixed inset-0 z-40 w-full flex flex-col bg-white md:static md:inset-auto md:z-auto md:flex-1 md:min-w-0 md:border-l md:border-gray-200"
     >
       <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 id={headingId} className="text-xs font-bold text-gray-700">
             AI と深掘り
           </h2>
-          <p className="text-xs text-muted-foreground truncate">{sectionLabel}</p>
+          <p className="text-xs text-muted-foreground truncate">担当セクション：{sectionLabel}</p>
         </div>
         <button
           type="button"
@@ -207,7 +214,7 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
               {canApply && (
                 <button
                   type="button"
-                  onClick={() => handleApply(msg.content, i)}
+                  onClick={() => void handleApply(msg.content, i)}
                   className="mt-1 inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none"
                 >
                   {appliedIndex === i ? "✓ 反映しました" : "この内容を反映"}
@@ -237,8 +244,8 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
         </div>
       )}
 
-      <div className="p-2 border-t border-gray-200">
-        <div className="flex items-end gap-2">
+      <div className="p-2 border-t border-gray-200 h-1/3 shrink-0">
+        <div className="flex items-end gap-2 h-full">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -250,10 +257,9 @@ export function ChatPane({ theme, sectionLabel, sectionContent, history, onHisto
                 handleSend();
               }
             }}
-            rows={2}
             placeholder="質問・改善依頼…（Enter で改行 / ⌘Enter で送信）"
             aria-label={`${sectionLabel} について質問・改善依頼を入力`}
-            className="flex-1 text-xs border border-input rounded-lg px-2.5 py-2 resize-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none disabled:opacity-50"
+            className="flex-1 h-full text-xs border border-input rounded-lg px-2.5 py-2 resize-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring outline-none disabled:opacity-50"
             disabled={streaming}
           />
           <Button

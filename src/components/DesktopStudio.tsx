@@ -30,6 +30,9 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
   // ペインの開閉（ワンタップ切替・リロード後も維持）
   const [episodePaneOpen, setEpisodePaneOpen] = useState(true);
   const [themePaneOpen, setThemePaneOpen] = useState(true);
+  // AI 深掘りチャットの開閉。開いている間は企画書ペインを 2 倍幅にして
+  // 企画書・チャット・台本が 1/3 ずつになるようにする
+  const [planChatOpen, setPlanChatOpen] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEpisodePaneOpen(localStorage.getItem(EPISODE_PANE_KEY) !== "0");
@@ -231,8 +234,10 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
             </div>
           </div>
 
-          {/* Pane 3: 企画書 */}
-          <div className="flex-1 border-r border-gray-200 bg-gray-50 overflow-hidden flex flex-col">
+          {/* Pane 3: 企画書（チャット開時は企画書+チャットで 2/3 を占める） */}
+          <div
+            className={`${planChatOpen ? "flex-[2]" : "flex-1"} min-w-0 border-r border-gray-200 bg-gray-50 overflow-hidden flex flex-col`}
+          >
             <div className="h-[52px] px-4 border-b border-gray-200 bg-white flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-semibold text-gray-700 shrink-0 flex items-center gap-1.5">
                 <StepBadge n={2} />
@@ -280,6 +285,7 @@ export function DesktopStudio({ studio }: { studio: StudioState }) {
                   onTitleChange={handleTitleChange}
                   onEpisodeNumberChange={handleEpisodeNumberChange}
                   onPlanChange={handlePlanChange}
+                  onChatOpenChange={setPlanChatOpen}
                 />
               )}
             </div>

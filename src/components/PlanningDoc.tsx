@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { GripVertical, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/lib/types";
+import { ChatApplyDialog, type ApplyDecision } from "./ChatApplyDialog";
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
 import { GitHistoryModal } from "./GitHistoryModal";
@@ -21,25 +22,27 @@ const EDITABLE =
 const EDITABLE_INPUT =
   "w-full text-sm text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 placeholder:text-gray-400 transition-colors";
 
-/* ── AI 深掘り結果をフィールドへ反映するための対象キーとパース ── */
+/* ── AI 深掘り結果をフィールドへ反映するための対象キー ── */
 type ChatField = "targetViewer" | "pain" | "promise" | "keyPoints" | "outline" | "competitorAnalysis";
 
-// 行頭の箇条書き記号（・- • * / 1. 1) 1、）を落とす
-const stripBullet = (line: string) => line.replace(/^\s*(?:[-・•*]|\d+[.)、])\s*/, "").trim();
-
-function textToKeyPoints(text: string): string[] {
-  return text.split("\n").map(stripBullet).filter(Boolean);
+/** 相談対象セクションの内容を常に最新の plan から導出する（開いた時点のスナップショットにしない） */
+function chatFieldContent(plan: EpisodePlan, field: ChatField): string {
+  if (field === "keyPoints") return plan.keyPoints.join("\n");
+  if (field === "outline") return plan.outline.map((o) => `${o.section}：${o.content}`).join("\n");
+  return plan[field] ?? "";
 }
 
-function textToOutline(text: string): { section: string; content: string }[] {
-  return text
-    .split("\n")
-    .map(stripBullet)
-    .filter(Boolean)
-    .map((line) => {
-      const m = line.match(/^(.+?)[：:]\s*(.+)$/);
-      return m ? { section: m[1].trim(), content: m[2].trim() } : { section: "", content: line };
-    });
+/** どのセクションの担当 AI にも企画書全体の現在の状態を渡す */
+function buildPlanContext(plan: EpisodePlan): string {
+  return [
+    `タイトル：${plan.episodeTitle}`,
+    `想定視聴者：${plan.targetViewer}`,
+    `視聴者の悩み：${plan.pain}`,
+    `動画で提供する価値：${plan.promise}`,
+    `コンテンツの核：\n${plan.keyPoints.map((k) => `・${k}`).join("\n")}`,
+    `構成：\n${plan.outline.map((o) => `・${o.section}：${o.content}`).join("\n")}`,
+    `競合との差別化：${plan.competitorAnalysis}`,
+  ].join("\n\n");
 }
 
 interface Props {
@@ -52,6 +55,8 @@ interface Props {
   onTitleChange?: (title: string) => void;
   onEpisodeNumberChange?: (number: number) => void;
   onPlanChange?: (plan: EpisodePlan) => void;
+  /** AI 深掘りチャットの開閉を親に通知する（デスクトップのペイン幅調整用） */
+  onChatOpenChange?: (open: boolean) => void;
 }
 
 export function PlanningDoc({
@@ -64,6 +69,7 @@ export function PlanningDoc({
   onTitleChange,
   onEpisodeNumberChange,
   onPlanChange,
+  onChatOpenChange,
 }: Props) {
   // 閲覧専用ログインでは AI を呼ばず、デモ用の企画書を組み立てて表示する
   const viewerReadOnly = useReadOnly();
@@ -74,15 +80,33 @@ export function PlanningDoc({
   const [submitting, setSubmitting] = useState(false);
   const [chatSection, setChatSection] = useState<{
     label: string;
-    content: string;
     field: ChatField;
   } | null>(null);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  // 会話履歴はセクションごとに独立させる（担当 AI をセクション単位で分ける）。
+  // 一方で AI へ渡す内容は開いた時点のスナップショットではなく、常に最新の plan から導出する。
+  const [chatHistories, setChatHistories] = useState<Partial<Record<ChatField, ChatMessage[]>>>({});
+  // 「この内容を反映」の確認ダイアログ。resolve は ChatPane 側の「✓ 反映しました」表示の可否
+  const [applyRequest, setApplyRequest] = useState<{
+    field: ChatField;
+    label: string;
+    text: string;
+    resolve: (applied: boolean) => void;
+  } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   // 番号は確定（blur / Enter）まで親に流さない。編集中に空にできるようローカル draft を持つ
   // （即時反映だと入力途中の中間値でフォルダリネームが走り、空文字は即座に元の値へ戻ってしまう）。
   const [numberDraft, setNumberDraft] = useState<string | null>(null);
   const gitConfigured = useGitMirrorStatus();
+  // チャット開閉を親へ通知（コールバックの再生成で effect が空発火しないよう ref 経由）
+  const onChatOpenChangeRef = useRef(onChatOpenChange);
+  useEffect(() => {
+    onChatOpenChangeRef.current = onChatOpenChange;
+  }, [onChatOpenChange]);
+  useEffect(() => {
+    onChatOpenChangeRef.current?.(chatSection !== null);
+  }, [chatSection]);
+  // アンマウント時（エピソード切替の読み込み表示など）に開いたまま残さない
+  useEffect(() => () => onChatOpenChangeRef.current?.(false), []);
   // 企画書のバージョン保存・履歴は台本ペインの統合保存/統合履歴に集約した
   // （状態と自動記録は usePlanVersions として studio レベルにある）。
   const planLoadKeyRef = useRef("");
@@ -98,7 +122,12 @@ export function PlanningDoc({
     setDraftPlan(null);
     setApprovedDirection(null);
     setChatSection(null);
-    setChatHistory([]);
+    setChatHistories({});
+    // エピソード切替で反映確認が宙に浮かないよう閉じる（未反映としてチャットへ返す）
+    setApplyRequest((prev) => {
+      prev?.resolve(false);
+      return null;
+    });
     setLoading(false);
     setPlanError(null);
   }, [planLoadKey]);
@@ -118,7 +147,7 @@ export function PlanningDoc({
     setPlanError(null);
     setDraftPlan(null);
     setChatSection(null);
-    setChatHistory([]);
+    setChatHistories({});
 
     try {
       if (viewerReadOnly) {
@@ -180,14 +209,46 @@ export function PlanningDoc({
     }
   }
 
-  // AI 深掘りの回答テキストを、対象フィールドの形（文字列/配列/構成）に合わせて反映する
-  function applySectionText(field: ChatField, text: string) {
-    if (field === "keyPoints") {
-      update("keyPoints", textToKeyPoints(text));
-    } else if (field === "outline") {
-      update("outline", textToOutline(text));
-    } else {
-      update(field, text.trim());
+  // 「この内容を反映」→ 即反映せず確認ダイアログを開く。戻り値はダイアログ確定まで解決しない
+  // Promise（ChatPane が「✓ 反映しました」を出すかどうかの判定に使う）
+  function requestApply(field: ChatField, label: string, text: string) {
+    return new Promise<boolean>((resolve) => {
+      // 先行して開いていた確認が残っていたら未反映として畳む
+      setApplyRequest((prev) => {
+        prev?.resolve(false);
+        return { field, label, text, resolve };
+      });
+    });
+  }
+
+  // ダイアログで確定した反映方法を、対象フィールドの形（文字列/配列/構成）に合わせて適用する
+  function performApply(field: ChatField, decision: ApplyDecision) {
+    const base = initialPlan ?? draftPlan;
+    if (!base) return;
+    if (decision.kind === "text") {
+      const textField = field as Exclude<ChatField, "keyPoints" | "outline">;
+      const current = base[textField] ?? "";
+      const next =
+        decision.mode === "append" && current.trim()
+          ? `${current.trimEnd()}\n\n${decision.text}`
+          : decision.text;
+      update(textField, next);
+    } else if (field === "keyPoints" && decision.keyPoints) {
+      if (decision.mode === "replace") {
+        update("keyPoints", decision.keyPoints);
+      } else {
+        const next = [...base.keyPoints];
+        next.splice(decision.index, 0, ...decision.keyPoints);
+        update("keyPoints", next);
+      }
+    } else if (field === "outline" && decision.outline) {
+      if (decision.mode === "replace") {
+        update("outline", decision.outline);
+      } else {
+        const next = base.outline.map((item) => ({ ...item }));
+        next.splice(decision.index, 0, ...decision.outline);
+        update("outline", next);
+      }
     }
   }
 
@@ -319,9 +380,7 @@ export function PlanningDoc({
           {/* 想定視聴者 */}
           <DocSection
             label="想定視聴者"
-            onChat={() =>
-              setChatSection({ label: "想定視聴者", content: plan.targetViewer, field: "targetViewer" })
-            }
+            onChat={() => setChatSection({ label: "想定視聴者", field: "targetViewer" })}
           >
             <AutoResizeTextarea
               value={plan.targetViewer}
@@ -333,9 +392,7 @@ export function PlanningDoc({
           {/* 視聴者の悩み */}
           <DocSection
             label="視聴者の悩み"
-            onChat={() =>
-              setChatSection({ label: "視聴者の悩み", content: plan.pain, field: "pain" })
-            }
+            onChat={() => setChatSection({ label: "視聴者の悩み", field: "pain" })}
           >
             <AutoResizeTextarea
               value={plan.pain}
@@ -347,9 +404,7 @@ export function PlanningDoc({
           {/* 動画で提供する価値 */}
           <DocSection
             label="動画で提供する価値"
-            onChat={() =>
-              setChatSection({ label: "動画の約束", content: plan.promise, field: "promise" })
-            }
+            onChat={() => setChatSection({ label: "動画の約束", field: "promise" })}
           >
             <AutoResizeTextarea
               value={plan.promise}
@@ -361,13 +416,7 @@ export function PlanningDoc({
           {/* コンテンツの核 */}
           <DocSection
             label="コンテンツの核"
-            onChat={() =>
-              setChatSection({
-                label: "コンテンツの核",
-                content: plan.keyPoints.join("\n"),
-                field: "keyPoints",
-              })
-            }
+            onChat={() => setChatSection({ label: "コンテンツの核", field: "keyPoints" })}
           >
             <KeyPointList
               items={plan.keyPoints}
@@ -378,13 +427,7 @@ export function PlanningDoc({
           {/* 構成 */}
           <DocSection
             label="構成"
-            onChat={() =>
-              setChatSection({
-                label: "構成",
-                content: plan.outline.map((o) => `${o.section}：${o.content}`).join("\n"),
-                field: "outline",
-              })
-            }
+            onChat={() => setChatSection({ label: "構成", field: "outline" })}
           >
             <OutlineEditor
               items={plan.outline}
@@ -396,13 +439,7 @@ export function PlanningDoc({
           {/* 競合との差別化 */}
           <DocSection
             label="競合との差別化"
-            onChat={() =>
-              setChatSection({
-                label: "差別化",
-                content: plan.competitorAnalysis,
-                field: "competitorAnalysis",
-              })
-            }
+            onChat={() => setChatSection({ label: "差別化", field: "competitorAnalysis" })}
           >
             <AutoResizeTextarea
               value={plan.competitorAnalysis}
@@ -480,16 +517,50 @@ export function PlanningDoc({
         </div>
       </div>
 
-      {/* チャットパネル */}
+      {/* チャットパネル。key でセクション切替時に入力欄などの内部状態をリセットし、
+          担当 AI をセクションごとに完全に分ける（履歴も chatHistories でセクション別） */}
       {chatSection && (
         <ChatPane
+          key={chatSection.field}
           theme={candidate?.title ?? plan?.episodeTitle ?? ""}
           sectionLabel={chatSection.label}
-          sectionContent={chatSection.content}
-          history={chatHistory}
-          onHistoryUpdate={setChatHistory}
-          onApply={(text) => applySectionText(chatSection.field, text)}
+          sectionContent={chatFieldContent(plan, chatSection.field)}
+          planContext={buildPlanContext(plan)}
+          history={chatHistories[chatSection.field] ?? []}
+          onHistoryUpdate={(h) =>
+            setChatHistories((prev) => ({ ...prev, [chatSection.field]: h }))
+          }
+          onApply={(text) => requestApply(chatSection.field, chatSection.label, text)}
           onClose={() => setChatSection(null)}
+        />
+      )}
+
+      {/* 反映確認ダイアログ（どこへ・どう反映するかを選んでから適用する） */}
+      {applyRequest && (
+        <ChatApplyDialog
+          sectionLabel={applyRequest.label}
+          variant={
+            applyRequest.field === "keyPoints" || applyRequest.field === "outline"
+              ? applyRequest.field
+              : "text"
+          }
+          aiText={applyRequest.text}
+          existingLabels={
+            applyRequest.field === "keyPoints"
+              ? plan?.keyPoints ?? []
+              : applyRequest.field === "outline"
+                ? (plan?.outline ?? []).map((o) => o.section || o.content)
+                : []
+          }
+          onConfirm={(decision) => {
+            performApply(applyRequest.field, decision);
+            applyRequest.resolve(true);
+            setApplyRequest(null);
+          }}
+          onCancel={() => {
+            applyRequest.resolve(false);
+            setApplyRequest(null);
+          }}
         />
       )}
 
@@ -562,6 +633,8 @@ function KeyPointList({
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
     if (e.key === "Enter") {
       e.preventDefault();
+      if (e.nativeEvent.isComposing) return; // IME 確定の Enter は無視
+      if (!(e.metaKey || e.ctrlKey)) return; // 追加は ⌘Enter（Windows は Ctrl+Enter）のみ
       const next = [...items];
       next.splice(index + 1, 0, "");
       onChange(next);
@@ -589,7 +662,7 @@ function KeyPointList({
             }}
             onKeyDown={(e) => handleKeyDown(e, i)}
             className={`${EDITABLE_INPUT} flex-1`}
-            placeholder="ポイントを入力（Enter で追加）"
+            placeholder="ポイントを入力（⌘/Ctrl+Enter で追加）"
           />
         </li>
       ))}
