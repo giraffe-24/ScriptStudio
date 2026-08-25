@@ -17,7 +17,7 @@ dotenv.config({ path: path.join(ROOT, ".env") });
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(process.env.PORT) || 3847;
 const MODEL =
-  process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+  process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 const SYSTEM_PROMPT = `あなたはYouTube向けタイトル・サムネ文言の提案者です。チャンネル「効率化オタクのあらきり」向け。
 厳守ルール:

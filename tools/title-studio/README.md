@@ -50,7 +50,7 @@ npm run title-studio
 | 変数 | 必須 | 説明 |
 |------|------|------|
 | `ANTHROPIC_API_KEY` | はい | Anthropic の API キー |
-| `ANTHROPIC_MODEL` | いいえ | 既定: `claude-sonnet-4-6`（退役した 3.5 Sonnet は使わないこと） |
+| `ANTHROPIC_MODEL` | いいえ | 既定: `claude-sonnet-5`（退役した 3.5 Sonnet は使わないこと） |
 | `PORT` | いいえ | 既定: `3847` |
 
 ## 注意

@@ -55,7 +55,7 @@ export function getAnthropicModel(
         firstDefined(
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-7"
+        ) ?? "claude-opus-4-8"
       );
     case "planning":
     case "inferPlan":
@@ -64,7 +64,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_PLANNING),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-7"
+        ) ?? "claude-opus-4-8"
       );
     case "script":
       return (
@@ -72,7 +72,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_SCRIPT),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-7"
+        ) ?? "claude-opus-4-8"
       );
     case "sectionChat":
       return (
@@ -80,7 +80,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_SECTION_CHAT),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-7"
+        ) ?? "claude-opus-4-8"
       );
     case "calibration":
       return (
@@ -88,7 +88,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_CALIBRATION),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-7"
+        ) ?? "claude-opus-4-8"
       );
     case "themeAdapt":
       return (
@@ -96,7 +96,7 @@ export function getAnthropicModel(
           sanitizeModel(process.env.ANTHROPIC_MODEL_THEME_ADAPT),
           sanitizeModel(process.env.ANTHROPIC_MODEL_STAGE2),
           globalModel,
-        ) ?? "claude-opus-4-7"
+        ) ?? "claude-opus-4-8"
       );
   }
 }
