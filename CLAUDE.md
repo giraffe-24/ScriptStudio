@@ -3,18 +3,18 @@
 ## 概要
 
 YouTubeトーク番組（あらきりチャンネル）の台本を、企画から執筆・品質チェックまで1画面で行う社内向けStudio（Next.js）。荒木（台本執筆・企画）と児玉（動画編集・スライド制作）が、台本とスライド構成を別タブで行き来せずに進められることを目指す。
-テーマ調査→企画→構成→執筆→タイトル→品質チェックの各フェーズをAIエージェント（scout/planner/architect/writer/titler/reviewer等）が支援し、推敲内容や変更履歴をSupabase（本番）またはローカルファイル（開発）に記録する。
+テーマ調査→企画→構成→執筆→タイトル→品質チェックの各フェーズをAIエージェント（scout/planner/architect/writer/titler/reviewer等）が支援し、推敲内容や変更履歴をファイル（`outputs/` と履歴フォルダ）に記録する。
 
 ## 技術スタック
 
 - フレームワーク: Next.js 16.2.6（React 19.2.4）、TypeScript 5
 - スタイリング: Tailwind CSS 4、class-variance-authority、tailwind-merge、@base-ui/react
 - AI: @anthropic-ai/sdk（Claude API）
-- DB/永続化: @supabase/supabase-js（本番）。ローカルはファイルベース（`.plan-history/` `.script-history/` `config/voice-learnings.md`）
+- DB/永続化: ファイルベース（`outputs/` `.plan-history/` `.script-history/` `config/voice-learnings.md`）。旧Supabase連携コード（@supabase/supabase-js）は残存するが未使用（`VERCEL` 環境変数がある場合のみ有効になる切替が `src/lib/runtime-persistence.ts`）
 - その他ライブラリ: lucide-react、diff
 - パッケージ管理: pnpm（`packageManager: pnpm@11.5.2`。README上のコマンド例はnpm表記）
 - Lint: ESLint 9（eslint-config-next）
-- デプロイ: Vercel（`vercel.json` に `/api/keep-alive` の日次cronあり）
+- デプロイ: NAS Docker（triage経由。手順は「運用・デプロイ」参照）
 
 ## ディレクトリ構成
 
@@ -43,9 +43,10 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 
 ## 運用・デプロイ
 
-- デプロイ: `origin/main` へのpushでVercelが自動デプロイ（GitHub連携）。本番URL: `https://script-studio-tan.vercel.app`（`/icon.svg` で反映確認を行う運用。旧記載の `script-studio.vercel.app` は現在他者のプロジェクトのため使用しない）
-- NAS本番（2026-09-04移行、Vercelは並走後に廃止予定）: NAS Docker（`/volume1/docker/scriptstudio/`、port 4900）。反映手順は「commit→`git push nas`→NASで `node /home/D_araki/div/bargle/triage/triage.mjs --deploy-app ScriptStudio`」。実行時データは `/volume1/docker/scriptstudio/data/`（outputs / plan-history / script-history / config系3ファイル）をvolumeマウントしており、`app/` はデプロイごとにgit mainへリセットされる
-- 永続化: 本番はSupabase（`plan_snapshots` `script_snapshots` `keepalive` 等のテーブル）。ローカルは `.plan-history/` `.script-history/` `config/voice-learnings.md`
+- 本番URL: `https://scriptstudio.aiwa-engineering.co.jp`（NAS Docker。2026-09-04にVercelから移行）
+- 本番反映: NAS Docker（`/volume1/docker/scriptstudio/`、port 4900）。手順は「commit→`git push nas`→NASで `node /home/D_araki/div/bargle/triage/triage.mjs --deploy-app ScriptStudio`」。実行時データは `/volume1/docker/scriptstudio/data/`（outputs / plan-history / script-history / config系3ファイル）をvolumeマウントしており、`app/` はデプロイごとにgit mainへリセットされる。data/ は毎日03:45に自動バックアップ（scriptstudio-backup.timer、30世代）
+- 旧Vercel（`script-studio-tan.vercel.app`）: 2026-09-04に封鎖（ログイン無効化）。2週間並走ののち2026-09-18頃にSupabaseともども削除予定。削除まではorigin/mainへのpushでVercelの自動デプロイも動き続ける点に注意
+- 永続化: ファイルベース一本（本番はNASの `data/` ボリューム、開発はリポジトリ直下の `.plan-history/` `.script-history/` `config/voice-learnings.md`）
 - 検証: `npx tsc --noEmit` と `npx eslint <files>` を使用（`next build`/`next dev` は稼働中の開発サーバーとポートが衝突するため使わない、HANDOFF.md記載）
 - git remote: `nas`（`D_araki@nas:git/ScriptStudio.git`）と `origin`（`https://github.com/giraffe-24/ScriptStudio.git`）
 
