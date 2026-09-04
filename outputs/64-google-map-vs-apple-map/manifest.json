@@ -1,0 +1,20 @@
+{
+  "id": "64",
+  "slug": "google-map-vs-apple-map",
+  "title": "GoogleマップとAppleマップを10項目でガチ比較",
+  "status": "scripting",
+  "panes": [
+    {
+      "id": "pane1",
+      "label": "企画・構成",
+      "path": "00-plan-and-structure.md"
+    },
+    {
+      "id": "pane2",
+      "label": "台本",
+      "path": "01-script-draft.md"
+    }
+  ],
+  "script_updated_at": "2026-09-04T01:53:53.378Z",
+  "script_updated_by": "d_araki"
+}
