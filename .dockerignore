@@ -1,0 +1,14 @@
+node_modules
+.next
+.env*
+!.env.example
+.git
+.vercel
+.claude
+# ローカル履歴（NAS では data/ からマウントする）
+.plan-history
+.script-history
+# 素材・参考資料（イメージに入れない）
+講義
+Image
+manual

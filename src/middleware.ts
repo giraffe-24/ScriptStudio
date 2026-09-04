@@ -12,7 +12,13 @@ import {
 
 // /api/keep-alive は Vercel Cron から叩かれる。サイト認証（ログイン）ではなく
 // CRON_SECRET で保護するため、ここでは認証対象外にする。
-const PUBLIC_PATHS = ["/login", "/api/site-auth/login", "/api/keep-alive"];
+// /api/health はデプロイのヘルスチェック（triage）から叩かれる。秘密情報は返さない。
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/site-auth/login",
+  "/api/keep-alive",
+  "/api/health",
+];
 
 // 閲覧専用（レビュアー）でも許可する変更系パス。
 // - ログアウト
