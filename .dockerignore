@@ -9,6 +9,6 @@ node_modules
 .plan-history
 .script-history
 # 素材・参考資料（イメージに入れない）
+# 注意: Image/ は @image エイリアス（tsconfig.json）でアプリが import するため除外禁止
 講義
-Image
 manual
