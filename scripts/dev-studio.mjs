@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 
-const PORT = process.env.PORT ?? "3300";
+const PORT = process.env.PORT ?? "3500";
 const STUDIO_URL = `http://localhost:${PORT}`;
 
 function printStudioUrl(reason) {
@@ -9,7 +9,7 @@ function printStudioUrl(reason) {
   console.log(`\n  ScriptStudio: ${STUDIO_URL}${suffix}\n`);
 }
 
-// strictPort 相当：3300 が使用中なら別ポートへ自動フォールバックさせず、明確に失敗させる。
+// strictPort 相当：3500 が使用中なら別ポートへ自動フォールバックさせず、明確に失敗させる。
 function assertPortFree(port) {
   return new Promise((resolve, reject) => {
     const tester = createServer();

@@ -31,11 +31,11 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 
 ## 開発コマンド
 
-- `npm run studio` / `npm run dev` — 開発サーバー起動（`scripts/dev-studio.mjs`、port 3300固定）
+- `npm run studio` / `npm run dev` — 開発サーバー起動（`scripts/dev-studio.mjs`、port 3500固定。2026-09-04にローカルポート台帳との競合解消のため3300から変更）
 - `npm run dev:clean` — `.next` を削除してから開発サーバー起動
 - `npm run clean` — `.next` を削除
 - `npm run build` — `next build`
-- `npm run start` — `next start -p 3300`
+- `npm run start` — `next start -p 3500`
 - `npm run lint` — `eslint`
 - `npm run market-research` — `scripts/market-research.ts` を実行
 - `npm run title-studio` — `tools/title-studio/server.mjs` を起動

@@ -10,7 +10,7 @@
     "clean": "rm -rf .next",
     "dev:clean": "rm -rf .next && node scripts/dev-studio.mjs",
     "build": "next build",
-    "start": "next start -p 3300",
+    "start": "next start -p 3500",
     "lint": "eslint",
     "market-research": "npx tsx scripts/market-research.ts",
     "title-studio": "node tools/title-studio/server.mjs",
