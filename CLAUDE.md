@@ -44,6 +44,7 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 ## 運用・デプロイ
 
 - デプロイ: `origin/main` へのpushでVercelが自動デプロイ（GitHub連携）。本番URL: `https://script-studio-tan.vercel.app`（`/icon.svg` で反映確認を行う運用。旧記載の `script-studio.vercel.app` は現在他者のプロジェクトのため使用しない）
+- NAS本番（2026-09-04移行、Vercelは並走後に廃止予定）: NAS Docker（`/volume1/docker/scriptstudio/`、port 4900）。反映手順は「commit→`git push nas`→NASで `node /home/D_araki/div/bargle/triage/triage.mjs --deploy-app ScriptStudio`」。実行時データは `/volume1/docker/scriptstudio/data/`（outputs / plan-history / script-history / config系3ファイル）をvolumeマウントしており、`app/` はデプロイごとにgit mainへリセットされる
 - 永続化: 本番はSupabase（`plan_snapshots` `script_snapshots` `keepalive` 等のテーブル）。ローカルは `.plan-history/` `.script-history/` `config/voice-learnings.md`
 - 検証: `npx tsc --noEmit` と `npx eslint <files>` を使用（`next build`/`next dev` は稼働中の開発サーバーとポートが衝突するため使わない、HANDOFF.md記載）
 - git remote: `nas`（`D_araki@nas:git/ScriptStudio.git`）と `origin`（`https://github.com/giraffe-24/ScriptStudio.git`）
