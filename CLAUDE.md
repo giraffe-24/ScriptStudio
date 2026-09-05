@@ -69,15 +69,17 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 
 <!-- AUTO-STATUS:BEGIN このブロックはNASの自動バッチが書き換える。手動編集しない -->
 ## 現在の実装状況（自動更新）
-- 最終更新: 2026-09-04
-- 最終コミット: 2026-09-04 chore: Vercel卒業の掃除（keep-alive・vercel.json削除、docsをNAS本番へ全面更新）
+- 最終更新: 2026-09-05
+- 最終コミット: 2026-09-06 deploy: 孤児のバックアップ経路(unit2本+backup.sh)をリポに収容しmanifest宣言
 
 ### 直近の実装内容
-- 本番環境をVercel（Supabase）からNAS Docker運用へ全面移行（Dockerfile整備、/api/health公開、Supabaseエクスポータ作成、実行時データをファイル形式へ移行）
-- 移行に伴いkeep-alive・vercel.jsonなど旧Vercel関連の設定を削除し、CLAUDE.mdをNAS本番のデプロイ手順・データマウント構成に合わせて全面更新
-- Docker除外対象からImage/を外し、@imageエイリアスでのimportが正しく動くよう修正
-- ローカル開発ポートをポート台帳との競合解消のため3300から3500へ変更
-- 出力コンテンツとしてエピソード64「GoogleマップとAppleマップを10項目でガチ比較」を追加
+- NAS本番Docker移行の仕上げ: バックアップ用unit2本とbackup.shをリポに収容しmanifest宣言（2026-09-06）
+- Vercel卒業の掃除（keep-alive・vercel.json削除、docsをNAS本番へ全面更新）とデプロイ手順・データマウント構成のCLAUDE.md追記（2026-09-04）
+- Docker移行の下準備（Dockerfile・/api/health公開・Supabaseエクスポータ）、Vercel本番（Supabase）データのファイル形式への移行（2026-09-04）
+- Image/ をDocker除外対象から外す修正（@imageエイリアスでアプリがimportするため）（2026-09-04）
+- ローカル開発ポートを3300から3500へ変更（ポート台帳の競合解消）（2026-09-04）
+- 企画書のAI相談をセクション別の担当AIに分離し反映確認ダイアログを追加（2026-08-13）
+- エピソード64の出力追加、台本系AIモデル既定の変更（claude-opus-4-8）とtitle-studio既定変更（claude-sonnet-5）、共有APIキーの1Password一本化（2026-08-26）
 
 ### 進行中・未完了
 なし
