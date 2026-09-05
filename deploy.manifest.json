@@ -1,0 +1,24 @@
+{
+  "repo": "ScriptStudio",
+  "host": "nas",
+  "_why": "NASで稼働するバックアップ経路（unit＋実行本体）の正をリポに置く。2026-09-06に孤児（リポに無い稼働物）から収容",
+  "artifacts": [
+    {
+      "src": "deploy/systemd/scriptstudio-backup.service",
+      "dest": "~/.config/systemd/user/scriptstudio-backup.service",
+      "note": "データ日次バックアップ（data/・env・compose を backups/ へ）。unitの正はリポ側",
+      "title": "ScriptStudioバックアップ"
+    },
+    {
+      "src": "deploy/systemd/scriptstudio-backup.timer",
+      "dest": "~/.config/systemd/user/scriptstudio-backup.timer",
+      "note": "毎日03:45 JST（lens 03:00・myna 03:30 と重ねない）"
+    },
+    {
+      "src": "deploy/backup.sh",
+      "dest": "/volume1/docker/scriptstudio/backup.sh",
+      "mode": "755",
+      "note": "scriptstudio-backup.service の実行本体"
+    }
+  ]
+}

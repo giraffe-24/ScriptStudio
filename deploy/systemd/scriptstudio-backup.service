@@ -1,0 +1,10 @@
+[Unit]
+Description=ScriptStudio data daily backup (data/ + env + compose to backups/)
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/aiwa/systemd.env
+StandardOutput=append:/volume1/docker/scriptstudio/backups/backup.log
+StandardError=append:/volume1/docker/scriptstudio/backups/backup.log
+ExecStart=/bin/sh /volume1/docker/scriptstudio/backup.sh
+TimeoutStartSec=15min

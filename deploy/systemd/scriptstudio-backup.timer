@@ -1,0 +1,10 @@
+[Unit]
+Description=ScriptStudio daily backup at 03:45 JST
+
+[Timer]
+# lens(03:00)・myna(03:30)と重ねない
+OnCalendar=*-*-* 03:45:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
