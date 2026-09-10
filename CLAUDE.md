@@ -69,17 +69,17 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 
 <!-- AUTO-STATUS:BEGIN このブロックはNASの自動バッチが書き換える。手動編集しない -->
 ## 現在の実装状況（自動更新）
-- 最終更新: 2026-09-05
-- 最終コミット: 2026-09-06 deploy: 孤児のバックアップ経路(unit2本+backup.sh)をリポに収容しmanifest宣言
+- 最終更新: 2026-09-10
+- 最終コミット: 2026-09-10 dev起動時の1Password認証を廃止し .env.local 同期方式へ
 
 ### 直近の実装内容
-- NAS本番Docker移行の仕上げ: バックアップ用unit2本とbackup.shをリポに収容しmanifest宣言（2026-09-06）
-- Vercel卒業の掃除（keep-alive・vercel.json削除、docsをNAS本番へ全面更新）とデプロイ手順・データマウント構成のCLAUDE.md追記（2026-09-04）
-- Docker移行の下準備（Dockerfile・/api/health公開・Supabaseエクスポータ）、Vercel本番（Supabase）データのファイル形式への移行（2026-09-04）
-- Image/ をDocker除外対象から外す修正（@imageエイリアスでアプリがimportするため）（2026-09-04）
-- ローカル開発ポートを3300から3500へ変更（ポート台帳の競合解消）（2026-09-04）
-- 企画書のAI相談をセクション別の担当AIに分離し反映確認ダイアログを追加（2026-08-13）
-- エピソード64の出力追加、台本系AIモデル既定の変更（claude-opus-4-8）とtitle-studio既定変更（claude-sonnet-5）、共有APIキーの1Password一本化（2026-08-26）
+- dev起動時の1Password認証（op run）を廃止し、.env.local 同期方式へ切り替え
+- NASの孤児化していたバックアップ経路（systemdユニット2本＋backup.sh）をリポジトリに収容し、manifestへ宣言
+- Vercel卒業に伴う掃除（keep-alive・vercel.json削除）と、ドキュメントをNAS本番構成へ全面更新
+- CLAUDE.mdにNAS本番のデプロイ手順とデータマウント構成を追記
+- Dockerビルドで Image/ を除外対象から除外（@image エイリアスでアプリがimportするため）
+- Vercel本番（Supabase）の実行時データをファイル形式へ移行し、NAS移行の下準備（Dockerfile・/api/health公開・Supabaseエクスポータ）を実施
+- ローカル開発ポートを3300から3500へ変更（ローカルポート台帳との競合解消）
 
 ### 進行中・未完了
 なし
