@@ -44,3 +44,4 @@ skills-lock.json
 .script-history/
 # ローカル企画書履歴（同上）
 .plan-history/
+.env*.bak*

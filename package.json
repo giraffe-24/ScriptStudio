@@ -5,7 +5,8 @@
   "packageManager": "pnpm@11.5.2",
   "scripts": {
     "studio": "node scripts/dev-studio.mjs",
-    "dev": "op run --env-file=.env.op -- npm run dev:plain",
+    "dev": "npm run dev:plain",
+    "env:sync": "node scripts/sync-env.mjs",
     "dev:plain": "node scripts/dev-studio.mjs",
     "clean": "rm -rf .next",
     "dev:clean": "rm -rf .next && node scripts/dev-studio.mjs",
