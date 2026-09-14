@@ -230,7 +230,7 @@ function buildHtmlPage({ title, articleHtml, sourcePath }) {
 ${articleHtml}
   </article>
   <footer class="doc-footer">
-    効率化オタクのあらきり · ScriptStudio · npm run script-doc で再生成
+    楽するデジタル塾【あらきり】 · ScriptStudio · npm run script-doc で再生成
   </footer>
 </body>
 </html>

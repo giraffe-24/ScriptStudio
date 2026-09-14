@@ -126,7 +126,7 @@ export async function collectLastResortYouTube(): Promise<YouTubeVideo[]> {
   const recent = await fetchChannelRecentVideos(channelId, apiKey, 12);
   return recent.map((video) => ({
     title: video.title,
-    channelTitle: "効率化オタクのあらきり",
+    channelTitle: "楽するデジタル塾【あらきり】",
     url: video.url,
     viewCount: video.viewCount,
     publishedAt: video.publishedAt,

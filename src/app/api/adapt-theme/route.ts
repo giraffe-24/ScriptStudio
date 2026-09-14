@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         { ...searchResult, youtube },
         `${referenceSummary ? `${referenceSummary}\n\n` : ""}入力テーマ：「${theme}」
 
-上記を踏まえ、入力テーマを「効率化オタクのあらきり」チャンネル向けに改変した候補を 6〜10 件出してください。
+上記を踏まえ、入力テーマを「楽するデジタル塾【あらきり】」チャンネル向けに改変した候補を 6〜10 件出してください。
 - 視聴者（40〜60代、ITリテラシー初〜中級）の言葉で表現
 - YouTube を第一指標とし、元テーマのエッセンスは残して多様化
 - reason には参照した YouTube 動画タイトルを必ず 1 件以上含める${referenceUrls.length > 0 ? "\n- 参考動画（ユーザー指定）の方向性から外れた候補は出さない" : ""}

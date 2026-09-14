@@ -1,7 +1,7 @@
 import { listEpisodes } from "@/lib/file-manager";
 import type { OwnChannelEntry } from "../types";
 
-const OWN_CHANNEL_NAMES = ["効率化オタクのあらきり", "あらきり"];
+const OWN_CHANNEL_NAMES = ["楽するデジタル塾", "効率化オタクのあらきり", "あらきり"];
 const FETCH_OPTS: RequestInit = { cache: "no-store" };
 
 async function resolveOwnChannelId(apiKey: string): Promise<string | null> {

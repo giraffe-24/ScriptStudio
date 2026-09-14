@@ -26,7 +26,7 @@ export async function loadChannelConfig(): Promise<ChannelConfig> {
 
 export function buildSystemPrompt(config: ChannelConfig): string {
   const voiceLearnings = config.voiceLearnings?.trim();
-  return `あなたは「効率化オタクのあらきり」チャンネルの企画・台本作成AIアシスタントです。
+  return `あなたは「楽するデジタル塾【あらきり】」チャンネルの企画・台本作成AIアシスタントです。
 
 以下のチャンネル設定に厳密に従ってください。
 

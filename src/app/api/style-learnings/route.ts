@@ -28,7 +28,7 @@ function buildLearnPrompt(input: {
   stats: { added: number; removed: number };
   diffExcerpt: string;
 }): string {
-  return `あなたは YouTube チャンネル「効率化オタクのあらきり」の文体キャリブレーション担当です。
+  return `あなたは YouTube チャンネル「楽するデジタル塾【あらきり】」の文体キャリブレーション担当です。
 AI が書いた台本（元原稿）と、本人が手直しした確定稿の差分を分析し、
 今後 AI が台本を書く・修正するときに参照する「あらきりらしさメモ」を更新してください。
 

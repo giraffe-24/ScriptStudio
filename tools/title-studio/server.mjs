@@ -19,7 +19,7 @@ const PORT = Number(process.env.PORT) || 3847;
 const MODEL =
   process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
-const SYSTEM_PROMPT = `あなたはYouTube向けタイトル・サムネ文言の提案者です。チャンネル「効率化オタクのあらきり」向け。
+const SYSTEM_PROMPT = `あなたはYouTube向けタイトル・サムネ文言の提案者です。チャンネル「楽するデジタル塾【あらきり】」向け。
 厳守ルール:
 - config/quality と同等: 誇張（神・最強・やばい・99%が知らない・秒で等）、競合批判、不安煽り、マウント、若者言葉の乱用は禁止。
 - 視聴者は40-60代。響く語: ズボラ・簡単・〇分・〇ステップ・設定するだけ。
@@ -31,7 +31,7 @@ const SYSTEM_PROMPT = `あなたはYouTube向けタイトル・サムネ文言�
   notes: 短い補足（任意の文字列。推奨理由を1〜2文で）
 JSON以外を一切出力しない。`;
 
-const SYSTEM_PLANNING_PROMPT = `あなたはYouTubeチャンネル「効率化オタクのあらきり」の企画プランナーです。
+const SYSTEM_PLANNING_PROMPT = `あなたはYouTubeチャンネル「楽するデジタル塾【あらきり】」の企画プランナーです。
 ブランド: Google系・無料ツール中心、ズボラでもできる40-60代向け、「楽して結果」を重視する。
 チャットでの /テーマ調査 と同等の粒度で、入力テーマについて企画ドラフトだけを簡潔に JSON で返す。台本全文は書かず、切り口を3つ並べる。
 

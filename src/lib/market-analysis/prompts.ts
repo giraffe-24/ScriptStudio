@@ -80,7 +80,7 @@ ${data.officialSummary}
 ${data.competitorSummary}
 ${data.ownChannelSummary}
 
-チャンネル「効率化オタクのあらきり」の視聴者（40〜60代、IT初〜中級、Google系・無料ツール好き）向けに、
+チャンネル「楽するデジタル塾【あらきり】」の視聴者（40〜60代、IT初〜中級、Google系・無料ツール好き）向けに、
 需要は YouTube で裏付けつつ、あらきりの切り口で勝てる候補を 6〜10 件提案してください。
 
 以下の JSON 配列のみで回答:
