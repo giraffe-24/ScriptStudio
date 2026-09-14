@@ -22,7 +22,7 @@ outputs/
 
 | 項目 | ルール |
 |------|--------|
-| フォルダ | `{NN}-{slug}` — `NN` は投稿管理番号（2桁）、`slug` は英小文字・ハイフン |
+| フォルダ | `{NN}-{slug}` — `NN` は投稿管理番号（2〜3桁）、`slug` は英小文字・ハイフン |
 | ファイル | フォルダ内では番号を再掲しない。役割プレフィックスのみ（`00-`, `01-`, ...） |
 | 任意成果物 | `04-review.md`, `05-titles.md`, HTML（script-doc 生成）などは必要時のみ |
 
@@ -35,7 +35,7 @@ outputs/
   "id": "NN",
   "slug": "slug-here",
   "title": "タイトル",
-  "status": "draft",
+  "status": "planning",
   "panes": [
     { "id": "pane1", "label": "ラベル", "path": "01-script-draft.md" }
   ]
@@ -43,7 +43,7 @@ outputs/
 ```
 
 - ファイルが存在しないペインは `"path": null` にする（UI側で「未作成」表示）。
-- `status` は `draft` / `review` / `done` のいずれか。
+- `status` は `considering` / `planning` / `scripting` / `done` のいずれか（正= `src/lib/episode-status.ts`）。
 
 ## 禁止事項
 
