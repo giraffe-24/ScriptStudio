@@ -2,7 +2,7 @@
   "id": "104",
   "slug": "google-photo",
   "title": "Googleフォトがグチャグチャな人へ｜ルール3つで一生スッキリの写真整理術",
-  "status": "planning",
+  "status": "scripting",
   "theme_pattern": "market",
   "created_at": "2026-09-14",
   "hook": "歴代1位（カレンダー活用25,915回）・2位（ドライブ整理術14,759回）と同じ「Google定番×整理×ズボラ×数字の約束」型で、未出の写真整理を狙う。",
@@ -17,7 +17,7 @@
     {
       "id": "pane2",
       "label": "台本",
-      "path": null
+      "path": "01-script-draft.md"
     }
   ]
 }
