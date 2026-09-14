@@ -14,6 +14,7 @@
     "start": "next start -p 3500",
     "lint": "eslint",
     "market-research": "npx tsx scripts/market-research.ts",
+    "analyze-channel": "node scripts/analyze-channel.mjs",
     "title-studio": "node tools/title-studio/server.mjs",
     "script-doc": "node tools/script-to-doc/export-doc.mjs"
   },
