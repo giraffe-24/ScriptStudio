@@ -2,7 +2,7 @@
   "id": "105",
   "slug": "google-photo-storage",
   "title": "Googleフォトの容量を減らす（仮）",
-  "status": "planning",
+  "status": "scripting",
   "theme_pattern": "market",
   "created_at": "2026-09-18",
   "hook": "EP104「Googleフォトは検索で探す」から容量削減を分割した続編。隣接テーマ「スマホ容量パンパン」2,098回の実績があり、「空き容量がありません」の警告は常時需要。",
