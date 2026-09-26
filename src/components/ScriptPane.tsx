@@ -9,8 +9,6 @@ import {
 } from "./ScriptEditor";
 import { SnapshotCommitModal, type CommitDoc } from "./SnapshotCommitModal";
 import { HistoryModal } from "./HistoryModal";
-import { GitHistoryModal } from "./GitHistoryModal";
-import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
 import { useReadOnly } from "@/lib/useViewerRole";
 import { DEMO_AI_NOTICE, buildDemoScript, demoDelay } from "@/lib/demo-simulation";
 import { toUserMessage } from "@/lib/error-message";
@@ -215,8 +213,6 @@ export function ScriptPane({
   // 既存台本の読込完了時またはデモ生成開始時にセットされる。null = 未確定）
   const [demoBaseline, setDemoBaseline] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [gitHistoryOpen, setGitHistoryOpen] = useState(false);
-  const gitMirrorConfigured = useGitMirrorStatus();
   // 統合保存モーダルに渡す保存対象（開くたびに未保存の doc だけを組み立てる）
   const [commitDocs, setCommitDocs] = useState<CommitDoc[]>([]);
   const latestScriptRef = useRef<string>("");
@@ -1317,7 +1313,6 @@ export function ScriptPane({
   }
   // 統合履歴（企画書＋台本）は台本生成前でも企画書の履歴を見られるよう generated を条件にしない
   const showHistory = versionsEnabled && Boolean(episodeNumber) && Boolean(episodeSlug);
-  const showGitHistory = generated && gitMirrorConfigured && Boolean(episodeNumber) && Boolean(episodeSlug);
   const showManualSync = !viewerReadOnly && generated && showOutlineNotice && !loading;
 
   return (
@@ -1354,17 +1349,6 @@ export function ScriptPane({
               title="企画書・台本の変更履歴をまとめて見る・以前の版に戻す"
             >
               履歴
-            </button>
-          )}
-          {showGitHistory && (
-            <button
-              type="button"
-              onClick={() => setGitHistoryOpen(true)}
-              disabled={loading}
-              className={scriptBtnSecondary}
-              title="Git に記録された過去の版を確認・復元"
-            >
-              Git履歴
             </button>
           )}
           {showManualSync && (
@@ -1444,17 +1428,6 @@ export function ScriptPane({
             title="企画書・台本の変更履歴をまとめて見る・以前の版に戻す"
           >
             履歴
-          </button>
-        )}
-        {showGitHistory && (
-          <button
-            type="button"
-            onClick={() => setGitHistoryOpen(true)}
-            disabled={loading}
-            className={`${scriptBtnSecondary} shrink-0 whitespace-nowrap`}
-            title="Git に記録された過去の版を確認・復元"
-          >
-            Git履歴
           </button>
         )}
         {scriptMeta && generated && (
@@ -1601,15 +1574,6 @@ export function ScriptPane({
                 onRestore: handleRestoreSnapshot,
               },
             ]}
-          />
-          <GitHistoryModal
-            open={gitHistoryOpen}
-            onOpenChange={setGitHistoryOpen}
-            episodeNumber={episodeNumber}
-            episodeSlug={episodeSlug}
-            filename="01-script-draft.md"
-            label="台本"
-            onRestore={handleRestoreSnapshot}
           />
         </>
       )}

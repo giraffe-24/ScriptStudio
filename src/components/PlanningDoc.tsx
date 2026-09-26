@@ -7,9 +7,7 @@ import type { ChatMessage, EpisodePlan, PlanDirection, ThemeCandidate } from "@/
 import { ChatApplyDialog, type ApplyDecision } from "./ChatApplyDialog";
 import { ChatPane } from "./ChatPane";
 import { DirectionPhase } from "./DirectionPhase";
-import { GitHistoryModal } from "./GitHistoryModal";
 import { sanitizePlanOutline, normalizeSectionNameStructure } from "@/lib/plan-outline";
-import { useGitMirrorStatus } from "@/lib/useGitMirrorStatus";
 import { useReadOnly } from "@/lib/useViewerRole";
 import { buildDemoPlan, demoDelay } from "@/lib/demo-simulation";
 import { DemoAiNotice } from "@/components/DemoAiNotice";
@@ -92,11 +90,9 @@ export function PlanningDoc({
     text: string;
     resolve: (applied: boolean) => void;
   } | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
   // 番号は確定（blur / Enter）まで親に流さない。編集中に空にできるようローカル draft を持つ
   // （即時反映だと入力途中の中間値でフォルダリネームが走り、空文字は即座に元の値へ戻ってしまう）。
   const [numberDraft, setNumberDraft] = useState<string | null>(null);
-  const gitConfigured = useGitMirrorStatus();
   // チャット開閉を親へ通知（コールバックの再生成で effect が空発火しないよう ref 経由）
   const onChatOpenChangeRef = useRef(onChatOpenChange);
   useEffect(() => {
@@ -503,16 +499,6 @@ export function PlanningDoc({
                 「追加」は台本を生成せず、企画のまま一覧に保存します
               </p>
             )}
-            {episodeNumber != null && !!episodeSlug && gitConfigured && onPlanChange && (
-              <Button
-                onClick={() => setHistoryOpen(true)}
-                variant="ghost"
-                size="sm"
-                className="w-full text-gray-500"
-              >
-                🕘 企画の変更履歴（Git）
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -560,28 +546,6 @@ export function PlanningDoc({
           onCancel={() => {
             applyRequest.resolve(false);
             setApplyRequest(null);
-          }}
-        />
-      )}
-
-      {episodeNumber != null && !!episodeSlug && (
-        <GitHistoryModal
-          open={historyOpen}
-          onOpenChange={setHistoryOpen}
-          episodeNumber={episodeNumber}
-          episodeSlug={episodeSlug}
-          filename="plan.json"
-          label="企画書"
-          onRestore={async (content) => {
-            let parsed: EpisodePlan;
-            try {
-              parsed = JSON.parse(content) as EpisodePlan;
-            } catch {
-              throw new Error("保存された企画データを読み込めませんでした");
-            }
-            const restored = sanitizePlanOutline(parsed) ?? parsed;
-            onPlanChange?.(restored);
-            onTitleChange?.(restored.episodeTitle);
           }}
         />
       )}

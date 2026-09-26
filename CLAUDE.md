@@ -10,7 +10,7 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 - フレームワーク: Next.js 16.2.6（React 19.2.4）、TypeScript 5
 - スタイリング: Tailwind CSS 4、class-variance-authority、tailwind-merge、@base-ui/react
 - AI: @anthropic-ai/sdk（Claude API）
-- DB/永続化: ファイルベース一本（`outputs/` `.plan-history/` `.script-history/` `config/voice-learnings.md`）。外部DB・外部ストレージは使わない（Supabase連携は2026-09-26に撤去済み）
+- DB/永続化: ファイルベース一本（`outputs/` `.plan-history/` `.script-history/` `config/voice-learnings.md`）。外部DB・外部ストレージは使わない（Supabase連携・GitHubミラーはいずれも2026-09-26に撤去済み）
 - その他ライブラリ: lucide-react、diff
 - パッケージ管理: pnpm（`packageManager: pnpm@11.5.2`。README上のコマンド例はnpm表記）
 - Lint: ESLint 9（eslint-config-next）

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { isGitMirrorConfigured } from "@/lib/git-mirror";
 
 /**
  * 保存先（永続化バックエンド）の健全性診断。
@@ -18,7 +17,6 @@ export async function GET() {
       persistence: {
         backend: "local-filesystem",
       },
-      mirror: { configured: isGitMirrorConfigured() },
     },
     { status: 200 },
   );
