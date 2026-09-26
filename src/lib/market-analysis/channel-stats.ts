@@ -84,7 +84,7 @@ export async function buildChannelSubscriberStats(
   }
 
   try {
-    // Vercel などの read-only filesystem でも、統計とアイコン表示自体は返せるようにする。
+    // 保存先が書き込めない環境でも、統計とアイコン表示自体は返せるようにする。
     await recordSubscriberSnapshots(toRecord);
   } catch (error) {
     console.warn("[channel-stats] snapshot persistence skipped:", error);

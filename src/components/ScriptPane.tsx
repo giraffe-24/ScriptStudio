@@ -842,7 +842,7 @@ export function ScriptPane({
       if (!full.trim() || looksLikeHtmlErrorPage(full)) {
         setGenAlert({
           message:
-            "台本生成中にサーバーエラーが発生しました。Vercel の ANTHROPIC_API_KEY 設定と Redeploy を確認してください。",
+            "台本生成中にサーバーエラーが発生しました。サーバーの ANTHROPIC_API_KEY 設定を確認してください。",
           tone: "error",
           retry: () => void runFullGeneration(options),
         });

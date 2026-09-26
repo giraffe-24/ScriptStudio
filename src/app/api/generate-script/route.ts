@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "ANTHROPIC_API_KEY が未設定です。Vercel の Environment Variables を確認してください。",
+            "ANTHROPIC_API_KEY が未設定です。サーバーの環境変数を確認してください。",
         },
         { status: 503 },
       );

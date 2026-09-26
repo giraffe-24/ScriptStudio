@@ -41,11 +41,6 @@ const PATTERNS: { test: RegExp; message: string }[] = [
       "ほかの人が先に更新したようです。最新の内容を確認してから、もう一度保存してください。",
   },
   {
-    test: /github|mirror|contents\/|git\/ref|per_page/i,
-    message:
-      "履歴の保存先に接続できませんでした。少し時間をおいて、もう一度お試しください。",
-  },
-  {
     test: /invalid json|unexpected token|json/i,
     message:
       "データの読み込みに失敗しました。画面を再読み込みして、もう一度お試しください。",

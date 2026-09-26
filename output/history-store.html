@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
   <meta name="googlebot" content="noindex, nofollow">
   <meta property="og:title" content="台本・企画書の「履歴」を残す仕組み ｜ ScriptStudio スナップショット保存基盤">
-  <meta property="og:description" content="ScriptStudio で「記録・履歴・この版に戻す」を支える保存基盤。何を保存し（スナップショット）、どこに置き（Supabase＝クラウドDB）、どう壊れないようにしたか（キープアライブ・保存先診断・要約フォールバック）を図解でまとめる。">
+  <meta property="og:description" content="ScriptStudio で「記録・履歴・この版に戻す」を支える保存基盤。何を保存し（スナップショット）、どこに置き（自前サーバーのファイル）、どう壊れないようにしたか（保存先診断・要約フォールバック・日次バックアップ）を図解でまとめる。">
   <meta property="og:type" content="article">
   <title>ScriptStudioの図解</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23ffffff'/><rect x='8' y='8' width='84' height='84' rx='12' fill='none' stroke='%23000' stroke-width='4'/><rect x='20' y='55' width='60' height='12' rx='2' fill='%23c9fe6e'/></svg>">
@@ -1230,7 +1230,7 @@
           <span class="giz-label">WHERE ／ どこに</span>
         </div>
         <p class="mt-2 font-jp text-sm font-bold text-giz-ink">どこに置く？</p>
-        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">Supabase（クラウド DB）に、全文スナップショットを1件ずつ貯める。</p>
+        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">自前サーバー（NAS）のファイルに、全文スナップショットを1件ずつ貯める。</p>
       </div>
       <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
         <div class="flex items-center gap-2 text-giz-orange">
@@ -1238,7 +1238,7 @@
           <span class="giz-label">HOW ／ どう守る</span>
         </div>
         <p class="mt-2 font-jp text-sm font-bold text-giz-ink">どう壊れないように？</p>
-        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">キープアライブ・保存先診断・要約フォールバックで「通信に失敗」を潰す。</p>
+        <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">保存先診断・要約フォールバック・日次バックアップで「保存が飛ぶ」を潰す。</p>
       </div>
     </div>
 
@@ -1522,23 +1522,23 @@
   <p class="giz-label text-giz-gray">SECTION 3</p>
   <h2 class="mt-1 text-2xl">保存先と、それを選んだ理由</h2>
   <p class="mt-3 font-jp text-giz-ink leading-relaxed">
-    履歴は <strong class="text-giz-forest">Supabase（クラウド DB）</strong> に一元保存する。なぜファイルではなく外部 DB なのか、そして実際に<strong>どんな形でデータを持っているか</strong>を見ていく。
+    履歴は <strong class="text-giz-forest">自前サーバー（NAS）のファイル</strong> に保存する。はじめはクラウド DB に置いていたが、2026年9月にサーバーを自前へ移してファイル一本にした。なぜ保存先が変わったのか、そして実際に<strong>どんな形でデータを持っているか</strong>を見ていく。
   </p>
 
   <!-- 保存先の A/B 比較（結論） -->
-  <h3 class="mt-7 font-jp text-base font-bold text-giz-ink">保存先の選択肢を比べた結果</h3>
+  <h3 class="mt-7 font-jp text-base font-bold text-giz-ink">保存先が変わった理由</h3>
   <div class="mt-3 grid gap-3 sm:grid-cols-2">
     <div class="rounded-xl border border-giz-gray-mid bg-white p-4">
       <p class="giz-label text-giz-coral">A</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Vercel のファイルに保存</p>
-      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-coral"><i class="fa-solid fa-xmark w-4" aria-hidden="true"></i>不採用</p>
-      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">サーバーレスで揮発し、書いても消える。</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">クラウド DB に保存</p>
+      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-coral"><i class="fa-solid fa-xmark w-4" aria-hidden="true"></i>2026年9月に廃止</p>
+      <p class="mt-1 font-jp text-xs text-giz-gray leading-relaxed">借りていたサーバーはファイルが消えるため、履歴だけ外部の DB へ逃がしていた。</p>
     </div>
     <div class="rounded-xl border-2 border-giz-sea bg-giz-mist/40 p-4">
       <p class="giz-label text-giz-sea">B</p>
-      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase（Postgres）</p>
-      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-sea"><i class="fa-solid fa-circle-check w-4" aria-hidden="true"></i>採用</p>
-      <p class="mt-1 font-jp text-xs text-giz-mist-ink leading-relaxed">永続化できる。無料枠の7日休止は、1日1回の自動アクセス（キープアライブ）で予防。</p>
+      <p class="mt-1 font-jp text-sm font-bold text-giz-ink">自前サーバー（NAS）のファイル</p>
+      <p class="mt-2 flex items-center gap-1.5 font-jp text-sm text-giz-sea"><i class="fa-solid fa-circle-check w-4" aria-hidden="true"></i>現在の保存先</p>
+      <p class="mt-1 font-jp text-xs text-giz-mist-ink leading-relaxed">自分のディスクなので、書いたものはそのまま残る。外部 DB も休止よけの自動アクセスも要らない。</p>
     </div>
   </div>
 
@@ -1559,9 +1559,9 @@
       </div>
       <i class="fa-solid fa-chevron-right hidden md:block w-4 text-giz-gray-mid mx-auto" aria-hidden="true"></i>
       <div class="flex-1 rounded-xl border border-giz-sea bg-white px-3 py-3 text-center">
-        <i class="fa-solid fa-database w-6 text-giz-sea" aria-hidden="true"></i>
-        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">Supabase に1件追加</p>
-        <p class="mt-0.5 font-jp text-xs text-giz-gray">クラウド DB に保存</p>
+        <i class="fa-solid fa-hard-drive w-6 text-giz-sea" aria-hidden="true"></i>
+        <p class="mt-1 font-jp text-sm font-bold text-giz-ink">ファイルに1件追加</p>
+        <p class="mt-0.5 font-jp text-xs text-giz-gray">NAS のディスクに保存</p>
       </div>
     </div>
     <p class="mt-4 font-jp text-xs text-giz-mist-ink leading-relaxed">
@@ -1573,16 +1573,16 @@
   <div class="mt-6 grid gap-4 md:grid-cols-2">
     <div class="rounded-2xl border border-giz-sea bg-white p-5">
       <div class="flex items-center gap-2 text-giz-sea">
-        <i class="fa-solid fa-cloud w-5" aria-hidden="true"></i>
-        <p class="font-jp text-sm font-bold">Supabase を選んだ理由</p>
+        <i class="fa-solid fa-hard-drive w-5" aria-hidden="true"></i>
+        <p class="font-jp text-sm font-bold">ファイル保存にした理由</p>
       </div>
       <p class="mt-3 font-jp text-sm text-giz-gray leading-relaxed">
-        ファイルに書いても消えてしまうので、履歴は<strong class="text-giz-ink">確実に残るクラウド DB</strong> に置く。なかでも Supabase は——
+        サーバーを自前に移して、<strong class="text-giz-ink">書いたファイルがそのまま残る</strong>ようになった。外部の DB を挟む理由がなくなり——
       </p>
       <ul class="mt-3 space-y-1.5 font-jp text-sm text-giz-ink">
-        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>無料で始められる</li>
-        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>面倒なサーバー管理はおまかせできる</li>
-        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>アプリから直接読み書きできる</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>外部サービスの契約も料金もいらない</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>履歴はエピソードごとの1ファイルなので、そのまま開いて読める</li>
+        <li class="flex gap-2"><i class="fa-solid fa-circle-check w-3.5 mt-1 text-giz-sea" aria-hidden="true"></i>毎日の自動バックアップにまとめて乗る</li>
       </ul>
     </div>
     <div class="rounded-2xl border border-giz-forest bg-white p-5">
@@ -1695,8 +1695,8 @@
             <p class="mt-1 font-jp text-xs text-giz-ink leading-relaxed"><span class="mr-1 font-bold text-giz-forest">→</span>台本が長すぎて、AI が一度に読める量を超えました。直したい範囲だけ選んでお試しください</p>
           </div>
           <div class="rounded-lg border border-giz-gray-mid bg-giz-surface px-4 py-3">
-            <p class="font-mono text-[11px] text-giz-gray">401 Unauthorized: Invalid API key</p>
-            <p class="mt-1 font-jp text-xs text-giz-ink leading-relaxed"><span class="mr-1 font-bold text-giz-forest">→</span>保存先のカギ（API キー）の設定が違うようです。設定画面でキーを確認してください</p>
+            <p class="font-mono text-[11px] text-giz-gray">409 Conflict</p>
+            <p class="mt-1 font-jp text-xs text-giz-ink leading-relaxed"><span class="mr-1 font-bold text-giz-forest">→</span>ほかの人が先に更新したようです。最新の内容を確認してから、もう一度保存してください</p>
           </div>
         </div>
 
@@ -1987,10 +1987,10 @@
 
       <p class="giz-footer-label">もっと詳しく知る（公式・信頼できる情報）</p>
       <div class="giz-footer-topic-grid">
-        <a class="giz-footer-topic-btn" href="https://supabase.com/docs/guides/database/overview" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Supabase Database Docs</a>
-        <a class="giz-footer-topic-btn" href="https://supabase.com/docs/guides/platform/manage-your-usage/compute" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Supabase 無料枠と一時停止</a>
-        <a class="giz-footer-topic-btn" href="https://vercel.com/docs/cron-jobs" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Vercel Cron Jobs</a>
-        <a class="giz-footer-topic-btn" href="https://vercel.com/docs/functions/runtimes#file-system-support" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Vercel 関数のファイルシステム</a>
+        <a class="giz-footer-topic-btn" href="https://nodejs.org/api/fs.html" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Node.js ファイル操作 API</a>
+        <a class="giz-footer-topic-btn" href="https://docs.docker.com/engine/storage/volumes/" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Docker ボリューム（データを残す）</a>
+        <a class="giz-footer-topic-btn" href="https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>systemd タイマー（定期バックアップ）</a>
+        <a class="giz-footer-topic-btn" href="https://caddyserver.com/docs/quick-starts/reverse-proxy" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Caddy リバースプロキシ</a>
         <a class="giz-footer-topic-btn" href="https://nextjs.org/docs/app/building-your-application/routing/route-handlers" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Next.js Route Handlers</a>
         <a class="giz-footer-topic-btn" href="https://docs.anthropic.com/en/docs/build-with-claude/overview" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Anthropic Claude Docs</a>
       </div>
