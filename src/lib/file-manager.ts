@@ -12,11 +12,6 @@ import {
   writeEpisodeText,
   type EpisodeStorageBase,
 } from "./episode-files-store";
-import {
-  readPersistedScriptMeta,
-  writePersistedScriptMeta,
-  type PersistedScriptMeta,
-} from "./script-meta-store";
 import { getStudioUserName } from "./studio-user";
 import {
   episodeDirName,
@@ -77,7 +72,12 @@ function resolveEpisodeIdentity(number: number, slug: string): EpisodeIdentity {
   };
 }
 
-export type ScriptMeta = PersistedScriptMeta;
+export type ScriptMeta = {
+  updatedAt: string;
+  updatedBy: string;
+  planFingerprint?: string;
+  recordedPlanFingerprint?: string;
+};
 
 async function readManifestAtDir(dirPath: string): Promise<Record<string, unknown>> {
   const { base, dirName } = resolveStoreLocation(dirPath);
@@ -136,12 +136,6 @@ async function writeScriptMetaBestEffort(dirPath: string, meta: ScriptMeta): Pro
 }
 
 async function readCurrentScriptMeta(number: number, slug: string): Promise<ScriptMeta | null> {
-  try {
-    const persisted = await readPersistedScriptMeta(number, slug);
-    if (persisted) return persisted;
-  } catch (error) {
-    console.warn("[file-manager] failed to read persisted script meta:", error);
-  }
   const identity = resolveEpisodeIdentity(number, slug);
   const dirPath = episodeDirPath(OUTPUTS_DIR, identity);
   return readManifestScriptMeta(dirPath);
@@ -212,7 +206,6 @@ export async function syncScriptRecordBaseline(
     planFingerprint,
     recordedPlanFingerprint: planFingerprint,
   };
-  await writePersistedScriptMeta(number, slug, meta);
   await writeScriptMetaBestEffort(dirPath, meta);
   return meta;
 }
@@ -240,7 +233,6 @@ export async function updateScriptMeta(
     planFingerprint: options.planFingerprint ?? current?.planFingerprint,
     recordedPlanFingerprint: current?.recordedPlanFingerprint,
   };
-  await writePersistedScriptMeta(number, slug, meta);
   await writeScriptMetaBestEffort(dirPath, meta);
   return meta;
 }

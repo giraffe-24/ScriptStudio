@@ -3,6 +3,12 @@
 社内向けYouTube台本管理ツール。  
 モックアップ: `docs/prototype/mockup.html`（ブラウザで直接開いて動作確認可能）
 
+> 注記（2026-09-26）: 本書は構想時の設計仕様書。実装は ScriptStudio として進み、保存先は
+> サーバーのファイルシステム（本番は NAS Docker の data/ ボリューム、開発はリポジトリ直下の
+> `outputs/` `.script-history/` `.plan-history/` `config/`）。Supabase と Vercel は
+> 2026-09-26 に廃止した。4 章以降に残る Supabase 前提のデータモデル・ディレクトリ構成・
+> 実装ステップは、設計時点の記録としてそのまま置いている。
+
 ---
 
 ## 1. 目的・背景
@@ -35,8 +41,8 @@
 | 言語 | TypeScript |
 | スタイリング | Tailwind CSS |
 | UIコンポーネント | shadcn/ui |
-| データベース | Supabase（PostgreSQL） |
-| ファイルストレージ | Supabase Storage（スライドテンプレート画像） |
+| データベース | なし（サーバーのファイルシステムに保存） |
+| ファイルストレージ | サーバーのファイルシステム（`outputs/` 配下） |
 | 差分計算 | npm `diff`（`diffLines`） |
 | AI要約 | Claude API（`@anthropic-ai/sdk`、既存依存） |
 | 配置場所 | `tools/content-studio/`（ローカルサーバー起動、`title-studio` と同方式） |
@@ -152,7 +158,7 @@
       - 日時（自動）
 
 ③ 「記録を確定」ボタン
-   → Supabase に保存
+   → 履歴ファイル（`.script-history/`）に保存
    → 緑インジケーターがリセット
 
 ④ 「前回との比較」トグル ON
@@ -181,7 +187,7 @@
 
 ---
 
-## 6. データモデル（Supabase）
+## 6. データモデル（設計時点の案。現行実装では採用していない）
 
 ```sql
 -- エピソード
@@ -322,8 +328,6 @@ src/
 ## 10. 環境変数
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ANTHROPIC_API_KEY=...          # AI要約用（既存 .env.example に記載済み）
 ```
 

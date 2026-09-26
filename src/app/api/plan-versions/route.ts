@@ -1,12 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSupabaseConfigured, getSupabaseConfigHint } from "@/lib/supabase-server";
-import { shouldUsePersistedRuntimeStore } from "@/lib/runtime-persistence";
-import {
-  createPlanSnapshot,
-  getLatestPlanSnapshot,
-  getPlanSnapshotById,
-  listPlanSnapshots,
-} from "@/lib/plan-versions";
 import {
   createLocalPlanSnapshot,
   getLatestLocalPlanSnapshot,
@@ -20,7 +12,12 @@ import {
   isEpisodeAllowedForReviewer,
   isReviewerRequest,
 } from "@/lib/reviewer-access";
-import type { PlanSnapshot } from "@/lib/plan-versions";
+import type { PlanSnapshot } from "@/lib/plan-versions-local";
+
+/**
+ * 企画書スナップショット履歴の API（台本の script-versions と同じ方針）。
+ * 保存先はサーバーのファイルシステム（.plan-history/）だけで、外部ストアは使わない。
+ */
 
 function reviewerForbidden() {
   return NextResponse.json(
@@ -33,40 +30,16 @@ function maskSnapshot(snapshot: PlanSnapshot): PlanSnapshot {
   return { ...snapshot, authorName: MASKED_AUTHOR };
 }
 
-/**
- * 企画書スナップショット履歴の保存先を判定する（台本の script-versions と同じ方針）。
- * - 本番（Vercel）: ファイルシステムが揮発するため Supabase 必須。
- * - ローカル開発: ファイルベースのローカル履歴（.plan-history/）を使う。
- */
-function versionsEnabled(): boolean {
-  if (shouldUsePersistedRuntimeStore()) return isSupabaseConfigured();
-  return true;
-}
-
-/** Supabase を保存先に使うか（本番かつ設定あり）。false ならローカルファイル。 */
-function remoteStoreEnabled(): boolean {
-  return shouldUsePersistedRuntimeStore() && isSupabaseConfigured();
-}
-
-function notConfigured() {
-  return NextResponse.json(
-    { error: "Supabase が未設定です。SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を設定してください。" },
-    { status: 503 },
-  );
-}
-
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const action = searchParams.get("action");
 
   if (action === "status") {
     return NextResponse.json({
-      configured: versionsEnabled(),
-      hint: getSupabaseConfigHint(),
+      configured: true,
+      hint: null,
     });
   }
-
-  if (!versionsEnabled()) return notConfigured();
 
   const number = Number(searchParams.get("number"));
   const slug = searchParams.get("slug") ?? "";
@@ -80,9 +53,7 @@ export async function GET(req: NextRequest) {
       return reviewerForbidden();
     }
     try {
-      const snapshots = remoteStoreEnabled()
-        ? await listPlanSnapshots(number, slug)
-        : await listLocalPlanSnapshots(number, slug);
+      const snapshots = await listLocalPlanSnapshots(number, slug);
       return NextResponse.json({
         snapshots: reviewer ? snapshots.map(maskSnapshot) : snapshots,
       });
@@ -100,9 +71,7 @@ export async function GET(req: NextRequest) {
       return reviewerForbidden();
     }
     try {
-      const snapshot = remoteStoreEnabled()
-        ? await getLatestPlanSnapshot(number, slug)
-        : await getLatestLocalPlanSnapshot(number, slug);
+      const snapshot = await getLatestLocalPlanSnapshot(number, slug);
       return NextResponse.json({
         snapshot: reviewer && snapshot ? maskSnapshot(snapshot) : snapshot,
       });
@@ -116,9 +85,7 @@ export async function GET(req: NextRequest) {
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     try {
-      const snapshot = remoteStoreEnabled()
-        ? await getPlanSnapshotById(id)
-        : await getLocalPlanSnapshotById(id);
+      const snapshot = await getLocalPlanSnapshotById(id);
       if (!snapshot) return NextResponse.json({ error: "not found" }, { status: 404 });
       if (reviewer && !isEpisodeAllowedForReviewer(snapshot.episodeNumber, snapshot.episodeSlug)) {
         return reviewerForbidden();
@@ -136,8 +103,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!versionsEnabled()) return notConfigured();
-
   let body: {
     episodeNumber?: number;
     episodeSlug?: string;
@@ -165,9 +130,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const snapshot = remoteStoreEnabled()
-      ? await createPlanSnapshot({ episodeNumber, episodeSlug, authorName, summary, content })
-      : await createLocalPlanSnapshot({ episodeNumber, episodeSlug, authorName, summary, content });
+    const snapshot = await createLocalPlanSnapshot({
+      episodeNumber,
+      episodeSlug,
+      authorName,
+      summary,
+      content,
+    });
     return NextResponse.json({ snapshot });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -128,8 +128,8 @@ function formatUpdatedAt(iso: string): string {
   }
 }
 
-// 保存の書き込みは一時的な不達（Supabase 無料枠のコールドスタート／瞬断で
-// サーバー関数の fetch が "fetch failed" になる等）で頻繁に失敗しうる。
+// 保存の書き込みは一時的な不達（サーバーの再起動や瞬断で fetch が
+// "fetch failed" になる等）で失敗しうる。
 // 冪等な上書き書き込みなので、一時的失敗に限り指数バックオフで数回だけ自動再試行し、
 // ユーザーには「本当にダメだったとき」だけエラーを見せる。
 const FILES_WRITE_ATTEMPTS = 3;
@@ -137,7 +137,7 @@ const FILES_WRITE_ATTEMPTS = 3;
 const TRANSIENT_WRITE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 // これらを含む失敗はリトライしても直らない（設定不備・競合・認証・入力不正）ので即諦める。
 const NON_RETRYABLE_WRITE_MESSAGE =
-  /supabase_url|service_role|設定|configured|conflict|409|unauthorized|forbidden|401|403|400/i;
+  /設定|configured|conflict|409|unauthorized|forbidden|401|403|400/i;
 
 async function postEpisodeFileWrite(
   body: string,

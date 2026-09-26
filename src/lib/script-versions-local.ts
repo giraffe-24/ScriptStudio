@@ -2,18 +2,25 @@ import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import type { DiffStats } from "./script-diff";
-import type { ScriptSnapshot } from "./script-versions";
 import { episodeDirName } from "./episode-identity";
 
 /**
- * ローカル開発用の台本スナップショット履歴（ファイルベース）。
+ * 台本スナップショット履歴（ファイルベース）。
  *
- * 本番（Vercel）ではファイルシステムが揮発するため Supabase の
- * `script_snapshots` テーブルを使うが、ローカルでは Supabase に到達できず
- * 保存・履歴が壊れる。そこでローカルでは同じ ScriptSnapshot 形状のまま
- * `<ROOT>/.script-history/<番号>-<slug>.json` に JSON 配列として保存する。
- * これによりローカルでも「保存（記録）」「履歴」「この版に戻す」が動く。
+ * 保存先はサーバーのファイルシステムで、`<ROOT>/.script-history/<番号>-<slug>.json` に
+ * JSON 配列として保存する。これにより「保存（記録）」「履歴」「この版に戻す」が動く。
  */
+
+export type ScriptSnapshot = {
+  id: string;
+  episodeNumber: number;
+  episodeSlug: string;
+  authorName: string;
+  summary: string;
+  content: string;
+  diffStats: DiffStats | null;
+  createdAt: string;
+};
 
 const ROOT = process.cwd();
 const HISTORY_DIR = path.join(ROOT, ".script-history");

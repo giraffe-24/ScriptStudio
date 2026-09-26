@@ -41,11 +41,6 @@ const PATTERNS: { test: RegExp; message: string }[] = [
       "ほかの人が先に更新したようです。最新の内容を確認してから、もう一度保存してください。",
   },
   {
-    test: /supabase|service_role|publishable|sb_secret|sb_publishable/i,
-    message:
-      "保存用の設定が未完了のため、この操作はいま実行できません。管理者にご連絡ください。",
-  },
-  {
     test: /github|mirror|contents\/|git\/ref|per_page/i,
     message:
       "履歴の保存先に接続できませんでした。少し時間をおいて、もう一度お試しください。",

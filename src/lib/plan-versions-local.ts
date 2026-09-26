@@ -1,15 +1,23 @@
 import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import type { PlanSnapshot } from "./plan-versions";
 import { episodeDirName } from "./episode-identity";
 
 /**
- * ローカル開発用の企画書スナップショット履歴（ファイルベース）。
- * 台本の script-versions-local.ts と対称で、本番では Supabase の
- * `plan_snapshots` テーブルを使う。ローカルでは Supabase に到達できなくても
- * 壊れないよう `<ROOT>/.plan-history/<番号>-<slug>.json` に保存する。
+ * 企画書（plan.json）スナップショット履歴（ファイルベース）。
+ * 台本の script-versions-local.ts と対称で、保存先はサーバーのファイルシステム
+ * （`<ROOT>/.plan-history/<番号>-<slug>.json`）。content には企画書の JSON 文字列を入れる。
  */
+
+export type PlanSnapshot = {
+  id: string;
+  episodeNumber: number;
+  episodeSlug: string;
+  authorName: string;
+  summary: string;
+  content: string;
+  createdAt: string;
+};
 
 const ROOT = process.cwd();
 const HISTORY_DIR = path.join(ROOT, ".plan-history");

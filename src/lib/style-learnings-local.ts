@@ -2,12 +2,10 @@ import fs from "fs/promises";
 import path from "path";
 
 /**
- * ローカル開発用の「あらきりらしさメモ」（推敲差分からの文体学習データ）。
+ * 「あらきりらしさメモ」（推敲差分からの文体学習データ）の保存。
  *
- * 本番（Vercel）ではファイルシステムが揮発するため Supabase の
- * `style_learnings` テーブルを使うが、ローカルでは config/voice-learnings.md に
- * Markdown で保存する。config/ に置くことで CLI エージェント（/執筆 など）からも
- * 参照でき、git で変更履歴も追える。
+ * config/voice-learnings.md に Markdown で保存する。config/ に置くことで
+ * CLI エージェント（/執筆 など）からも参照でき、git で変更履歴も追える。
  */
 
 const FILE_PATH = path.join(process.cwd(), "config", "voice-learnings.md");

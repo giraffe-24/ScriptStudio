@@ -1,30 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSupabaseConfigured, getSupabaseConfigHint } from "@/lib/supabase-server";
-import { shouldUsePersistedRuntimeStore } from "@/lib/runtime-persistence";
-
-/**
- * 台本スナップショット履歴の保存先を判定する。
- * - 本番（Vercel）: ファイルシステムが揮発するため Supabase 必須。
- * - ローカル開発: Supabase に到達できなくても壊れないよう、ファイルベースの
- *   ローカル履歴（.script-history/）を使う。これによりローカルでも
- *   「保存（記録）」「履歴」「この版に戻す」が使える。
- */
-function versionsEnabled(): boolean {
-  if (shouldUsePersistedRuntimeStore()) return isSupabaseConfigured();
-  return true;
-}
-
-/** Supabase を保存先に使うか（本番かつ設定あり）。false ならローカルファイル。 */
-function remoteStoreEnabled(): boolean {
-  return shouldUsePersistedRuntimeStore() && isSupabaseConfigured();
-}
 import { syncScriptRecordBaseline } from "@/lib/file-manager";
-import {
-  createScriptSnapshot,
-  getLatestScriptSnapshot,
-  getScriptSnapshotById,
-  listScriptSnapshots,
-} from "@/lib/script-versions";
 import {
   createLocalScriptSnapshot,
   getLatestLocalScriptSnapshot,
@@ -39,7 +14,12 @@ import {
   isEpisodeAllowedForReviewer,
   isReviewerRequest,
 } from "@/lib/reviewer-access";
-import type { ScriptSnapshot } from "@/lib/script-versions";
+import type { ScriptSnapshot } from "@/lib/script-versions-local";
+
+/**
+ * 台本スナップショット履歴の API。
+ * 保存先はサーバーのファイルシステム（.script-history/）だけで、外部ストアは使わない。
+ */
 
 function reviewerForbidden() {
   return NextResponse.json(
@@ -52,25 +32,16 @@ function maskSnapshot(snapshot: ScriptSnapshot): ScriptSnapshot {
   return { ...snapshot, authorName: MASKED_AUTHOR };
 }
 
-function notConfigured() {
-  return NextResponse.json(
-    { error: "Supabase が未設定です。SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を設定してください。" },
-    { status: 503 },
-  );
-}
-
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const action = searchParams.get("action");
 
   if (action === "status") {
     return NextResponse.json({
-      configured: versionsEnabled(),
-      hint: getSupabaseConfigHint(),
+      configured: true,
+      hint: null,
     });
   }
-
-  if (!versionsEnabled()) return notConfigured();
 
   const number = Number(searchParams.get("number"));
   const slug = searchParams.get("slug") ?? "";
@@ -84,9 +55,7 @@ export async function GET(req: NextRequest) {
       return reviewerForbidden();
     }
     try {
-      const snapshots = remoteStoreEnabled()
-        ? await listScriptSnapshots(number, slug)
-        : await listLocalScriptSnapshots(number, slug);
+      const snapshots = await listLocalScriptSnapshots(number, slug);
       return NextResponse.json({
         snapshots: reviewer ? snapshots.map(maskSnapshot) : snapshots,
       });
@@ -104,9 +73,7 @@ export async function GET(req: NextRequest) {
       return reviewerForbidden();
     }
     try {
-      const snapshot = remoteStoreEnabled()
-        ? await getLatestScriptSnapshot(number, slug)
-        : await getLatestLocalScriptSnapshot(number, slug);
+      const snapshot = await getLatestLocalScriptSnapshot(number, slug);
       return NextResponse.json({
         snapshot: reviewer && snapshot ? maskSnapshot(snapshot) : snapshot,
       });
@@ -120,9 +87,7 @@ export async function GET(req: NextRequest) {
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     try {
-      const snapshot = remoteStoreEnabled()
-        ? await getScriptSnapshotById(id)
-        : await getLocalScriptSnapshotById(id);
+      const snapshot = await getLocalScriptSnapshotById(id);
       if (!snapshot) return NextResponse.json({ error: "not found" }, { status: 404 });
       if (reviewer && !isEpisodeAllowedForReviewer(snapshot.episodeNumber, snapshot.episodeSlug)) {
         return reviewerForbidden();
@@ -140,8 +105,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!versionsEnabled()) return notConfigured();
-
   let body: {
     episodeNumber?: number;
     episodeSlug?: string;
@@ -171,23 +134,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const snapshot = remoteStoreEnabled()
-      ? await createScriptSnapshot({
-          episodeNumber,
-          episodeSlug,
-          authorName,
-          summary,
-          content,
-          diffStats: body.diffStats ?? null,
-        })
-      : await createLocalScriptSnapshot({
-          episodeNumber,
-          episodeSlug,
-          authorName,
-          summary,
-          content,
-          diffStats: body.diffStats ?? null,
-        });
+    const snapshot = await createLocalScriptSnapshot({
+      episodeNumber,
+      episodeSlug,
+      authorName,
+      summary,
+      content,
+      diffStats: body.diffStats ?? null,
+    });
     let scriptMeta = null;
     if (body.planFingerprint?.trim()) {
       scriptMeta = await syncScriptRecordBaseline(

@@ -7,15 +7,11 @@ import {
 } from "@/lib/market-analysis/competitors-config";
 import { buildChannelSubscriberStats } from "@/lib/market-analysis/channel-stats";
 import { resolveYouTubeChannel } from "@/lib/youtube-channel-resolve";
-import { isPersistenceConfigurationError } from "@/lib/runtime-persistence";
 import { httpStatusForCode, toErrorPayload } from "@/lib/api-error";
 import type { CompetitorChannel } from "@/lib/types";
 
 function errorResponse(error: unknown) {
   console.error("[competitors]", error instanceof Error ? error.message : String(error));
-  if (isPersistenceConfigurationError(error)) {
-    return NextResponse.json(toErrorPayload(error, { code: "config" }), { status: 503 });
-  }
   const payload = toErrorPayload(error);
   return NextResponse.json(payload, { status: httpStatusForCode(payload.code) });
 }

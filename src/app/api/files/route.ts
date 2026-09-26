@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listEpisodes, createEpisode, readEpisodeFile, writeEpisodeFile, readPlan, writePlan, updateManifestTitle, updateEpisodeNumber, updateManifestStatus, readScriptMeta, deleteEpisodes, syncScriptRecordBaseline } from "@/lib/file-manager";
 import { normalizeEpisodeStatus } from "@/lib/episode-status";
-import { isPersistenceConfigurationError } from "@/lib/runtime-persistence";
 import { getSessionUsernameFromRequest } from "@/lib/studio-session";
 import { getStudioUserName } from "@/lib/studio-user";
 import { runWithActor } from "@/lib/request-actor";
@@ -11,7 +10,7 @@ import {
   isReviewerRequest,
 } from "@/lib/reviewer-access";
 
-// 保存は Supabase Storage への書き込み。無料枠のコールドスタートで遅延することがあるため、
+// 保存はサーバーのファイルシステムへの書き込み。件数の多い一覧更新などで遅延することがあるため、
 // 既定(10s)より長めの余裕を持たせて関数タイムアウト起因の保存失敗を減らす。
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -25,10 +24,7 @@ function reviewerForbidden() {
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return NextResponse.json(
-    { error: message },
-    { status: isPersistenceConfigurationError(error) ? 503 : 500 },
-  );
+  return NextResponse.json({ error: message }, { status: 500 });
 }
 
 export async function GET(req: NextRequest) {

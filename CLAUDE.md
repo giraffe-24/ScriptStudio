@@ -10,7 +10,7 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 - フレームワーク: Next.js 16.2.6（React 19.2.4）、TypeScript 5
 - スタイリング: Tailwind CSS 4、class-variance-authority、tailwind-merge、@base-ui/react
 - AI: @anthropic-ai/sdk（Claude API）
-- DB/永続化: ファイルベース（`outputs/` `.plan-history/` `.script-history/` `config/voice-learnings.md`）。旧Supabase連携コード（@supabase/supabase-js）は残存するが未使用（`VERCEL` 環境変数がある場合のみ有効になる切替が `src/lib/runtime-persistence.ts`）
+- DB/永続化: ファイルベース一本（`outputs/` `.plan-history/` `.script-history/` `config/voice-learnings.md`）。外部DB・外部ストレージは使わない（Supabase連携は2026-09-26に撤去済み）
 - その他ライブラリ: lucide-react、diff
 - パッケージ管理: pnpm（`packageManager: pnpm@11.5.2`。README上のコマンド例はnpm表記）
 - Lint: ESLint 9（eslint-config-next）
@@ -25,7 +25,7 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 - `docs/` — 運用ドキュメント（`orchestration.md` はコマンド表・ワークフロー図、`SPEC.md` は仕様書）
 - `outputs/` — 案件ごとの成果物（1案件1フォルダ）
 - `output/` — 静的アセット・図解HTML（favicon類、`history-store.html` 等）
-- `scripts/` — 開発・運用スクリプト（`dev-studio.mjs`、Supabase用SQL等）
+- `scripts/` — 開発・運用スクリプト（`dev-studio.mjs` 等）
 - `tools/` — 補助ツール（`title-studio/`、`script-to-doc/`）
 - `.claude/` — Claude Codeハーネス設定（`agents/` サブエージェント、`hooks/` 自動リント、`commands/`）
 
@@ -45,7 +45,7 @@ YouTubeトーク番組（あらきりチャンネル）の台本を、企画か�
 
 - 本番URL: `https://scriptstudio.aiwa-engineering.co.jp`（NAS Docker。2026-09-04にVercelから移行）
 - 本番反映: NAS Docker（`/volume1/docker/scriptstudio/`、port 4900）。手順は「commit→`git push nas`→NASで `node /home/D_araki/div/bargle/triage/triage.mjs --deploy-app ScriptStudio`」。実行時データは `/volume1/docker/scriptstudio/data/`（outputs / plan-history / script-history / config系3ファイル）をvolumeマウントしており、`app/` はデプロイごとにgit mainへリセットされる。data/ は毎日03:45に自動バックアップ（scriptstudio-backup.timer、30世代）
-- 旧Vercel（`script-studio-tan.vercel.app`）: 2026-09-04に封鎖（ログイン無効化）。2週間並走ののち2026-09-18頃にSupabaseともども削除予定。削除まではorigin/mainへのpushでVercelの自動デプロイも動き続ける点に注意
+- 旧環境: Vercelプロジェクト `script-studio` とSupabaseプロジェクト `ScriptStudio` は2026-09-26に削除済み（2026-09-04の移行後、2週間の並走を経て）。削除前の全データは NAS `/volume1/docker/scriptstudio/backups/scriptstudio-supabase-final-20260926.tar.gz` に退避済み
 - 永続化: ファイルベース一本（本番はNASの `data/` ボリューム、開発はリポジトリ直下の `.plan-history/` `.script-history/` `config/voice-learnings.md`）
 - 検証: `npx tsc --noEmit` と `npx eslint <files>` を使用（`next build`/`next dev` は稼働中の開発サーバーとポートが衝突するため使わない、HANDOFF.md記載）
 - git remote: `nas`（`D_araki@nas:git/ScriptStudio.git`）と `origin`（`https://github.com/giraffe-24/ScriptStudio.git`）

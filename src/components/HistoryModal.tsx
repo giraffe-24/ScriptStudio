@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScriptDiffPreview } from "@/components/ScriptDiffPreview";
 import { computeScriptDiff, formatDiffStats } from "@/lib/script-diff";
-import type { ScriptSnapshot } from "@/lib/script-versions";
+import type { ScriptSnapshot } from "@/lib/script-versions-local";
 import { toUserMessage } from "@/lib/error-message";
 
 /**

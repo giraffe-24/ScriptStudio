@@ -1,13 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import type { CompetitorChannel } from "@/lib/types";
-import {
-  readPersistedCompetitorsConfig,
-  writePersistedCompetitorsConfig,
-} from "@/lib/market-analysis/competitors-store";
 
 const COMPETITORS_PATH = path.join(process.cwd(), "config", "competitors.md");
-const SHOULD_PREFER_PERSISTED_CONFIG = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 
 const TABLE_HEADER = `# 競合チャンネル（承認済み）
 
@@ -39,26 +34,7 @@ async function readFileCompetitorsConfig(): Promise<CompetitorChannel[]> {
 }
 
 export async function readCompetitorsConfig(): Promise<CompetitorChannel[]> {
-  if (SHOULD_PREFER_PERSISTED_CONFIG) {
-    try {
-      const persisted = await readPersistedCompetitorsConfig();
-      if (persisted !== null) return persisted;
-    } catch (error) {
-      console.warn("[competitors-config] failed to read persisted config:", error);
-    }
-  }
-
-  const fileChannels = await readFileCompetitorsConfig();
-  if (fileChannels.length > 0) return fileChannels;
-
-  try {
-    const persisted = await readPersistedCompetitorsConfig();
-    if (persisted !== null) return persisted;
-  } catch (error) {
-    console.warn("[competitors-config] failed to read persisted config:", error);
-  }
-
-  return [];
+  return readFileCompetitorsConfig();
 }
 
 export async function readEnabledCompetitorsConfig(): Promise<CompetitorChannel[]> {
@@ -82,7 +58,6 @@ async function writeCompetitorsFileBestEffort(channels: CompetitorChannel[]): Pr
 }
 
 async function writeCompetitorsConfig(channels: CompetitorChannel[]): Promise<void> {
-  await writePersistedCompetitorsConfig(channels);
   await writeCompetitorsFileBestEffort(channels);
 }
 
