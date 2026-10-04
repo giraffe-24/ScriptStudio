@@ -90,7 +90,7 @@ export function PlanningDoc({
     text: string;
     resolve: (applied: boolean) => void;
   } | null>(null);
-  // 番号は確定（blur / Enter）まで親に流さない。編集中に空にできるようローカル draft を持つ
+  // 番号は確定（blur）まで親に流さない。編集中に空にできるようローカル draft を持つ
   // （即時反映だと入力途中の中間値でフォルダリネームが走り、空文字は即座に元の値へ戻ってしまう）。
   const [numberDraft, setNumberDraft] = useState<string | null>(null);
   // チャット開閉を親へ通知（コールバックの再生成で effect が空発火しないよう ref 経由）
@@ -343,8 +343,7 @@ export function PlanningDoc({
                     }
                   }}
                   onKeyDown={(e) => {
-                    if (e.nativeEvent.isComposing) return; // IME 変換中の Enter/Esc は無視
-                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.nativeEvent.isComposing) return; // IME 変換中の Esc は無視
                     if (e.key === "Escape") setNumberDraft(null);
                   }}
                   className={`${EDITABLE_INPUT} w-full text-left font-mono pl-5 pr-1.5 py-2 tabular-nums`}
