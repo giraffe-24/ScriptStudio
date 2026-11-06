@@ -2,11 +2,10 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 開発時、スマホ実機など LAN 経由（別オリジン）から dev リソース（/_next/*, HMR）を
-  // 取得できるよう許可する。これが無いとクライアント JS がハイドレーションされず、
-  // フォームがネイティブ送信にフォールバックしてログインできない / 画面が真っ白になる。
-  // 本番ビルドには影響しない。
-  allowedDevOrigins: ["192.168.0.128"],
+  // 開発サーバの入口（Tailscale のホスト名・LAN の IP など）は /local（portmgr）が決め、
+  // 環境変数 LOCAL_DEV_ORIGINS で渡してくる。ここにホスト名を書かない。
+  // （名前や IP が変わっても直さなくてよく、環境変数が無い環境・ビルド時は空＝Next.js の既定のまま）
+  allowedDevOrigins: (process.env.LOCAL_DEV_ORIGINS ?? "").split(",").filter(Boolean),
   // 開発時に左下へ出る Next.js の「N」開発インジケータを非表示にする
   // （アカウント表示（UserMenu）と重なるため）。
   devIndicators: false,
