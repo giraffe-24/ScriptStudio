@@ -24,6 +24,8 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
+# public は Android のホーム画面用のアイコン（app-icons.mjs が作る icon-192.png・icon-512.png）
+COPY --from=build /app/public ./public
 # config/ は process.cwd() からの動的なパスで読むため、standalone の追跡に載らない。ここで明示的に載せる
 # （voice-learnings.md などの一部は、NAS では compose がこの上にマウントする）
 COPY --from=build /app/config ./config

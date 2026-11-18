@@ -11,10 +11,12 @@ import {
 } from "@/lib/site-access";
 
 // /api/health はデプロイのヘルスチェック（triage）から叩かれる。秘密情報は返さない。
+// /manifest.webmanifest はホーム画面に置く時にログインの前に読まれる（アイコンの画像は matcher で外している）
 const PUBLIC_PATHS = [
   "/login",
   "/api/site-auth/login",
   "/api/health",
+  "/manifest.webmanifest",
 ];
 
 // 閲覧専用（レビュアー）でも許可する変更系パス。

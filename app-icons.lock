@@ -1,0 +1,10 @@
+{
+  "$comment": "app-icons.mjs が書く。手で直さない",
+  "version": 2,
+  "source": "35e33c00cc436cd0",
+  "out": {
+    "public/icon-192.png": "84dd362c8f0700f9",
+    "public/icon-512.png": "b0859154ca01bcb1",
+    "src/app/apple-icon.png": "277d7980654265ea"
+  }
+}

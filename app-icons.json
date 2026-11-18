@@ -1,0 +1,9 @@
+{
+  "master": "src/app/icon.svg",
+  "tile": "plain",
+  "out": {
+    "apple": "src/app/apple-icon.png",
+    "192": "public/icon-192.png",
+    "512": "public/icon-512.png"
+  }
+}
